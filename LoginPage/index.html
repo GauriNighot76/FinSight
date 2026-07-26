@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FinSight - AI-Powered Financial Intelligence</title>
+
+  <!-- Google Fonts: Poppins -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <!-- Bootstrap 5 CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+
+  <!-- Bootstrap Icons -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" />
+
+  <style>
+    /* ====================================================
+       COLOR PALETTE & GLOBAL VARIABLES
+       ==================================================== */
+    :root {
+      --primary-blue: #8EC9FF;
+      --primary-dark: #3b82f6;
+      --secondary-sky: #CFEAFF;
+      --bg-white: #FFFFFF;
+      --text-dark: #333333;
+      --border-color: #D9EAF7;
+      --card-radius: 20px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Poppins', sans-serif;
+      color: var(--text-dark);
+      background: linear-gradient(135deg, #F8FCFF 0%, #DCEFFF 50%, #BFE4FF 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      margin: 0;
+      position: relative;
+      overflow: hidden; /* Prevents scrollbars from floating bubbles */
+    }
+
+    /* ====================================================
+       FULL SCREEN BACKGROUND FLOATING BUBBLES
+       ==================================================== */
+    .page-bubbles-bg {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      z-index: 0; /* Placed strictly behind everything */
+      pointer-events: none;
+    }
+
+    .bubble {
+      position: absolute;
+      bottom: -120px;
+      background: radial-gradient(circle at 30% 30%, rgba(142, 201, 255, 0.45), rgba(207, 234, 255, 0.15));
+      border: 1.5px solid rgba(255, 255, 255, 0.7);
+      border-radius: 50%;
+      box-shadow: inset 0 0 12px rgba(255, 255, 255, 0.6), 0 6px 20px rgba(142, 201, 255, 0.2);
+      backdrop-filter: blur(3px);
+      animation: floatUpScreen 14s infinite linear;
+    }
+
+    /* Diverse Sizes, Horizontal Positions, Delays & Speeds */
+    .bubble:nth-child(1) { width: 90px; height: 90px; left: 5%; animation-duration: 13s; animation-delay: 0s; }
+    .bubble:nth-child(2) { width: 40px; height: 40px; left: 18%; animation-duration: 9s; animation-delay: 2s; }
+    .bubble:nth-child(3) { width: 110px; height: 110px; left: 32%; animation-duration: 16s; animation-delay: 1s; }
+    .bubble:nth-child(4) { width: 55px; height: 55px; left: 48%; animation-duration: 11s; animation-delay: 4s; }
+    .bubble:nth-child(5) { width: 120px; height: 120px; left: 63%; animation-duration: 18s; animation-delay: 0.5s; }
+    .bubble:nth-child(6) { width: 35px; height: 35px; left: 78%; animation-duration: 8s; animation-delay: 3s; }
+    .bubble:nth-child(7) { width: 70px; height: 70px; left: 88%; animation-duration: 12s; animation-delay: 1.5s; }
+    .bubble:nth-child(8) { width: 50px; height: 50px; left: 95%; animation-duration: 10s; animation-delay: 5s; }
+
+    @keyframes floatUpScreen {
+      0% {
+        transform: translateY(0) rotate(0deg);
+        opacity: 0;
+      }
+      10% {
+        opacity: 0.85;
+      }
+      90% {
+        opacity: 0.85;
+      }
+      100% {
+        transform: translateY(-115vh) rotate(360deg);
+        opacity: 0;
+      }
+    }
+
+    /* ====================================================
+       MAIN AUTH CONTAINER
+       ==================================================== */
+    .auth-container {
+      background-color: var(--bg-white);
+      border-radius: var(--card-radius);
+      box-shadow: 0 20px 50px rgba(51, 85, 120, 0.18);
+      border: 1px solid var(--border-color);
+      overflow: hidden;
+      width: 100%;
+      max-width: 1000px;
+      min-height: 600px;
+      position: relative;
+      z-index: 1; /* Renders above full-page bubbles */
+    }
+
+    /* Wrapper for Desktop Two-Column Layout */
+    .sliding-wrapper {
+      display: flex;
+      width: 100%;
+      height: 100%;
+      min-height: 600px;
+      position: relative;
+    }
+
+    /* ====================================================
+       FORM CONTAINERS (Left & Right Positions)
+       ==================================================== */
+    .form-container {
+      width: 55%;
+      height: 100%;
+      padding: 40px 50px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      position: absolute;
+      top: 0;
+      transition: all 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    }
+
+    /* Login Form Starts on Right Side */
+    .login-container {
+      right: 0;
+      z-index: 2;
+      opacity: 1;
+    }
+
+    /* Sign Up Form Starts on Left Side */
+    .signup-container {
+      left: 0;
+      z-index: 1;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    /* ACTIVE STATES FOR SLIDING FORMS */
+    .auth-container.signup-active .login-container {
+      opacity: 0;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .auth-container.signup-active .signup-container {
+      opacity: 1;
+      pointer-events: all;
+      z-index: 2;
+    }
+
+    /* ====================================================
+       SLIDING OVERLAY PANEL
+       ==================================================== */
+    .overlay-panel {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 45%;
+      height: 100%;
+      background: linear-gradient(135deg, #74b7f7 0%, #3b82f6 100%);
+      color: #ffffff;
+      padding: 40px 30px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      z-index: 5;
+      transition: transform 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+      overflow: hidden;
+    }
+
+    /* SLIDE OVERLAY TO THE RIGHT WHEN SIGN UP IS ACTIVE */
+    .auth-container.signup-active .overlay-panel {
+      transform: translateX(122.2%);
+    }
+
+    /* Decorative Diagonal Background Layers */
+    .overlay-panel::before {
+      content: '';
+      position: absolute;
+      top: -50px;
+      left: -50px;
+      width: 250px;
+      height: 400px;
+      background: rgba(255, 255, 255, 0.15);
+      transform: rotate(-35deg);
+      pointer-events: none;
+    }
+
+    .overlay-panel::after {
+      content: '';
+      position: absolute;
+      bottom: -80px;
+      left: -20px;
+      width: 300px;
+      height: 300px;
+      background: rgba(255, 255, 255, 0.1);
+      transform: rotate(25deg);
+      pointer-events: none;
+    }
+
+    /* Overlay Brand Logo */
+    .brand-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      font-size: 1.5rem;
+      color: #FFFFFF;
+      text-decoration: none;
+      z-index: 2;
+    }
+
+    /* Toggle Action Box inside Overlay */
+    .overlay-toggle-box {
+      z-index: 2;
+      text-align: center;
+      margin: 30px 0;
+    }
+
+    .overlay-toggle-box h4 {
+      font-weight: 700;
+      font-size: 1.4rem;
+      margin-bottom: 10px;
+    }
+
+    .overlay-toggle-box p {
+      font-size: 0.85rem;
+      opacity: 0.9;
+      margin-bottom: 20px;
+    }
+
+    .btn-outline-ghost {
+      border: 2px solid #ffffff;
+      background: transparent;
+      color: #ffffff;
+      font-weight: 600;
+      border-radius: 25px;
+      padding: 10px 30px;
+      font-size: 0.9rem;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      transition: all 0.2s ease;
+    }
+
+    .btn-outline-ghost:hover {
+      background: #ffffff;
+      color: #3b82f6;
+    }
+
+    /* Mini Feature Cards in Overlay */
+    .mini-badge-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      z-index: 2;
+    }
+
+    .mini-badge {
+      background: rgba(255, 255, 255, 0.2);
+      backdrop-filter: blur(4px);
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-size: 0.75rem;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* ====================================================
+       FORM ELEMENTS (Underline Style & Buttons)
+       ==================================================== */
+    .avatar-header {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .avatar-circle {
+      width: 65px;
+      height: 65px;
+      background: linear-gradient(135deg, var(--primary-blue), var(--primary-dark));
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: #FFFFFF;
+      font-size: 1.8rem;
+      box-shadow: 0 6px 16px rgba(59, 130, 246, 0.3);
+      margin-bottom: 8px;
+    }
+
+    .avatar-header h3 {
+      font-weight: 700;
+      font-size: 1.25rem;
+      color: var(--text-dark);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .input-underline-group {
+      position: relative;
+      margin-bottom: 22px;
+    }
+
+    .input-underline-group i {
+      position: absolute;
+      left: 5px;
+      bottom: 10px;
+      color: #88a3b9;
+      font-size: 1.1rem;
+      transition: color 0.2s ease;
+    }
+
+    .input-underline {
+      width: 100%;
+      border: none;
+      border-bottom: 2px solid var(--border-color);
+      border-radius: 0;
+      padding: 8px 10px 8px 34px;
+      font-size: 0.9rem;
+      background: transparent;
+      outline: none;
+      transition: border-color 0.3s ease;
+    }
+
+    .input-underline:focus {
+      border-bottom-color: var(--primary-dark);
+    }
+
+    .forgot-link {
+      font-size: 0.82rem;
+      color: var(--primary-dark);
+      text-decoration: none;
+      font-weight: 500;
+    }
+
+    .forgot-link:hover {
+      text-decoration: underline;
+    }
+
+    .btn-pill-submit {
+      background-color: var(--primary-dark);
+      color: #FFFFFF;
+      font-weight: 600;
+      border: none;
+      border-radius: 25px;
+      padding: 10px 32px;
+      font-size: 0.88rem;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+    }
+
+    .btn-pill-submit:hover {
+      background-color: #2563eb;
+      transform: translateY(-2px);
+    }
+
+    .bottom-social-bar {
+      border-top: 1px solid var(--border-color);
+      padding-top: 15px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .social-label {
+      font-size: 0.82rem;
+      color: #64748b;
+      font-weight: 500;
+    }
+
+    .btn-google-horizontal {
+      background-color: #FFFFFF;
+      border: 1px solid var(--border-color);
+      border-radius: 20px;
+      padding: 6px 18px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text-dark);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .btn-google-horizontal:hover {
+      background-color: #F8FCFF;
+      border-color: var(--primary-blue);
+    }
+
+    /* Mobile Responsive Rules */
+    @media (max-width: 768px) {
+      .sliding-wrapper {
+        flex-direction: column;
+      }
+      .overlay-panel {
+        position: relative;
+        width: 100%;
+        height: auto;
+        transform: none !important;
+      }
+      .form-container {
+        position: relative;
+        width: 100%;
+        height: auto;
+        padding: 30px 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Full-Screen Floating Bubbles Layer (Behind the Form Card) -->
+  <div class="page-bubbles-bg">
+    <div class="bubble"></div>
+    <div class="bubble"></div>
+    <div class="bubble"></div>
+    <div class="bubble"></div>
+    <div class="bubble"></div>
+    <div class="bubble"></div>
+    <div class="bubble"></div>
+    <div class="bubble"></div>
+  </div>
+
+  <!-- Main Form Card Container -->
+  <div id="authContainer" class="auth-container">
+    <div class="sliding-wrapper">
+
+      <!-- ====================================================
+           SLIDING OVERLAY PANEL
+           ==================================================== -->
+      <div class="overlay-panel">
+        
+        <!-- Logo -->
+        <a href="#" class="brand-logo">
+          <i class="bi bi-graph-up-arrow"></i>
+          <span>FinSight</span>
+        </a>
+
+        <!-- Content Swapped Dynamically -->
+        <div class="overlay-toggle-box">
+          <h4 id="overlayTitle">New to FinSight?</h4>
+          <p id="overlayText">Enter your personal details and start your AI financial analytics journey with us.</p>
+          <button id="overlayBtn" class="btn-outline-ghost" onclick="toggleForm()">Sign Up</button>
+        </div>
+
+        <!-- 4 Small Feature Cards -->
+        <div class="mini-badge-grid">
+          <div class="mini-badge"><i class="bi bi-shield-check"></i> Secure Auth</div>
+          <div class="mini-badge"><i class="bi bi-cpu"></i> AI Insights</div>
+          <div class="mini-badge"><i class="bi bi-file-earmark-bar-graph"></i> Reports</div>
+          <div class="mini-badge"><i class="bi bi-pie-chart"></i> Analytics</div>
+        </div>
+
+      </div>
+
+      <!-- ====================================================
+           LOGIN FORM CONTAINER (Right Side)
+           ==================================================== -->
+      <div class="form-container login-container">
+        
+        <div>
+          <div class="avatar-header">
+            <div class="avatar-circle">
+              <i class="bi bi-person"></i>
+            </div>
+            <h3>Login</h3>
+          </div>
+
+          <form onsubmit="handleLogin(event)">
+            <div class="input-underline-group">
+              <input type="email" class="input-underline" placeholder="Email Address" required />
+              <i class="bi bi-envelope"></i>
+            </div>
+
+            <div class="input-underline-group">
+              <input type="password" class="input-underline" placeholder="Password" required />
+              <i class="bi bi-lock"></i>
+            </div>
+
+            <div class="d-flex justify-content-between align-items-center mt-3">
+              <a href="#" class="forgot-link">Forgot Password?</a>
+              <button type="submit" class="btn-pill-submit">Login</button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Social Bar -->
+        <div class="bottom-social-bar">
+          <span class="social-label">Or Login With</span>
+          <button class="btn-google-horizontal">
+            <svg width="16" height="16" viewBox="0 0 24 24">
+              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+            </svg>
+            Google
+          </button>
+        </div>
+
+      </div>
+
+      <!-- ====================================================
+           SIGN UP FORM CONTAINER (Left Side)
+           ==================================================== -->
+      <div class="form-container signup-container">
+        
+        <div>
+          <div class="avatar-header">
+            <div class="avatar-circle">
+              <i class="bi bi-person-plus"></i>
+            </div>
+            <h3>Create Account</h3>
+          </div>
+
+          <form onsubmit="handleSignUp(event)">
+            <div class="input-underline-group">
+              <input type="text" class="input-underline" placeholder="Full Name" required />
+              <i class="bi bi-person"></i>
+            </div>
+
+            <div class="input-underline-group">
+              <input type="email" class="input-underline" placeholder="Email Address" required />
+              <i class="bi bi-envelope"></i>
+            </div>
+
+            <div class="row g-2">
+              <div class="col-6">
+                <div class="input-underline-group">
+                  <input type="password" class="input-underline" placeholder="Password" required />
+                  <i class="bi bi-lock"></i>
+                </div>
+              </div>
+              <div class="col-6">
+                <div class="input-underline-group">
+                  <input type="password" class="input-underline" placeholder="Confirm" required />
+                  <i class="bi bi-shield-lock"></i>
+                </div>
+              </div>
+            </div>
+
+            <div class="input-underline-group">
+              <select class="input-underline" style="cursor: pointer;" required>
+                <option value="" selected disabled>Select Role...</option>
+                <option value="MSME Owner">MSME Owner</option>
+                <option value="Chartered Accountant">Chartered Accountant</option>
+                <option value="Auditor">Auditor</option>
+              </select>
+              <i class="bi bi-briefcase"></i>
+            </div>
+
+            <div class="d-flex justify-content-end mt-2">
+              <button type="submit" class="btn-pill-submit">Create Account</button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Social Bar -->
+        <div class="bottom-social-bar">
+          <span class="social-label">Or Sign Up With</span>
+          <button class="btn-google-horizontal">
+            <svg width="16" height="16" viewBox="0 0 24 24">
+              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+            </svg>
+            Google
+          </button>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+  <script>
+    function toggleForm() {
+      const container = document.getElementById('authContainer');
+      const overlayTitle = document.getElementById('overlayTitle');
+      const overlayText = document.getElementById('overlayText');
+      const overlayBtn = document.getElementById('overlayBtn');
+
+      container.classList.toggle('signup-active');
+
+      if (container.classList.contains('signup-active')) {
+        overlayTitle.textContent = "Welcome Back!";
+        overlayText.textContent = "To keep connected with FinSight, please login with your personal info.";
+        overlayBtn.textContent = "Login";
+      } else {
+        overlayTitle.textContent = "New to FinSight?";
+        overlayText.textContent = "Enter your personal details and start your AI financial analytics journey with us.";
+        overlayBtn.textContent = "Sign Up";
+      }
+    }
+
+    function handleSignUp(event) {
+      event.preventDefault();
+      alert('Account created successfully! Sliding back to Login.');
+      event.target.reset();
+      toggleForm();
+    }
+
+    function handleLogin(event) {
+      event.preventDefault();
+      alert('Login successful! Redirecting to FinSight Dashboard...');
+    }
+  </script>
+</body>
+</html>
