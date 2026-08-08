@@ -44,76 +44,20 @@
       justify-content: center;
       padding: 20px;
       margin: 0;
-      position: relative;
-      overflow: hidden; /* Prevents scrollbars from floating bubbles */
+      overflow-x: hidden;
     }
 
-    /* ====================================================
-       FULL SCREEN BACKGROUND FLOATING BUBBLES
-       ==================================================== */
-    .page-bubbles-bg {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      overflow: hidden;
-      z-index: 0; /* Placed strictly behind everything */
-      pointer-events: none;
-    }
-
-    .bubble {
-      position: absolute;
-      bottom: -120px;
-      background: radial-gradient(circle at 30% 30%, rgba(142, 201, 255, 0.45), rgba(207, 234, 255, 0.15));
-      border: 1.5px solid rgba(255, 255, 255, 0.7);
-      border-radius: 50%;
-      box-shadow: inset 0 0 12px rgba(255, 255, 255, 0.6), 0 6px 20px rgba(142, 201, 255, 0.2);
-      backdrop-filter: blur(3px);
-      animation: floatUpScreen 14s infinite linear;
-    }
-
-    /* Diverse Sizes, Horizontal Positions, Delays & Speeds */
-    .bubble:nth-child(1) { width: 90px; height: 90px; left: 5%; animation-duration: 13s; animation-delay: 0s; }
-    .bubble:nth-child(2) { width: 40px; height: 40px; left: 18%; animation-duration: 9s; animation-delay: 2s; }
-    .bubble:nth-child(3) { width: 110px; height: 110px; left: 32%; animation-duration: 16s; animation-delay: 1s; }
-    .bubble:nth-child(4) { width: 55px; height: 55px; left: 48%; animation-duration: 11s; animation-delay: 4s; }
-    .bubble:nth-child(5) { width: 120px; height: 120px; left: 63%; animation-duration: 18s; animation-delay: 0.5s; }
-    .bubble:nth-child(6) { width: 35px; height: 35px; left: 78%; animation-duration: 8s; animation-delay: 3s; }
-    .bubble:nth-child(7) { width: 70px; height: 70px; left: 88%; animation-duration: 12s; animation-delay: 1.5s; }
-    .bubble:nth-child(8) { width: 50px; height: 50px; left: 95%; animation-duration: 10s; animation-delay: 5s; }
-
-    @keyframes floatUpScreen {
-      0% {
-        transform: translateY(0) rotate(0deg);
-        opacity: 0;
-      }
-      10% {
-        opacity: 0.85;
-      }
-      90% {
-        opacity: 0.85;
-      }
-      100% {
-        transform: translateY(-115vh) rotate(360deg);
-        opacity: 0;
-      }
-    }
-
-    /* ====================================================
-       MAIN AUTH CONTAINER
-       ==================================================== */
+    /* Outer Fixed Container */
     .auth-container {
       background-color: var(--bg-white);
       border-radius: var(--card-radius);
-      box-shadow: 0 20px 50px rgba(51, 85, 120, 0.18);
+      box-shadow: 0 20px 40px rgba(51, 85, 120, 0.15);
       border: 1px solid var(--border-color);
       overflow: hidden;
       width: 100%;
       max-width: 1000px;
       min-height: 600px;
       position: relative;
-      z-index: 1; /* Renders above full-page bubbles */
     }
 
     /* Wrapper for Desktop Two-Column Layout */
@@ -123,6 +67,57 @@
       height: 100%;
       min-height: 600px;
       position: relative;
+    }
+
+    /* ====================================================
+       BACKGROUND FLOATING BUBBLES ANIMATION
+       ==================================================== */
+    .bubbles-bg {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    .bubble {
+      position: absolute;
+      bottom: -100px;
+      background: radial-gradient(circle at 30% 30%, rgba(142, 201, 255, 0.4), rgba(207, 234, 255, 0.1));
+      border: 1px solid rgba(255, 255, 255, 0.6);
+      border-radius: 50%;
+      box-shadow: inset 0 0 10px rgba(255, 255, 255, 0.5), 0 4px 15px rgba(142, 201, 255, 0.15);
+      backdrop-filter: blur(2px);
+      animation: floatUp 12s infinite linear;
+    }
+
+    /* Varying Bubble Sizes, Positions, & Animation Delays */
+    .bubble:nth-child(1) { width: 60px; height: 60px; left: 10%; animation-duration: 11s; animation-delay: 0s; }
+    .bubble:nth-child(2) { width: 35px; height: 35px; left: 25%; animation-duration: 8s; animation-delay: 2s; }
+    .bubble:nth-child(3) { width: 80px; height: 80px; left: 40%; animation-duration: 14s; animation-delay: 1s; }
+    .bubble:nth-child(4) { width: 45px; height: 45px; left: 55%; animation-duration: 10s; animation-delay: 3s; }
+    .bubble:nth-child(5) { width: 90px; height: 90px; left: 70%; animation-duration: 16s; animation-delay: 0.5s; }
+    .bubble:nth-child(6) { width: 25px; height: 25px; left: 85%; animation-duration: 7s; animation-delay: 4s; }
+    .bubble:nth-child(7) { width: 50px; height: 50px; left: 92%; animation-duration: 12s; animation-delay: 2.5s; }
+
+    @keyframes floatUp {
+      0% {
+        transform: translateY(0) rotate(0deg);
+        opacity: 0;
+      }
+      10% {
+        opacity: 0.8;
+      }
+      90% {
+        opacity: 0.8;
+      }
+      100% {
+        transform: translateY(-750px) rotate(360deg);
+        opacity: 0;
+      }
     }
 
     /* ====================================================
@@ -138,6 +133,7 @@
       position: absolute;
       top: 0;
       transition: all 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+      z-index: 1; /* Sits above bubbles */
     }
 
     /* Login Form Starts on Right Side */
@@ -435,20 +431,20 @@
 </head>
 <body>
 
-  <!-- Full-Screen Floating Bubbles Layer (Behind the Form Card) -->
-  <div class="page-bubbles-bg">
-    <div class="bubble"></div>
-    <div class="bubble"></div>
-    <div class="bubble"></div>
-    <div class="bubble"></div>
-    <div class="bubble"></div>
-    <div class="bubble"></div>
-    <div class="bubble"></div>
-    <div class="bubble"></div>
-  </div>
-
-  <!-- Main Form Card Container -->
+  <!-- Main Container -->
   <div id="authContainer" class="auth-container">
+    
+    <!-- Floating Background Bubbles -->
+    <div class="bubbles-bg">
+      <div class="bubble"></div>
+      <div class="bubble"></div>
+      <div class="bubble"></div>
+      <div class="bubble"></div>
+      <div class="bubble"></div>
+      <div class="bubble"></div>
+      <div class="bubble"></div>
+    </div>
+
     <div class="sliding-wrapper">
 
       <!-- ====================================================
