@@ -1,0 +1,4 @@
+# Local databases and runtime caches
+*.db
+__pycache__/
+*.pyc
