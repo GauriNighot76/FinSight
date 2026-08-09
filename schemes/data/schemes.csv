@@ -1,0 +1,9 @@
+scheme_id,scheme_name,sector,min_turnover,max_turnover,applicable_states,business_category,min_age,max_age,benefit_summary,source_url,last_verified_date
+S001,CGTMSE Collateral-Free Loan,Any,0,100000000,Any,Micro,,,Collateral-free bank loans up to Rs 10 crore with 75-90% guarantee coverage; requires Udyam Registration,https://www.bajajfinserv.in/cgtmse-scheme,01-08-2026
+S002,CGTMSE Collateral-Free Loan,Any,0,100000000,Any,Small,,,Collateral-free bank loans up to Rs 10 crore with 75-90% guarantee coverage; requires Udyam Registration,https://www.bajajfinserv.in/cgtmse-scheme,01-08-2026
+S003,Mudra Loan - Shishu,Any,0,50000,Any,Micro,18,65,"Collateral-free loan up to Rs 50,000 for very early-stage micro businesses",https://www.hdfc.bank.in/pm-mudra-yojana/eligibility,01-08-2026
+S004,Mudra Loan - Kishor,Any,50001,500000,Any,Micro,18,65,"Collateral-free loan Rs 50,001 to Rs 5 lakh for businesses with some track record",https://www.hdfc.bank.in/pm-mudra-yojana/eligibility,01-08-2026
+S005,Mudra Loan - Tarun,Any,500001,1000000,Any,Micro,18,65,Collateral-free loan Rs 5 lakh to Rs 10 lakh for growing micro businesses,https://www.hdfc.bank.in/pm-mudra-yojana/eligibility,01-08-2026
+S006,Mudra Loan - Tarun Plus,Any,1000001,2000000,Any,Micro,18,65,Collateral-free loan Rs 10 lakh to Rs 20 lakh for repeat borrowers who repaid a prior Tarun loan,https://matribhumisamachar.com/en/2026/04/25/pm-mudra-loan-yojana-2026-complete-guide-to-shishu-kishore-tarun-and-tarun-plus/,01-08-2026
+S007,Stand-Up India,Any,0,100000000,Any,Small,18,,Bank loan between Rs 10 lakh and Rs 1 crore for greenfield enterprises; at least one woman or SC/ST borrower per branch required,https://www.standupmitra.in,01-08-2026
+S008,CGSS for DPIIT Startups,Any,0,200000000,Any,Startup,,,Collateral-free guarantee cover up to Rs 20 crore for DPIIT-recognised startups (higher than standard CGTMSE limit),https://www.bajajfinserv.in/cgtmse-scheme,01-08-2026

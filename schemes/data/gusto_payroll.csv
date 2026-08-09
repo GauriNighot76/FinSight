@@ -1,0 +1,93 @@
+pay_date,employee_id,employee_name,role,type,amount,account
+15-02-2022,E001,Alice Smith,Barista,Employee Pay,1865,Checking Secondary
+15-02-2022,E002,Ben Lee,Barista,Employee Pay,1731,Checking Secondary
+15-02-2022,E003,Carla Gomez,Manager,Employee Pay,2272,Checking Secondary
+15-02-2022,C001,David Jones,Marketing Contractor,Contractor Pay,1134,Checking Secondary
+15-03-2022,E001,Alice Smith,Barista,Employee Pay,1857,Checking Secondary
+15-03-2022,E002,Ben Lee,Barista,Employee Pay,1807,Checking Secondary
+15-03-2022,E003,Carla Gomez,Manager,Employee Pay,2233,Checking Secondary
+15-03-2022,C001,David Jones,Marketing Contractor,Contractor Pay,1166,Checking Secondary
+15-04-2022,E001,Alice Smith,Barista,Employee Pay,1779,Checking Secondary
+15-04-2022,E002,Ben Lee,Barista,Employee Pay,1656,Checking Secondary
+15-04-2022,E003,Carla Gomez,Manager,Employee Pay,2279,Checking Secondary
+15-04-2022,C001,David Jones,Marketing Contractor,Contractor Pay,1113,Checking Secondary
+15-05-2022,E001,Alice Smith,Barista,Employee Pay,1772,Checking Secondary
+15-05-2022,E002,Ben Lee,Barista,Employee Pay,1792,Checking Secondary
+15-05-2022,E003,Carla Gomez,Manager,Employee Pay,2248,Checking Secondary
+15-05-2022,C001,David Jones,Marketing Contractor,Contractor Pay,1262,Checking Secondary
+15-06-2022,E001,Alice Smith,Barista,Employee Pay,1765,Checking Secondary
+15-06-2022,E002,Ben Lee,Barista,Employee Pay,1740,Checking Secondary
+15-06-2022,E003,Carla Gomez,Manager,Employee Pay,2229,Checking Secondary
+15-06-2022,C001,David Jones,Marketing Contractor,Contractor Pay,1262,Checking Secondary
+15-07-2022,E001,Alice Smith,Barista,Employee Pay,1719,Checking Secondary
+15-07-2022,E002,Ben Lee,Barista,Employee Pay,1659,Checking Secondary
+15-07-2022,E003,Carla Gomez,Manager,Employee Pay,2124,Checking Secondary
+15-07-2022,C001,David Jones,Marketing Contractor,Contractor Pay,1293,Checking Secondary
+15-08-2022,E001,Alice Smith,Barista,Employee Pay,1724,Checking Secondary
+15-08-2022,E002,Ben Lee,Barista,Employee Pay,1703,Checking Secondary
+15-08-2022,E003,Carla Gomez,Manager,Employee Pay,2132,Checking Secondary
+15-08-2022,C001,David Jones,Marketing Contractor,Contractor Pay,1263,Checking Secondary
+15-09-2022,E001,Alice Smith,Barista,Employee Pay,1794,Checking Secondary
+15-09-2022,E002,Ben Lee,Barista,Employee Pay,1663,Checking Secondary
+15-09-2022,E003,Carla Gomez,Manager,Employee Pay,2164,Checking Secondary
+15-09-2022,C001,David Jones,Marketing Contractor,Contractor Pay,1209,Checking Secondary
+15-10-2022,E001,Alice Smith,Barista,Employee Pay,1779,Checking Secondary
+15-10-2022,E002,Ben Lee,Barista,Employee Pay,1703,Checking Secondary
+15-10-2022,E003,Carla Gomez,Manager,Employee Pay,2224,Checking Secondary
+15-10-2022,C001,David Jones,Marketing Contractor,Contractor Pay,1279,Checking Secondary
+15-11-2022,E001,Alice Smith,Barista,Employee Pay,1830,Checking Secondary
+15-11-2022,E002,Ben Lee,Barista,Employee Pay,1818,Checking Secondary
+15-11-2022,E003,Carla Gomez,Manager,Employee Pay,2233,Checking Secondary
+15-11-2022,C001,David Jones,Marketing Contractor,Contractor Pay,1124,Checking Secondary
+15-12-2022,E001,Alice Smith,Barista,Employee Pay,1840,Checking Secondary
+15-12-2022,E002,Ben Lee,Barista,Employee Pay,1766,Checking Secondary
+15-12-2022,E003,Carla Gomez,Manager,Employee Pay,2235,Checking Secondary
+15-12-2022,C001,David Jones,Marketing Contractor,Contractor Pay,1248,Checking Secondary
+15-01-2023,E001,Alice Smith,Barista,Employee Pay,1895,Checking Secondary
+15-01-2023,E002,Ben Lee,Barista,Employee Pay,1674,Checking Secondary
+15-01-2023,E003,Carla Gomez,Manager,Employee Pay,2178,Checking Secondary
+15-01-2023,C001,David Jones,Marketing Contractor,Contractor Pay,1167,Checking Secondary
+15-02-2023,E001,Alice Smith,Barista,Employee Pay,1872,Checking Secondary
+15-02-2023,E002,Ben Lee,Barista,Employee Pay,1837,Checking Secondary
+15-02-2023,E003,Carla Gomez,Manager,Employee Pay,2111,Checking Secondary
+15-02-2023,C001,David Jones,Marketing Contractor,Contractor Pay,1131,Checking Secondary
+15-03-2023,E001,Alice Smith,Barista,Employee Pay,1827,Checking Secondary
+15-03-2023,E002,Ben Lee,Barista,Employee Pay,1745,Checking Secondary
+15-03-2023,E003,Carla Gomez,Manager,Employee Pay,2191,Checking Secondary
+15-03-2023,C001,David Jones,Marketing Contractor,Contractor Pay,1240,Checking Secondary
+15-04-2023,E001,Alice Smith,Barista,Employee Pay,1730,Checking Secondary
+15-04-2023,E002,Ben Lee,Barista,Employee Pay,1727,Checking Secondary
+15-04-2023,E003,Carla Gomez,Manager,Employee Pay,2119,Checking Secondary
+15-04-2023,C001,David Jones,Marketing Contractor,Contractor Pay,1245,Checking Secondary
+15-05-2023,E001,Alice Smith,Barista,Employee Pay,1759,Checking Secondary
+15-05-2023,E002,Ben Lee,Barista,Employee Pay,1840,Checking Secondary
+15-05-2023,E003,Carla Gomez,Manager,Employee Pay,2233,Checking Secondary
+15-05-2023,C001,David Jones,Marketing Contractor,Contractor Pay,1259,Checking Secondary
+15-06-2023,E001,Alice Smith,Barista,Employee Pay,1792,Checking Secondary
+15-06-2023,E002,Ben Lee,Barista,Employee Pay,1692,Checking Secondary
+15-06-2023,E003,Carla Gomez,Manager,Employee Pay,2229,Checking Secondary
+15-06-2023,C001,David Jones,Marketing Contractor,Contractor Pay,1159,Checking Secondary
+15-07-2023,E001,Alice Smith,Barista,Employee Pay,1850,Checking Secondary
+15-07-2023,E002,Ben Lee,Barista,Employee Pay,1680,Checking Secondary
+15-07-2023,E003,Carla Gomez,Manager,Employee Pay,2104,Checking Secondary
+15-07-2023,C001,David Jones,Marketing Contractor,Contractor Pay,1261,Checking Secondary
+15-08-2023,E001,Alice Smith,Barista,Employee Pay,1709,Checking Secondary
+15-08-2023,E002,Ben Lee,Barista,Employee Pay,1738,Checking Secondary
+15-08-2023,E003,Carla Gomez,Manager,Employee Pay,2229,Checking Secondary
+15-08-2023,C001,David Jones,Marketing Contractor,Contractor Pay,1225,Checking Secondary
+15-09-2023,E001,Alice Smith,Barista,Employee Pay,1710,Checking Secondary
+15-09-2023,E002,Ben Lee,Barista,Employee Pay,1827,Checking Secondary
+15-09-2023,E003,Carla Gomez,Manager,Employee Pay,2258,Checking Secondary
+15-09-2023,C001,David Jones,Marketing Contractor,Contractor Pay,1155,Checking Secondary
+15-10-2023,E001,Alice Smith,Barista,Employee Pay,1782,Checking Secondary
+15-10-2023,E002,Ben Lee,Barista,Employee Pay,1786,Checking Secondary
+15-10-2023,E003,Carla Gomez,Manager,Employee Pay,2198,Checking Secondary
+15-10-2023,C001,David Jones,Marketing Contractor,Contractor Pay,1248,Checking Secondary
+15-11-2023,E001,Alice Smith,Barista,Employee Pay,1772,Checking Secondary
+15-11-2023,E002,Ben Lee,Barista,Employee Pay,1805,Checking Secondary
+15-11-2023,E003,Carla Gomez,Manager,Employee Pay,2289,Checking Secondary
+15-11-2023,C001,David Jones,Marketing Contractor,Contractor Pay,1214,Checking Secondary
+15-12-2023,E001,Alice Smith,Barista,Employee Pay,1706,Checking Secondary
+15-12-2023,E002,Ben Lee,Barista,Employee Pay,1729,Checking Secondary
+15-12-2023,E003,Carla Gomez,Manager,Employee Pay,2243,Checking Secondary
+15-12-2023,C001,David Jones,Marketing Contractor,Contractor Pay,1196,Checking Secondary

@@ -1,0 +1,49 @@
+date,transaction_id,description,category,type,amount,balance
+2022-01-01,SC00001,Transfer from Main,Transfer,Credit,3403,5403
+2022-01-15,SC00002,Payroll Funding,Payroll,Debit,2688,2715
+2022-02-01,SC00003,Transfer from Main,Transfer,Credit,5779,8494
+2022-02-15,SC00004,Payroll Funding,Payroll,Debit,5216,3278
+2022-03-01,SC00005,Transfer from Main,Transfer,Credit,5579,8857
+2022-03-15,SC00006,Payroll Funding,Payroll,Debit,5228,3629
+2022-04-01,SC00007,Transfer from Main,Transfer,Credit,4712,8341
+2022-04-15,SC00008,Payroll Funding,Payroll,Debit,4093,4248
+2022-05-01,SC00009,Transfer from Main,Transfer,Credit,4273,8521
+2022-05-15,SC00010,Payroll Funding,Payroll,Debit,3957,4564
+2022-06-01,SC00011,Transfer from Main,Transfer,Credit,5913,10477
+2022-06-15,SC00012,Payroll Funding,Payroll,Debit,5202,5275
+2022-07-01,SC00013,Transfer from Main,Transfer,Credit,5625,10900
+2022-07-15,SC00014,Payroll Funding,Payroll,Debit,5091,5809
+2022-08-01,SC00015,Transfer from Main,Transfer,Credit,4441,10250
+2022-08-15,SC00016,Payroll Funding,Payroll,Debit,3947,6303
+2022-09-01,SC00017,Transfer from Main,Transfer,Credit,3754,10057
+2022-09-15,SC00018,Payroll Funding,Payroll,Debit,3184,6873
+2022-10-01,SC00019,Transfer from Main,Transfer,Credit,3185,10058
+2022-10-15,SC00020,Payroll Funding,Payroll,Debit,2740,7318
+2022-11-01,SC00021,Transfer from Main,Transfer,Credit,3636,10954
+2022-11-15,SC00022,Payroll Funding,Payroll,Debit,3169,7785
+2022-12-01,SC00023,Transfer from Main,Transfer,Credit,3529,11314
+2022-12-15,SC00024,Payroll Funding,Payroll,Debit,2778,8536
+2023-01-01,SC00025,Transfer from Main,Transfer,Credit,5068,13604
+2023-01-15,SC00026,Payroll Funding,Payroll,Debit,4349,9255
+2023-02-01,SC00027,Transfer from Main,Transfer,Credit,5147,14402
+2023-02-15,SC00028,Payroll Funding,Payroll,Debit,4470,9932
+2023-03-01,SC00029,Transfer from Main,Transfer,Credit,4622,14554
+2023-03-15,SC00030,Payroll Funding,Payroll,Debit,4125,10429
+2023-04-01,SC00031,Transfer from Main,Transfer,Credit,3939,14368
+2023-04-15,SC00032,Payroll Funding,Payroll,Debit,3214,11154
+2023-05-01,SC00033,Transfer from Main,Transfer,Credit,5381,16535
+2023-05-15,SC00034,Payroll Funding,Payroll,Debit,5180,11355
+2023-06-01,SC00035,Transfer from Main,Transfer,Credit,3374,14729
+2023-06-15,SC00036,Payroll Funding,Payroll,Debit,2882,11847
+2023-07-01,SC00037,Transfer from Main,Transfer,Credit,5884,17731
+2023-07-15,SC00038,Payroll Funding,Payroll,Debit,5132,12599
+2023-08-01,SC00039,Transfer from Main,Transfer,Credit,5365,17964
+2023-08-15,SC00040,Payroll Funding,Payroll,Debit,4664,13300
+2023-09-01,SC00041,Transfer from Main,Transfer,Credit,4851,18151
+2023-09-15,SC00042,Payroll Funding,Payroll,Debit,4271,13880
+2023-10-01,SC00043,Transfer from Main,Transfer,Credit,4646,18526
+2023-10-15,SC00044,Payroll Funding,Payroll,Debit,4433,14093
+2023-11-01,SC00045,Transfer from Main,Transfer,Credit,3503,17596
+2023-11-15,SC00046,Payroll Funding,Payroll,Debit,3073,14523
+2023-12-01,SC00047,Transfer from Main,Transfer,Credit,5008,19531
+2023-12-15,SC00048,Payroll Funding,Payroll,Debit,4725,14806
