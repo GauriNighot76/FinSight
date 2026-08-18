@@ -1,0 +1,11 @@
+CGTMSE - Credit Guarantee Fund Trust for Micro and Small Enterprises
+
+What it is: A credit guarantee scheme that lets micro and small enterprises get bank loans WITHOUT pledging collateral or a third-party guarantee. Instead, the government guarantees a large portion of the loan to the bank, so the bank is willing to lend without asking the business owner for property or assets as security.
+
+Who qualifies: Any micro or small enterprise (manufacturing or service sector) that has a valid Udyam Registration. There is no fixed minimum turnover requirement, though the loan amount itself has a ceiling.
+
+Benefit: Collateral-free loans up to Rs 10 crore, with the government guaranteeing 75% to 90% of the loan amount to the lending bank (the exact percentage depends on loan size and borrower category, such as women entrepreneurs or businesses in specific regions).
+
+How to apply: This is not a separate loan application - it is a guarantee attached to a regular business loan. The business owner applies for a working capital or term loan at a bank or NBFC that participates in CGTMSE, and requests it be covered under the CGTMSE guarantee instead of pledging collateral. Requires Udyam Registration certificate, business financials, and standard loan application documents (KYC, business plan, bank statements).
+
+Source: CGTMSE scheme overview, Bajaj Finserv / official CGTMSE documentation.

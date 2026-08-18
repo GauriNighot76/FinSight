@@ -1,0 +1,134 @@
+date,transaction_id,vendor,category,type,amount,balance
+2022-01-01,CC00001,Utility Company,Supplies,Debit,229,229
+2022-01-08,CC00002,Facebook Ads,Other,Debit,444,673
+2022-01-10,CC00003,Payment to CC,Payment,Credit,428,245
+2022-01-15,CC00004,Utility Company,Marketing,Debit,360,605
+2022-01-22,CC00005,Local Print Shop,Marketing,Debit,539,1144
+2022-01-24,CC00006,Payment to CC,Payment,Credit,486,658
+2022-01-29,CC00007,Coffee Supplier,Utilities,Debit,494,1152
+2022-02-05,CC00008,Coffee Supplier,Marketing,Debit,179,1331
+2022-02-12,CC00009,Facebook Ads,Marketing,Debit,449,1780
+2022-02-19,CC00010,Utility Company,Other,Debit,363,2143
+2022-02-26,CC00011,Coffee Supplier,Other,Debit,163,2306
+2022-03-05,CC00012,Facebook Ads,Utilities,Debit,206,2512
+2022-03-12,CC00013,Facebook Ads,Marketing,Debit,264,2776
+2022-03-19,CC00014,Local Print Shop,Utilities,Debit,411,3187
+2022-03-26,CC00015,Utility Company,Marketing,Debit,207,3394
+2022-03-28,CC00016,Payment to CC,Payment,Credit,533,2861
+2022-04-02,CC00017,Facebook Ads,Utilities,Debit,229,3090
+2022-04-04,CC00018,Payment to CC,Payment,Credit,481,2609
+2022-04-09,CC00019,Facebook Ads,Utilities,Debit,384,2993
+2022-04-11,CC00020,Payment to CC,Payment,Credit,684,2309
+2022-04-16,CC00021,Utility Company,Marketing,Debit,344,2653
+2022-04-18,CC00022,Payment to CC,Payment,Credit,405,2248
+2022-04-23,CC00023,Coffee Supplier,Other,Debit,111,2359
+2022-04-30,CC00024,Utility Company,Utilities,Debit,315,2674
+2022-05-02,CC00025,Payment to CC,Payment,Credit,416,2258
+2022-05-07,CC00026,Facebook Ads,Marketing,Debit,405,2663
+2022-05-14,CC00027,Utility Company,Utilities,Debit,283,2946
+2022-05-21,CC00028,Coffee Supplier,Other,Debit,527,3473
+2022-05-23,CC00029,Payment to CC,Payment,Credit,507,2966
+2022-05-28,CC00030,Coffee Supplier,Supplies,Debit,435,3401
+2022-06-04,CC00031,Coffee Supplier,Marketing,Debit,107,3508
+2022-06-06,CC00032,Payment to CC,Payment,Credit,551,2957
+2022-06-11,CC00033,Facebook Ads,Utilities,Debit,457,3414
+2022-06-13,CC00034,Payment to CC,Payment,Credit,392,3022
+2022-06-18,CC00035,Utility Company,Supplies,Debit,410,3432
+2022-06-25,CC00036,Coffee Supplier,Supplies,Debit,513,3945
+2022-07-02,CC00037,Utility Company,Other,Debit,235,4180
+2022-07-09,CC00038,Local Print Shop,Marketing,Debit,574,4754
+2022-07-16,CC00039,Facebook Ads,Utilities,Debit,388,5142
+2022-07-23,CC00040,Facebook Ads,Other,Debit,241,5383
+2022-07-30,CC00041,Coffee Supplier,Other,Debit,189,5572
+2022-08-01,CC00042,Payment to CC,Payment,Credit,774,4798
+2022-08-06,CC00043,Facebook Ads,Marketing,Debit,172,4970
+2022-08-13,CC00044,Facebook Ads,Marketing,Debit,368,5338
+2022-08-20,CC00045,Utility Company,Other,Debit,588,5926
+2022-08-27,CC00046,Coffee Supplier,Other,Debit,201,6127
+2022-09-03,CC00047,Coffee Supplier,Supplies,Debit,553,6680
+2022-09-10,CC00048,Utility Company,Marketing,Debit,378,7058
+2022-09-17,CC00049,Coffee Supplier,Supplies,Debit,443,7501
+2022-09-24,CC00050,Utility Company,Marketing,Debit,312,7813
+2022-10-01,CC00051,Utility Company,Marketing,Debit,298,8111
+2022-10-08,CC00052,Facebook Ads,Marketing,Debit,192,8303
+2022-10-10,CC00053,Payment to CC,Payment,Credit,696,7607
+2022-10-15,CC00054,Local Print Shop,Supplies,Debit,390,7997
+2022-10-17,CC00055,Payment to CC,Payment,Credit,202,7795
+2022-10-22,CC00056,Coffee Supplier,Other,Debit,184,7979
+2022-10-29,CC00057,Local Print Shop,Marketing,Debit,553,8532
+2022-11-05,CC00058,Local Print Shop,Marketing,Debit,252,8784
+2022-11-12,CC00059,Utility Company,Other,Debit,392,9176
+2022-11-19,CC00060,Local Print Shop,Utilities,Debit,142,9318
+2022-11-26,CC00061,Local Print Shop,Utilities,Debit,597,9915
+2022-12-03,CC00062,Utility Company,Utilities,Debit,120,10035
+2022-12-05,CC00063,Payment to CC,Payment,Credit,316,9719
+2022-12-10,CC00064,Utility Company,Marketing,Debit,223,9942
+2022-12-17,CC00065,Utility Company,Other,Debit,150,10092
+2022-12-24,CC00066,Utility Company,Supplies,Debit,569,10661
+2022-12-26,CC00067,Payment to CC,Payment,Credit,572,10089
+2022-12-31,CC00068,Coffee Supplier,Utilities,Debit,151,10240
+2023-01-07,CC00069,Utility Company,Other,Debit,255,10495
+2023-01-14,CC00070,Coffee Supplier,Supplies,Debit,519,11014
+2023-01-21,CC00071,Local Print Shop,Supplies,Debit,176,11190
+2023-01-23,CC00072,Payment to CC,Payment,Credit,658,10532
+2023-01-28,CC00073,Utility Company,Other,Debit,362,10894
+2023-01-30,CC00074,Payment to CC,Payment,Credit,358,10536
+2023-02-04,CC00075,Utility Company,Other,Debit,170,10706
+2023-02-11,CC00076,Coffee Supplier,Other,Debit,544,11250
+2023-02-18,CC00077,Coffee Supplier,Utilities,Debit,551,11801
+2023-02-25,CC00078,Local Print Shop,Marketing,Debit,271,12072
+2023-03-04,CC00079,Facebook Ads,Utilities,Debit,478,12550
+2023-03-11,CC00080,Coffee Supplier,Other,Debit,376,12926
+2023-03-13,CC00081,Payment to CC,Payment,Credit,720,12206
+2023-03-18,CC00082,Coffee Supplier,Other,Debit,370,12576
+2023-03-25,CC00083,Coffee Supplier,Other,Debit,224,12800
+2023-04-01,CC00084,Coffee Supplier,Utilities,Debit,148,12948
+2023-04-08,CC00085,Local Print Shop,Utilities,Debit,149,13097
+2023-04-15,CC00086,Coffee Supplier,Marketing,Debit,266,13363
+2023-04-17,CC00087,Payment to CC,Payment,Credit,638,12725
+2023-04-22,CC00088,Facebook Ads,Utilities,Debit,341,13066
+2023-04-24,CC00089,Payment to CC,Payment,Credit,307,12759
+2023-04-29,CC00090,Facebook Ads,Utilities,Debit,325,13084
+2023-05-06,CC00091,Local Print Shop,Marketing,Debit,249,13333
+2023-05-13,CC00092,Utility Company,Other,Debit,575,13908
+2023-05-20,CC00093,Coffee Supplier,Marketing,Debit,556,14464
+2023-05-27,CC00094,Facebook Ads,Supplies,Debit,353,14817
+2023-05-29,CC00095,Payment to CC,Payment,Credit,462,14355
+2023-06-03,CC00096,Coffee Supplier,Utilities,Debit,184,14539
+2023-06-10,CC00097,Utility Company,Marketing,Debit,224,14763
+2023-06-17,CC00098,Local Print Shop,Other,Debit,586,15349
+2023-06-24,CC00099,Coffee Supplier,Supplies,Debit,167,15516
+2023-07-01,CC00100,Facebook Ads,Supplies,Debit,266,15782
+2023-07-03,CC00101,Payment to CC,Payment,Credit,552,15230
+2023-07-08,CC00102,Utility Company,Marketing,Debit,263,15493
+2023-07-15,CC00103,Coffee Supplier,Marketing,Debit,478,15971
+2023-07-22,CC00104,Facebook Ads,Other,Debit,368,16339
+2023-07-24,CC00105,Payment to CC,Payment,Credit,716,15623
+2023-07-29,CC00106,Utility Company,Other,Debit,527,16150
+2023-08-05,CC00107,Local Print Shop,Supplies,Debit,329,16479
+2023-08-12,CC00108,Facebook Ads,Supplies,Debit,399,16878
+2023-08-19,CC00109,Coffee Supplier,Utilities,Debit,425,17303
+2023-08-26,CC00110,Facebook Ads,Utilities,Debit,201,17504
+2023-09-02,CC00111,Local Print Shop,Other,Debit,385,17889
+2023-09-09,CC00112,Local Print Shop,Marketing,Debit,541,18430
+2023-09-11,CC00113,Payment to CC,Payment,Credit,486,17944
+2023-09-16,CC00114,Facebook Ads,Utilities,Debit,402,18346
+2023-09-23,CC00115,Coffee Supplier,Marketing,Debit,545,18891
+2023-09-30,CC00116,Facebook Ads,Other,Debit,111,19002
+2023-10-07,CC00117,Utility Company,Other,Debit,567,19569
+2023-10-14,CC00118,Local Print Shop,Utilities,Debit,378,19947
+2023-10-16,CC00119,Payment to CC,Payment,Credit,716,19231
+2023-10-21,CC00120,Local Print Shop,Other,Debit,567,19798
+2023-10-28,CC00121,Coffee Supplier,Marketing,Debit,220,20018
+2023-10-30,CC00122,Payment to CC,Payment,Credit,605,19413
+2023-11-04,CC00123,Local Print Shop,Utilities,Debit,565,19978
+2023-11-11,CC00124,Local Print Shop,Supplies,Debit,371,20349
+2023-11-13,CC00125,Payment to CC,Payment,Credit,708,19641
+2023-11-18,CC00126,Local Print Shop,Marketing,Debit,241,19882
+2023-11-20,CC00127,Payment to CC,Payment,Credit,777,19105
+2023-11-25,CC00128,Facebook Ads,Supplies,Debit,460,19565
+2023-12-02,CC00129,Facebook Ads,Utilities,Debit,556,20121
+2023-12-09,CC00130,Utility Company,Supplies,Debit,289,20410
+2023-12-16,CC00131,Coffee Supplier,Utilities,Debit,410,20820
+2023-12-23,CC00132,Coffee Supplier,Other,Debit,242,21062
+2023-12-30,CC00133,Local Print Shop,Utilities,Debit,589,21651

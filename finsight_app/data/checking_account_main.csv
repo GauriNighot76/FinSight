@@ -1,0 +1,878 @@
+date,transaction_id,description,category,type,amount,balance
+01-01-2022,TX00001,Daily Sales Deposit,Sales Revenue,Credit,802,15802
+02-01-2022,TX00002,Daily Sales Deposit,Sales Revenue,Credit,970,16772
+03-01-2022,TX00003,Daily Sales Deposit,Sales Revenue,Credit,888,17660
+04-01-2022,TX00004,Daily Sales Deposit,Sales Revenue,Credit,821,18481
+04-01-2022,TX00005,Utility Bill Payment,Operating Expense,Debit,430,18051
+05-01-2022,TX00006,Daily Sales Deposit,Sales Revenue,Credit,787,18838
+06-01-2022,TX00007,Daily Sales Deposit,Sales Revenue,Credit,1059,19897
+07-01-2022,TX00008,Daily Sales Deposit,Sales Revenue,Credit,849,20746
+07-01-2022,TX00009,Rent Payment,Operating Expense,Debit,443,20303
+08-01-2022,TX00010,Daily Sales Deposit,Sales Revenue,Credit,1113,21416
+09-01-2022,TX00011,Daily Sales Deposit,Sales Revenue,Credit,891,22307
+10-01-2022,TX00012,Daily Sales Deposit,Sales Revenue,Credit,860,23167
+11-01-2022,TX00013,Daily Sales Deposit,Sales Revenue,Credit,721,23888
+11-01-2022,TX00014,Bakery Payment,COGS,Debit,444,23444
+12-01-2022,TX00015,Daily Sales Deposit,Sales Revenue,Credit,1174,24618
+13-01-2022,TX00016,Daily Sales Deposit,Sales Revenue,Credit,869,25487
+13-01-2022,TX00017,Utility Bill Payment,Operating Expense,Debit,287,25200
+14-01-2022,TX00018,Daily Sales Deposit,Sales Revenue,Credit,1063,26263
+15-01-2022,TX00019,Daily Sales Deposit,Sales Revenue,Credit,1019,27282
+16-01-2022,TX00020,Daily Sales Deposit,Sales Revenue,Credit,1184,28466
+17-01-2022,TX00021,Daily Sales Deposit,Sales Revenue,Credit,720,29186
+18-01-2022,TX00022,Daily Sales Deposit,Sales Revenue,Credit,973,30159
+19-01-2022,TX00023,Daily Sales Deposit,Sales Revenue,Credit,1015,31174
+20-01-2022,TX00024,Daily Sales Deposit,Sales Revenue,Credit,964,32138
+20-01-2022,TX00025,Rent Payment,Operating Expense,Debit,485,31653
+21-01-2022,TX00026,Daily Sales Deposit,Sales Revenue,Credit,791,32444
+22-01-2022,TX00027,Daily Sales Deposit,Sales Revenue,Credit,1154,33598
+23-01-2022,TX00028,Daily Sales Deposit,Sales Revenue,Credit,963,34561
+23-01-2022,TX00029,Bakery Payment,COGS,Debit,305,34256
+24-01-2022,TX00030,Daily Sales Deposit,Sales Revenue,Credit,1119,35375
+24-01-2022,TX00031,Coffee Supplier Payment,COGS,Debit,487,34888
+25-01-2022,TX00032,Daily Sales Deposit,Sales Revenue,Credit,1089,35977
+26-01-2022,TX00033,Daily Sales Deposit,Sales Revenue,Credit,959,36936
+26-01-2022,TX00034,Coffee Supplier Payment,COGS,Debit,290,36646
+27-01-2022,TX00035,Daily Sales Deposit,Sales Revenue,Credit,917,37563
+28-01-2022,TX00036,Daily Sales Deposit,Sales Revenue,Credit,901,38464
+29-01-2022,TX00037,Daily Sales Deposit,Sales Revenue,Credit,969,39433
+30-01-2022,TX00038,Daily Sales Deposit,Sales Revenue,Credit,970,40403
+30-01-2022,TX00039,Rent Payment,Operating Expense,Debit,314,40089
+31-01-2022,TX00040,Daily Sales Deposit,Sales Revenue,Credit,889,40978
+01-02-2022,TX00041,Daily Sales Deposit,Sales Revenue,Credit,907,41885
+02-02-2022,TX00042,Daily Sales Deposit,Sales Revenue,Credit,1066,42951
+03-02-2022,TX00043,Daily Sales Deposit,Sales Revenue,Credit,1109,44060
+04-02-2022,TX00044,Daily Sales Deposit,Sales Revenue,Credit,887,44947
+05-02-2022,TX00045,Daily Sales Deposit,Sales Revenue,Credit,740,45687
+06-02-2022,TX00046,Daily Sales Deposit,Sales Revenue,Credit,1000,46687
+06-02-2022,TX00047,Bakery Payment,COGS,Debit,426,46261
+07-02-2022,TX00048,Daily Sales Deposit,Sales Revenue,Credit,1043,47304
+08-02-2022,TX00049,Daily Sales Deposit,Sales Revenue,Credit,835,48139
+08-02-2022,TX00050,Utility Bill Payment,Operating Expense,Debit,238,47901
+09-02-2022,TX00051,Daily Sales Deposit,Sales Revenue,Credit,780,48681
+10-02-2022,TX00052,Daily Sales Deposit,Sales Revenue,Credit,1118,49799
+11-02-2022,TX00053,Daily Sales Deposit,Sales Revenue,Credit,960,50759
+12-02-2022,TX00054,Daily Sales Deposit,Sales Revenue,Credit,740,51499
+13-02-2022,TX00055,Daily Sales Deposit,Sales Revenue,Credit,900,52399
+14-02-2022,TX00056,Daily Sales Deposit,Sales Revenue,Credit,1117,53516
+14-02-2022,TX00057,Maintenance Payment,Operating Expense,Debit,161,53355
+15-02-2022,TX00058,Daily Sales Deposit,Sales Revenue,Credit,798,54153
+16-02-2022,TX00059,Daily Sales Deposit,Sales Revenue,Credit,913,55066
+17-02-2022,TX00060,Daily Sales Deposit,Sales Revenue,Credit,1148,56214
+18-02-2022,TX00061,Daily Sales Deposit,Sales Revenue,Credit,1130,57344
+19-02-2022,TX00062,Daily Sales Deposit,Sales Revenue,Credit,956,58300
+20-02-2022,TX00063,Daily Sales Deposit,Sales Revenue,Credit,954,59254
+21-02-2022,TX00064,Daily Sales Deposit,Sales Revenue,Credit,982,60236
+22-02-2022,TX00065,Daily Sales Deposit,Sales Revenue,Credit,714,60950
+22-02-2022,TX00066,Maintenance Payment,Operating Expense,Debit,479,60471
+23-02-2022,TX00067,Daily Sales Deposit,Sales Revenue,Credit,878,61349
+23-02-2022,TX00068,Bakery Payment,COGS,Debit,330,61019
+24-02-2022,TX00069,Daily Sales Deposit,Sales Revenue,Credit,751,61770
+25-02-2022,TX00070,Daily Sales Deposit,Sales Revenue,Credit,1087,62857
+26-02-2022,TX00071,Daily Sales Deposit,Sales Revenue,Credit,1106,63963
+27-02-2022,TX00072,Daily Sales Deposit,Sales Revenue,Credit,842,64805
+28-02-2022,TX00073,Daily Sales Deposit,Sales Revenue,Credit,735,65540
+01-03-2022,TX00074,Daily Sales Deposit,Sales Revenue,Credit,726,66266
+02-03-2022,TX00075,Daily Sales Deposit,Sales Revenue,Credit,485,66751
+03-03-2022,TX00076,Daily Sales Deposit,Sales Revenue,Credit,569,67320
+04-03-2022,TX00077,Daily Sales Deposit,Sales Revenue,Credit,533,67853
+05-03-2022,TX00078,Daily Sales Deposit,Sales Revenue,Credit,507,68360
+05-03-2022,TX00079,Utility Bill Payment,Operating Expense,Debit,385,67975
+06-03-2022,TX00080,Daily Sales Deposit,Sales Revenue,Credit,527,68502
+07-03-2022,TX00081,Daily Sales Deposit,Sales Revenue,Credit,747,69249
+08-03-2022,TX00082,Daily Sales Deposit,Sales Revenue,Credit,589,69838
+08-03-2022,TX00083,Utility Bill Payment,Operating Expense,Debit,476,69362
+09-03-2022,TX00084,Daily Sales Deposit,Sales Revenue,Credit,520,69882
+10-03-2022,TX00085,Daily Sales Deposit,Sales Revenue,Credit,632,70514
+11-03-2022,TX00086,Daily Sales Deposit,Sales Revenue,Credit,597,71111
+12-03-2022,TX00087,Daily Sales Deposit,Sales Revenue,Credit,536,71647
+13-03-2022,TX00088,Daily Sales Deposit,Sales Revenue,Credit,624,72271
+13-03-2022,TX00089,Utility Bill Payment,Operating Expense,Debit,271,72000
+14-03-2022,TX00090,Daily Sales Deposit,Sales Revenue,Credit,773,72773
+15-03-2022,TX00091,Daily Sales Deposit,Sales Revenue,Credit,632,73405
+16-03-2022,TX00092,Daily Sales Deposit,Sales Revenue,Credit,717,74122
+17-03-2022,TX00093,Daily Sales Deposit,Sales Revenue,Credit,451,74573
+18-03-2022,TX00094,Daily Sales Deposit,Sales Revenue,Credit,694,75267
+19-03-2022,TX00095,Daily Sales Deposit,Sales Revenue,Credit,512,75779
+19-03-2022,TX00096,Utility Bill Payment,Operating Expense,Debit,180,75599
+20-03-2022,TX00097,Daily Sales Deposit,Sales Revenue,Credit,512,76111
+21-03-2022,TX00098,Daily Sales Deposit,Sales Revenue,Credit,619,76730
+21-03-2022,TX00099,Bakery Payment,COGS,Debit,323,76407
+22-03-2022,TX00100,Daily Sales Deposit,Sales Revenue,Credit,784,77191
+23-03-2022,TX00101,Daily Sales Deposit,Sales Revenue,Credit,529,77720
+24-03-2022,TX00102,Daily Sales Deposit,Sales Revenue,Credit,617,78337
+25-03-2022,TX00103,Daily Sales Deposit,Sales Revenue,Credit,646,78983
+26-03-2022,TX00104,Daily Sales Deposit,Sales Revenue,Credit,602,79585
+27-03-2022,TX00105,Daily Sales Deposit,Sales Revenue,Credit,654,80239
+28-03-2022,TX00106,Daily Sales Deposit,Sales Revenue,Credit,724,80963
+29-03-2022,TX00107,Daily Sales Deposit,Sales Revenue,Credit,597,81560
+30-03-2022,TX00108,Daily Sales Deposit,Sales Revenue,Credit,639,82199
+31-03-2022,TX00109,Daily Sales Deposit,Sales Revenue,Credit,600,82799
+01-04-2022,TX00110,Daily Sales Deposit,Sales Revenue,Credit,725,83524
+02-04-2022,TX00111,Daily Sales Deposit,Sales Revenue,Credit,658,84182
+03-04-2022,TX00112,Daily Sales Deposit,Sales Revenue,Credit,745,84927
+04-04-2022,TX00113,Daily Sales Deposit,Sales Revenue,Credit,546,85473
+05-04-2022,TX00114,Daily Sales Deposit,Sales Revenue,Credit,598,86071
+05-04-2022,TX00115,Coffee Supplier Payment,COGS,Debit,227,85844
+06-04-2022,TX00116,Daily Sales Deposit,Sales Revenue,Credit,759,86603
+06-04-2022,TX00117,Coffee Supplier Payment,COGS,Debit,250,86353
+07-04-2022,TX00118,Daily Sales Deposit,Sales Revenue,Credit,498,86851
+08-04-2022,TX00119,Daily Sales Deposit,Sales Revenue,Credit,543,87394
+09-04-2022,TX00120,Daily Sales Deposit,Sales Revenue,Credit,459,87853
+10-04-2022,TX00121,Daily Sales Deposit,Sales Revenue,Credit,784,88637
+10-04-2022,TX00122,Maintenance Payment,Operating Expense,Debit,239,88398
+11-04-2022,TX00123,Daily Sales Deposit,Sales Revenue,Credit,436,88834
+12-04-2022,TX00124,Daily Sales Deposit,Sales Revenue,Credit,408,89242
+13-04-2022,TX00125,Daily Sales Deposit,Sales Revenue,Credit,546,89788
+14-04-2022,TX00126,Daily Sales Deposit,Sales Revenue,Credit,530,90318
+15-04-2022,TX00127,Daily Sales Deposit,Sales Revenue,Credit,453,90771
+16-04-2022,TX00128,Daily Sales Deposit,Sales Revenue,Credit,515,91286
+16-04-2022,TX00129,Rent Payment,Operating Expense,Debit,203,91083
+17-04-2022,TX00130,Daily Sales Deposit,Sales Revenue,Credit,653,91736
+17-04-2022,TX00131,Bakery Payment,COGS,Debit,198,91538
+18-04-2022,TX00132,Daily Sales Deposit,Sales Revenue,Credit,748,92286
+19-04-2022,TX00133,Daily Sales Deposit,Sales Revenue,Credit,765,93051
+20-04-2022,TX00134,Daily Sales Deposit,Sales Revenue,Credit,709,93760
+21-04-2022,TX00135,Daily Sales Deposit,Sales Revenue,Credit,568,94328
+21-04-2022,TX00136,Bakery Payment,COGS,Debit,167,94161
+22-04-2022,TX00137,Daily Sales Deposit,Sales Revenue,Credit,797,94958
+23-04-2022,TX00138,Daily Sales Deposit,Sales Revenue,Credit,783,95741
+24-04-2022,TX00139,Daily Sales Deposit,Sales Revenue,Credit,594,96335
+25-04-2022,TX00140,Daily Sales Deposit,Sales Revenue,Credit,432,96767
+26-04-2022,TX00141,Daily Sales Deposit,Sales Revenue,Credit,770,97537
+27-04-2022,TX00142,Daily Sales Deposit,Sales Revenue,Credit,421,97958
+28-04-2022,TX00143,Daily Sales Deposit,Sales Revenue,Credit,437,98395
+29-04-2022,TX00144,Daily Sales Deposit,Sales Revenue,Credit,450,98845
+30-04-2022,TX00145,Daily Sales Deposit,Sales Revenue,Credit,682,99527
+01-05-2022,TX00146,Daily Sales Deposit,Sales Revenue,Credit,676,100203
+02-05-2022,TX00147,Daily Sales Deposit,Sales Revenue,Credit,683,100886
+03-05-2022,TX00148,Daily Sales Deposit,Sales Revenue,Credit,716,101602
+04-05-2022,TX00149,Daily Sales Deposit,Sales Revenue,Credit,403,102005
+04-05-2022,TX00150,Bakery Payment,COGS,Debit,148,101857
+05-05-2022,TX00151,Daily Sales Deposit,Sales Revenue,Credit,571,102428
+06-05-2022,TX00152,Daily Sales Deposit,Sales Revenue,Credit,445,102873
+07-05-2022,TX00153,Daily Sales Deposit,Sales Revenue,Credit,498,103371
+08-05-2022,TX00154,Daily Sales Deposit,Sales Revenue,Credit,436,103807
+09-05-2022,TX00155,Daily Sales Deposit,Sales Revenue,Credit,701,104508
+10-05-2022,TX00156,Daily Sales Deposit,Sales Revenue,Credit,498,105006
+11-05-2022,TX00157,Daily Sales Deposit,Sales Revenue,Credit,515,105521
+12-05-2022,TX00158,Daily Sales Deposit,Sales Revenue,Credit,560,106081
+13-05-2022,TX00159,Daily Sales Deposit,Sales Revenue,Credit,527,106608
+14-05-2022,TX00160,Daily Sales Deposit,Sales Revenue,Credit,622,107230
+15-05-2022,TX00161,Daily Sales Deposit,Sales Revenue,Credit,722,107952
+16-05-2022,TX00162,Daily Sales Deposit,Sales Revenue,Credit,679,108631
+17-05-2022,TX00163,Daily Sales Deposit,Sales Revenue,Credit,741,109372
+18-05-2022,TX00164,Daily Sales Deposit,Sales Revenue,Credit,526,109898
+19-05-2022,TX00165,Daily Sales Deposit,Sales Revenue,Credit,785,110683
+20-05-2022,TX00166,Daily Sales Deposit,Sales Revenue,Credit,503,111186
+21-05-2022,TX00167,Daily Sales Deposit,Sales Revenue,Credit,698,111884
+22-05-2022,TX00168,Daily Sales Deposit,Sales Revenue,Credit,438,112322
+23-05-2022,TX00169,Daily Sales Deposit,Sales Revenue,Credit,646,112968
+24-05-2022,TX00170,Daily Sales Deposit,Sales Revenue,Credit,705,113673
+25-05-2022,TX00171,Daily Sales Deposit,Sales Revenue,Credit,412,114085
+25-05-2022,TX00172,Bakery Payment,COGS,Debit,490,113595
+26-05-2022,TX00173,Daily Sales Deposit,Sales Revenue,Credit,435,114030
+27-05-2022,TX00174,Daily Sales Deposit,Sales Revenue,Credit,720,114750
+27-05-2022,TX00175,Rent Payment,Operating Expense,Debit,499,114251
+28-05-2022,TX00176,Daily Sales Deposit,Sales Revenue,Credit,770,115021
+29-05-2022,TX00177,Daily Sales Deposit,Sales Revenue,Credit,491,115512
+30-05-2022,TX00178,Daily Sales Deposit,Sales Revenue,Credit,687,116199
+31-05-2022,TX00179,Daily Sales Deposit,Sales Revenue,Credit,741,116940
+01-06-2022,TX00180,Daily Sales Deposit,Sales Revenue,Credit,585,117525
+02-06-2022,TX00181,Daily Sales Deposit,Sales Revenue,Credit,524,118049
+03-06-2022,TX00182,Daily Sales Deposit,Sales Revenue,Credit,457,118506
+03-06-2022,TX00183,Coffee Supplier Payment,COGS,Debit,279,118227
+04-06-2022,TX00184,Daily Sales Deposit,Sales Revenue,Credit,725,118952
+05-06-2022,TX00185,Daily Sales Deposit,Sales Revenue,Credit,500,119452
+06-06-2022,TX00186,Daily Sales Deposit,Sales Revenue,Credit,452,119904
+07-06-2022,TX00187,Daily Sales Deposit,Sales Revenue,Credit,507,120411
+08-06-2022,TX00188,Daily Sales Deposit,Sales Revenue,Credit,595,121006
+09-06-2022,TX00189,Daily Sales Deposit,Sales Revenue,Credit,771,121777
+10-06-2022,TX00190,Daily Sales Deposit,Sales Revenue,Credit,754,122531
+11-06-2022,TX00191,Daily Sales Deposit,Sales Revenue,Credit,707,123238
+11-06-2022,TX00192,Rent Payment,Operating Expense,Debit,469,122769
+12-06-2022,TX00193,Daily Sales Deposit,Sales Revenue,Credit,505,123274
+13-06-2022,TX00194,Daily Sales Deposit,Sales Revenue,Credit,544,123818
+14-06-2022,TX00195,Daily Sales Deposit,Sales Revenue,Credit,674,124492
+15-06-2022,TX00196,Daily Sales Deposit,Sales Revenue,Credit,745,125237
+15-06-2022,TX00197,Bakery Payment,COGS,Debit,216,125021
+16-06-2022,TX00198,Daily Sales Deposit,Sales Revenue,Credit,795,125816
+17-06-2022,TX00199,Daily Sales Deposit,Sales Revenue,Credit,457,126273
+18-06-2022,TX00200,Daily Sales Deposit,Sales Revenue,Credit,638,126911
+19-06-2022,TX00201,Daily Sales Deposit,Sales Revenue,Credit,525,127436
+19-06-2022,TX00202,Maintenance Payment,Operating Expense,Debit,188,127248
+20-06-2022,TX00203,Daily Sales Deposit,Sales Revenue,Credit,772,128020
+21-06-2022,TX00204,Daily Sales Deposit,Sales Revenue,Credit,588,128608
+22-06-2022,TX00205,Daily Sales Deposit,Sales Revenue,Credit,468,129076
+23-06-2022,TX00206,Daily Sales Deposit,Sales Revenue,Credit,646,129722
+23-06-2022,TX00207,Utility Bill Payment,Operating Expense,Debit,253,129469
+24-06-2022,TX00208,Daily Sales Deposit,Sales Revenue,Credit,485,129954
+24-06-2022,TX00209,Maintenance Payment,Operating Expense,Debit,319,129635
+25-06-2022,TX00210,Daily Sales Deposit,Sales Revenue,Credit,446,130081
+25-06-2022,TX00211,Rent Payment,Operating Expense,Debit,337,129744
+26-06-2022,TX00212,Daily Sales Deposit,Sales Revenue,Credit,603,130347
+26-06-2022,TX00213,Rent Payment,Operating Expense,Debit,440,129907
+27-06-2022,TX00214,Daily Sales Deposit,Sales Revenue,Credit,688,130595
+28-06-2022,TX00215,Daily Sales Deposit,Sales Revenue,Credit,756,131351
+29-06-2022,TX00216,Daily Sales Deposit,Sales Revenue,Credit,409,131760
+30-06-2022,TX00217,Daily Sales Deposit,Sales Revenue,Credit,499,132259
+30-06-2022,TX00218,Coffee Supplier Payment,COGS,Debit,322,131937
+01-07-2022,TX00219,Daily Sales Deposit,Sales Revenue,Credit,749,132686
+02-07-2022,TX00220,Daily Sales Deposit,Sales Revenue,Credit,595,133281
+03-07-2022,TX00221,Daily Sales Deposit,Sales Revenue,Credit,824,134105
+04-07-2022,TX00222,Daily Sales Deposit,Sales Revenue,Credit,515,134620
+04-07-2022,TX00223,Coffee Supplier Payment,COGS,Debit,346,134274
+05-07-2022,TX00224,Daily Sales Deposit,Sales Revenue,Credit,996,135270
+06-07-2022,TX00225,Daily Sales Deposit,Sales Revenue,Credit,659,135929
+07-07-2022,TX00226,Daily Sales Deposit,Sales Revenue,Credit,651,136580
+08-07-2022,TX00227,Daily Sales Deposit,Sales Revenue,Credit,662,137242
+09-07-2022,TX00228,Daily Sales Deposit,Sales Revenue,Credit,916,138158
+10-07-2022,TX00229,Daily Sales Deposit,Sales Revenue,Credit,926,139084
+11-07-2022,TX00230,Daily Sales Deposit,Sales Revenue,Credit,822,139906
+12-07-2022,TX00231,Daily Sales Deposit,Sales Revenue,Credit,667,140573
+13-07-2022,TX00232,Daily Sales Deposit,Sales Revenue,Credit,543,141116
+14-07-2022,TX00233,Daily Sales Deposit,Sales Revenue,Credit,511,141627
+14-07-2022,TX00234,Maintenance Payment,Operating Expense,Debit,485,141142
+15-07-2022,TX00235,Daily Sales Deposit,Sales Revenue,Credit,998,142140
+16-07-2022,TX00236,Daily Sales Deposit,Sales Revenue,Credit,714,142854
+16-07-2022,TX00237,Maintenance Payment,Operating Expense,Debit,363,142491
+17-07-2022,TX00238,Daily Sales Deposit,Sales Revenue,Credit,909,143400
+18-07-2022,TX00239,Daily Sales Deposit,Sales Revenue,Credit,917,144317
+19-07-2022,TX00240,Daily Sales Deposit,Sales Revenue,Credit,890,145207
+19-07-2022,TX00241,Maintenance Payment,Operating Expense,Debit,213,144994
+20-07-2022,TX00242,Daily Sales Deposit,Sales Revenue,Credit,574,145568
+21-07-2022,TX00243,Daily Sales Deposit,Sales Revenue,Credit,919,146487
+22-07-2022,TX00244,Daily Sales Deposit,Sales Revenue,Credit,748,147235
+23-07-2022,TX00245,Daily Sales Deposit,Sales Revenue,Credit,856,148091
+24-07-2022,TX00246,Daily Sales Deposit,Sales Revenue,Credit,691,148782
+25-07-2022,TX00247,Daily Sales Deposit,Sales Revenue,Credit,598,149380
+26-07-2022,TX00248,Daily Sales Deposit,Sales Revenue,Credit,965,150345
+27-07-2022,TX00249,Daily Sales Deposit,Sales Revenue,Credit,595,150940
+28-07-2022,TX00250,Daily Sales Deposit,Sales Revenue,Credit,689,151629
+29-07-2022,TX00251,Daily Sales Deposit,Sales Revenue,Credit,767,152396
+30-07-2022,TX00252,Daily Sales Deposit,Sales Revenue,Credit,512,152908
+31-07-2022,TX00253,Daily Sales Deposit,Sales Revenue,Credit,854,153762
+31-07-2022,TX00254,Bakery Payment,COGS,Debit,372,153390
+01-08-2022,TX00255,Daily Sales Deposit,Sales Revenue,Credit,561,153951
+02-08-2022,TX00256,Daily Sales Deposit,Sales Revenue,Credit,716,154667
+03-08-2022,TX00257,Daily Sales Deposit,Sales Revenue,Credit,686,155353
+03-08-2022,TX00258,Rent Payment,Operating Expense,Debit,199,155154
+04-08-2022,TX00259,Daily Sales Deposit,Sales Revenue,Credit,944,156098
+05-08-2022,TX00260,Daily Sales Deposit,Sales Revenue,Credit,575,156673
+06-08-2022,TX00261,Daily Sales Deposit,Sales Revenue,Credit,783,157456
+07-08-2022,TX00262,Daily Sales Deposit,Sales Revenue,Credit,883,158339
+08-08-2022,TX00263,Daily Sales Deposit,Sales Revenue,Credit,866,159205
+08-08-2022,TX00264,Utility Bill Payment,Operating Expense,Debit,168,159037
+09-08-2022,TX00265,Daily Sales Deposit,Sales Revenue,Credit,895,159932
+10-08-2022,TX00266,Daily Sales Deposit,Sales Revenue,Credit,878,160810
+11-08-2022,TX00267,Daily Sales Deposit,Sales Revenue,Credit,552,161362
+12-08-2022,TX00268,Daily Sales Deposit,Sales Revenue,Credit,556,161918
+12-08-2022,TX00269,Coffee Supplier Payment,COGS,Debit,280,161638
+13-08-2022,TX00270,Daily Sales Deposit,Sales Revenue,Credit,685,162323
+13-08-2022,TX00271,Coffee Supplier Payment,COGS,Debit,322,162001
+14-08-2022,TX00272,Daily Sales Deposit,Sales Revenue,Credit,632,162633
+15-08-2022,TX00273,Daily Sales Deposit,Sales Revenue,Credit,720,163353
+16-08-2022,TX00274,Daily Sales Deposit,Sales Revenue,Credit,645,163998
+17-08-2022,TX00275,Daily Sales Deposit,Sales Revenue,Credit,508,164506
+18-08-2022,TX00276,Daily Sales Deposit,Sales Revenue,Credit,991,165497
+19-08-2022,TX00277,Daily Sales Deposit,Sales Revenue,Credit,729,166226
+19-08-2022,TX00278,Coffee Supplier Payment,COGS,Debit,240,165986
+20-08-2022,TX00279,Daily Sales Deposit,Sales Revenue,Credit,892,166878
+21-08-2022,TX00280,Daily Sales Deposit,Sales Revenue,Credit,621,167499
+21-08-2022,TX00281,Maintenance Payment,Operating Expense,Debit,128,167371
+22-08-2022,TX00282,Daily Sales Deposit,Sales Revenue,Credit,921,168292
+23-08-2022,TX00283,Daily Sales Deposit,Sales Revenue,Credit,995,169287
+24-08-2022,TX00284,Daily Sales Deposit,Sales Revenue,Credit,841,170128
+25-08-2022,TX00285,Daily Sales Deposit,Sales Revenue,Credit,826,170954
+26-08-2022,TX00286,Daily Sales Deposit,Sales Revenue,Credit,631,171585
+27-08-2022,TX00287,Daily Sales Deposit,Sales Revenue,Credit,751,172336
+27-08-2022,TX00288,Utility Bill Payment,Operating Expense,Debit,463,171873
+28-08-2022,TX00289,Daily Sales Deposit,Sales Revenue,Credit,701,172574
+29-08-2022,TX00290,Daily Sales Deposit,Sales Revenue,Credit,538,173112
+30-08-2022,TX00291,Daily Sales Deposit,Sales Revenue,Credit,672,173784
+30-08-2022,TX00292,Coffee Supplier Payment,COGS,Debit,319,173465
+31-08-2022,TX00293,Daily Sales Deposit,Sales Revenue,Credit,647,174112
+31-08-2022,TX00294,Bakery Payment,COGS,Debit,416,173696
+01-09-2022,TX00295,Daily Sales Deposit,Sales Revenue,Credit,1122,174818
+02-09-2022,TX00296,Daily Sales Deposit,Sales Revenue,Credit,1160,175978
+03-09-2022,TX00297,Daily Sales Deposit,Sales Revenue,Credit,890,176868
+04-09-2022,TX00298,Daily Sales Deposit,Sales Revenue,Credit,1108,177976
+05-09-2022,TX00299,Daily Sales Deposit,Sales Revenue,Credit,1121,179097
+06-09-2022,TX00300,Daily Sales Deposit,Sales Revenue,Credit,757,179854
+06-09-2022,TX00301,Maintenance Payment,Operating Expense,Debit,259,179595
+07-09-2022,TX00302,Daily Sales Deposit,Sales Revenue,Credit,1016,180611
+08-09-2022,TX00303,Daily Sales Deposit,Sales Revenue,Credit,779,181390
+09-09-2022,TX00304,Daily Sales Deposit,Sales Revenue,Credit,902,182292
+10-09-2022,TX00305,Daily Sales Deposit,Sales Revenue,Credit,863,183155
+11-09-2022,TX00306,Daily Sales Deposit,Sales Revenue,Credit,719,183874
+11-09-2022,TX00307,Bakery Payment,COGS,Debit,146,183728
+12-09-2022,TX00308,Daily Sales Deposit,Sales Revenue,Credit,1004,184732
+13-09-2022,TX00309,Daily Sales Deposit,Sales Revenue,Credit,1114,185846
+14-09-2022,TX00310,Daily Sales Deposit,Sales Revenue,Credit,753,186599
+15-09-2022,TX00311,Daily Sales Deposit,Sales Revenue,Credit,843,187442
+16-09-2022,TX00312,Daily Sales Deposit,Sales Revenue,Credit,1158,188600
+17-09-2022,TX00313,Daily Sales Deposit,Sales Revenue,Credit,923,189523
+17-09-2022,TX00314,Rent Payment,Operating Expense,Debit,457,189066
+18-09-2022,TX00315,Daily Sales Deposit,Sales Revenue,Credit,1107,190173
+19-09-2022,TX00316,Daily Sales Deposit,Sales Revenue,Credit,707,190880
+19-09-2022,TX00317,Coffee Supplier Payment,COGS,Debit,263,190617
+20-09-2022,TX00318,Daily Sales Deposit,Sales Revenue,Credit,835,191452
+21-09-2022,TX00319,Daily Sales Deposit,Sales Revenue,Credit,877,192329
+22-09-2022,TX00320,Daily Sales Deposit,Sales Revenue,Credit,1056,193385
+23-09-2022,TX00321,Daily Sales Deposit,Sales Revenue,Credit,891,194276
+24-09-2022,TX00322,Daily Sales Deposit,Sales Revenue,Credit,1146,195422
+25-09-2022,TX00323,Daily Sales Deposit,Sales Revenue,Credit,1116,196538
+26-09-2022,TX00324,Daily Sales Deposit,Sales Revenue,Credit,1160,197698
+27-09-2022,TX00325,Daily Sales Deposit,Sales Revenue,Credit,1112,198810
+27-09-2022,TX00326,Maintenance Payment,Operating Expense,Debit,134,198676
+28-09-2022,TX00327,Daily Sales Deposit,Sales Revenue,Credit,1089,199765
+29-09-2022,TX00328,Daily Sales Deposit,Sales Revenue,Credit,955,200720
+30-09-2022,TX00329,Daily Sales Deposit,Sales Revenue,Credit,1108,201828
+01-10-2022,TX00330,Daily Sales Deposit,Sales Revenue,Credit,1011,202839
+02-10-2022,TX00331,Daily Sales Deposit,Sales Revenue,Credit,950,203789
+02-10-2022,TX00332,Bakery Payment,COGS,Debit,218,203571
+03-10-2022,TX00333,Daily Sales Deposit,Sales Revenue,Credit,1073,204644
+04-10-2022,TX00334,Daily Sales Deposit,Sales Revenue,Credit,923,205567
+05-10-2022,TX00335,Daily Sales Deposit,Sales Revenue,Credit,966,206533
+06-10-2022,TX00336,Daily Sales Deposit,Sales Revenue,Credit,762,207295
+07-10-2022,TX00337,Daily Sales Deposit,Sales Revenue,Credit,1014,208309
+08-10-2022,TX00338,Daily Sales Deposit,Sales Revenue,Credit,1160,209469
+08-10-2022,TX00339,Utility Bill Payment,Operating Expense,Debit,204,209265
+09-10-2022,TX00340,Daily Sales Deposit,Sales Revenue,Credit,1084,210349
+09-10-2022,TX00341,Rent Payment,Operating Expense,Debit,410,209939
+10-10-2022,TX00342,Daily Sales Deposit,Sales Revenue,Credit,1164,211103
+11-10-2022,TX00343,Daily Sales Deposit,Sales Revenue,Credit,832,211935
+12-10-2022,TX00344,Daily Sales Deposit,Sales Revenue,Credit,1136,213071
+13-10-2022,TX00345,Daily Sales Deposit,Sales Revenue,Credit,752,213823
+14-10-2022,TX00346,Daily Sales Deposit,Sales Revenue,Credit,1157,214980
+15-10-2022,TX00347,Daily Sales Deposit,Sales Revenue,Credit,784,215764
+16-10-2022,TX00348,Daily Sales Deposit,Sales Revenue,Credit,1065,216829
+17-10-2022,TX00349,Daily Sales Deposit,Sales Revenue,Credit,872,217701
+18-10-2022,TX00350,Daily Sales Deposit,Sales Revenue,Credit,1145,218846
+19-10-2022,TX00351,Daily Sales Deposit,Sales Revenue,Credit,1187,220033
+20-10-2022,TX00352,Daily Sales Deposit,Sales Revenue,Credit,1047,221080
+21-10-2022,TX00353,Daily Sales Deposit,Sales Revenue,Credit,738,221818
+22-10-2022,TX00354,Daily Sales Deposit,Sales Revenue,Credit,861,222679
+23-10-2022,TX00355,Daily Sales Deposit,Sales Revenue,Credit,958,223637
+24-10-2022,TX00356,Daily Sales Deposit,Sales Revenue,Credit,967,224604
+25-10-2022,TX00357,Daily Sales Deposit,Sales Revenue,Credit,935,225539
+26-10-2022,TX00358,Daily Sales Deposit,Sales Revenue,Credit,921,226460
+27-10-2022,TX00359,Daily Sales Deposit,Sales Revenue,Credit,1100,227560
+27-10-2022,TX00360,Maintenance Payment,Operating Expense,Debit,402,227158
+28-10-2022,TX00361,Daily Sales Deposit,Sales Revenue,Credit,1040,228198
+29-10-2022,TX00362,Daily Sales Deposit,Sales Revenue,Credit,774,228972
+30-10-2022,TX00363,Daily Sales Deposit,Sales Revenue,Credit,1121,230093
+31-10-2022,TX00364,Daily Sales Deposit,Sales Revenue,Credit,925,231018
+01-11-2022,TX00365,Daily Sales Deposit,Sales Revenue,Credit,797,231815
+02-11-2022,TX00366,Daily Sales Deposit,Sales Revenue,Credit,1034,232849
+03-11-2022,TX00367,Daily Sales Deposit,Sales Revenue,Credit,1146,233995
+04-11-2022,TX00368,Daily Sales Deposit,Sales Revenue,Credit,948,234943
+05-11-2022,TX00369,Daily Sales Deposit,Sales Revenue,Credit,1171,236114
+06-11-2022,TX00370,Daily Sales Deposit,Sales Revenue,Credit,729,236843
+07-11-2022,TX00371,Daily Sales Deposit,Sales Revenue,Credit,750,237593
+08-11-2022,TX00372,Daily Sales Deposit,Sales Revenue,Credit,984,238577
+08-11-2022,TX00373,Bakery Payment,COGS,Debit,283,238294
+09-11-2022,TX00374,Daily Sales Deposit,Sales Revenue,Credit,1029,239323
+10-11-2022,TX00375,Daily Sales Deposit,Sales Revenue,Credit,1039,240362
+11-11-2022,TX00376,Daily Sales Deposit,Sales Revenue,Credit,733,241095
+12-11-2022,TX00377,Daily Sales Deposit,Sales Revenue,Credit,1149,242244
+13-11-2022,TX00378,Daily Sales Deposit,Sales Revenue,Credit,934,243178
+14-11-2022,TX00379,Daily Sales Deposit,Sales Revenue,Credit,1158,244336
+14-11-2022,TX00380,Utility Bill Payment,Operating Expense,Debit,348,243988
+15-11-2022,TX00381,Daily Sales Deposit,Sales Revenue,Credit,1073,245061
+16-11-2022,TX00382,Daily Sales Deposit,Sales Revenue,Credit,1087,246148
+16-11-2022,TX00383,Bakery Payment,COGS,Debit,283,245865
+17-11-2022,TX00384,Daily Sales Deposit,Sales Revenue,Credit,894,246759
+18-11-2022,TX00385,Daily Sales Deposit,Sales Revenue,Credit,854,247613
+19-11-2022,TX00386,Daily Sales Deposit,Sales Revenue,Credit,1133,248746
+20-11-2022,TX00387,Daily Sales Deposit,Sales Revenue,Credit,750,249496
+20-11-2022,TX00388,Coffee Supplier Payment,COGS,Debit,104,249392
+21-11-2022,TX00389,Daily Sales Deposit,Sales Revenue,Credit,791,250183
+22-11-2022,TX00390,Daily Sales Deposit,Sales Revenue,Credit,721,250904
+22-11-2022,TX00391,Maintenance Payment,Operating Expense,Debit,100,250804
+23-11-2022,TX00392,Daily Sales Deposit,Sales Revenue,Credit,932,251736
+24-11-2022,TX00393,Daily Sales Deposit,Sales Revenue,Credit,745,252481
+25-11-2022,TX00394,Daily Sales Deposit,Sales Revenue,Credit,777,253258
+26-11-2022,TX00395,Daily Sales Deposit,Sales Revenue,Credit,1110,254368
+26-11-2022,TX00396,Bakery Payment,COGS,Debit,348,254020
+27-11-2022,TX00397,Daily Sales Deposit,Sales Revenue,Credit,913,254933
+27-11-2022,TX00398,Utility Bill Payment,Operating Expense,Debit,449,254484
+28-11-2022,TX00399,Daily Sales Deposit,Sales Revenue,Credit,1018,255502
+29-11-2022,TX00400,Daily Sales Deposit,Sales Revenue,Credit,1036,256538
+30-11-2022,TX00401,Daily Sales Deposit,Sales Revenue,Credit,956,257494
+30-11-2022,TX00402,Maintenance Payment,Operating Expense,Debit,454,257040
+01-12-2022,TX00403,Daily Sales Deposit,Sales Revenue,Credit,879,257919
+02-12-2022,TX00404,Daily Sales Deposit,Sales Revenue,Credit,826,258745
+03-12-2022,TX00405,Daily Sales Deposit,Sales Revenue,Credit,713,259458
+04-12-2022,TX00406,Daily Sales Deposit,Sales Revenue,Credit,1170,260628
+05-12-2022,TX00407,Daily Sales Deposit,Sales Revenue,Credit,1085,261713
+06-12-2022,TX00408,Daily Sales Deposit,Sales Revenue,Credit,713,262426
+06-12-2022,TX00409,Utility Bill Payment,Operating Expense,Debit,470,261956
+07-12-2022,TX00410,Daily Sales Deposit,Sales Revenue,Credit,810,262766
+08-12-2022,TX00411,Daily Sales Deposit,Sales Revenue,Credit,1062,263828
+09-12-2022,TX00412,Daily Sales Deposit,Sales Revenue,Credit,1192,265020
+10-12-2022,TX00413,Daily Sales Deposit,Sales Revenue,Credit,993,266013
+11-12-2022,TX00414,Daily Sales Deposit,Sales Revenue,Credit,714,266727
+11-12-2022,TX00415,Maintenance Payment,Operating Expense,Debit,218,266509
+12-12-2022,TX00416,Daily Sales Deposit,Sales Revenue,Credit,727,267236
+12-12-2022,TX00417,Coffee Supplier Payment,COGS,Debit,372,266864
+13-12-2022,TX00418,Daily Sales Deposit,Sales Revenue,Credit,825,267689
+13-12-2022,TX00419,Maintenance Payment,Operating Expense,Debit,244,267445
+14-12-2022,TX00420,Daily Sales Deposit,Sales Revenue,Credit,911,268356
+15-12-2022,TX00421,Daily Sales Deposit,Sales Revenue,Credit,1093,269449
+16-12-2022,TX00422,Daily Sales Deposit,Sales Revenue,Credit,808,270257
+17-12-2022,TX00423,Daily Sales Deposit,Sales Revenue,Credit,927,271184
+18-12-2022,TX00424,Daily Sales Deposit,Sales Revenue,Credit,733,271917
+19-12-2022,TX00425,Daily Sales Deposit,Sales Revenue,Credit,1123,273040
+20-12-2022,TX00426,Daily Sales Deposit,Sales Revenue,Credit,782,273822
+21-12-2022,TX00427,Daily Sales Deposit,Sales Revenue,Credit,800,274622
+22-12-2022,TX00428,Daily Sales Deposit,Sales Revenue,Credit,981,275603
+23-12-2022,TX00429,Daily Sales Deposit,Sales Revenue,Credit,1142,276745
+24-12-2022,TX00430,Daily Sales Deposit,Sales Revenue,Credit,1064,277809
+25-12-2022,TX00431,Daily Sales Deposit,Sales Revenue,Credit,1076,278885
+26-12-2022,TX00432,Daily Sales Deposit,Sales Revenue,Credit,849,279734
+27-12-2022,TX00433,Daily Sales Deposit,Sales Revenue,Credit,769,280503
+28-12-2022,TX00434,Daily Sales Deposit,Sales Revenue,Credit,703,281206
+29-12-2022,TX00435,Daily Sales Deposit,Sales Revenue,Credit,1145,282351
+30-12-2022,TX00436,Daily Sales Deposit,Sales Revenue,Credit,794,283145
+30-12-2022,TX00437,Utility Bill Payment,Operating Expense,Debit,236,282909
+31-12-2022,TX00438,Daily Sales Deposit,Sales Revenue,Credit,942,283851
+31-12-2022,TX00439,Rent Payment,Operating Expense,Debit,328,283523
+01-01-2023,TX00440,Daily Sales Deposit,Sales Revenue,Credit,1107,284630
+01-01-2023,TX00441,Rent Payment,Operating Expense,Debit,421,284209
+02-01-2023,TX00442,Daily Sales Deposit,Sales Revenue,Credit,919,285128
+03-01-2023,TX00443,Daily Sales Deposit,Sales Revenue,Credit,1034,286162
+04-01-2023,TX00444,Daily Sales Deposit,Sales Revenue,Credit,1068,287230
+05-01-2023,TX00445,Daily Sales Deposit,Sales Revenue,Credit,1185,288415
+06-01-2023,TX00446,Daily Sales Deposit,Sales Revenue,Credit,1140,289555
+07-01-2023,TX00447,Daily Sales Deposit,Sales Revenue,Credit,902,290457
+08-01-2023,TX00448,Daily Sales Deposit,Sales Revenue,Credit,1134,291591
+09-01-2023,TX00449,Daily Sales Deposit,Sales Revenue,Credit,832,292423
+09-01-2023,TX00450,Rent Payment,Operating Expense,Debit,217,292206
+10-01-2023,TX00451,Daily Sales Deposit,Sales Revenue,Credit,974,293180
+10-01-2023,TX00452,Bakery Payment,COGS,Debit,119,293061
+11-01-2023,TX00453,Daily Sales Deposit,Sales Revenue,Credit,839,293900
+11-01-2023,TX00454,Maintenance Payment,Operating Expense,Debit,189,293711
+12-01-2023,TX00455,Daily Sales Deposit,Sales Revenue,Credit,1081,294792
+12-01-2023,TX00456,Maintenance Payment,Operating Expense,Debit,455,294337
+13-01-2023,TX00457,Daily Sales Deposit,Sales Revenue,Credit,1190,295527
+14-01-2023,TX00458,Daily Sales Deposit,Sales Revenue,Credit,1089,296616
+15-01-2023,TX00459,Daily Sales Deposit,Sales Revenue,Credit,709,297325
+16-01-2023,TX00460,Daily Sales Deposit,Sales Revenue,Credit,837,298162
+17-01-2023,TX00461,Daily Sales Deposit,Sales Revenue,Credit,712,298874
+18-01-2023,TX00462,Daily Sales Deposit,Sales Revenue,Credit,783,299657
+19-01-2023,TX00463,Daily Sales Deposit,Sales Revenue,Credit,800,300457
+19-01-2023,TX00464,Utility Bill Payment,Operating Expense,Debit,364,300093
+20-01-2023,TX00465,Daily Sales Deposit,Sales Revenue,Credit,1098,301191
+21-01-2023,TX00466,Daily Sales Deposit,Sales Revenue,Credit,1118,302309
+22-01-2023,TX00467,Daily Sales Deposit,Sales Revenue,Credit,1004,303313
+23-01-2023,TX00468,Daily Sales Deposit,Sales Revenue,Credit,1143,304456
+24-01-2023,TX00469,Daily Sales Deposit,Sales Revenue,Credit,1033,305489
+25-01-2023,TX00470,Daily Sales Deposit,Sales Revenue,Credit,1158,306647
+26-01-2023,TX00471,Daily Sales Deposit,Sales Revenue,Credit,775,307422
+27-01-2023,TX00472,Daily Sales Deposit,Sales Revenue,Credit,700,308122
+28-01-2023,TX00473,Daily Sales Deposit,Sales Revenue,Credit,1105,309227
+28-01-2023,TX00474,Utility Bill Payment,Operating Expense,Debit,448,308779
+29-01-2023,TX00475,Daily Sales Deposit,Sales Revenue,Credit,1060,309839
+30-01-2023,TX00476,Daily Sales Deposit,Sales Revenue,Credit,1015,310854
+30-01-2023,TX00477,Maintenance Payment,Operating Expense,Debit,312,310542
+31-01-2023,TX00478,Daily Sales Deposit,Sales Revenue,Credit,704,311246
+01-02-2023,TX00479,Daily Sales Deposit,Sales Revenue,Credit,777,312023
+02-02-2023,TX00480,Daily Sales Deposit,Sales Revenue,Credit,831,312854
+03-02-2023,TX00481,Daily Sales Deposit,Sales Revenue,Credit,741,313595
+04-02-2023,TX00482,Daily Sales Deposit,Sales Revenue,Credit,995,314590
+05-02-2023,TX00483,Daily Sales Deposit,Sales Revenue,Credit,803,315393
+06-02-2023,TX00484,Daily Sales Deposit,Sales Revenue,Credit,878,316271
+07-02-2023,TX00485,Daily Sales Deposit,Sales Revenue,Credit,1052,317323
+08-02-2023,TX00486,Daily Sales Deposit,Sales Revenue,Credit,842,318165
+09-02-2023,TX00487,Daily Sales Deposit,Sales Revenue,Credit,844,319009
+10-02-2023,TX00488,Daily Sales Deposit,Sales Revenue,Credit,1149,320158
+11-02-2023,TX00489,Daily Sales Deposit,Sales Revenue,Credit,803,320961
+12-02-2023,TX00490,Daily Sales Deposit,Sales Revenue,Credit,738,321699
+12-02-2023,TX00491,Utility Bill Payment,Operating Expense,Debit,233,321466
+13-02-2023,TX00492,Daily Sales Deposit,Sales Revenue,Credit,1090,322556
+14-02-2023,TX00493,Daily Sales Deposit,Sales Revenue,Credit,741,323297
+14-02-2023,TX00494,Maintenance Payment,Operating Expense,Debit,114,323183
+15-02-2023,TX00495,Daily Sales Deposit,Sales Revenue,Credit,988,324171
+16-02-2023,TX00496,Daily Sales Deposit,Sales Revenue,Credit,930,325101
+17-02-2023,TX00497,Daily Sales Deposit,Sales Revenue,Credit,856,325957
+17-02-2023,TX00498,Maintenance Payment,Operating Expense,Debit,196,325761
+18-02-2023,TX00499,Daily Sales Deposit,Sales Revenue,Credit,1184,326945
+19-02-2023,TX00500,Daily Sales Deposit,Sales Revenue,Credit,988,327933
+19-02-2023,TX00501,Coffee Supplier Payment,COGS,Debit,185,327748
+20-02-2023,TX00502,Daily Sales Deposit,Sales Revenue,Credit,709,328457
+21-02-2023,TX00503,Daily Sales Deposit,Sales Revenue,Credit,1029,329486
+22-02-2023,TX00504,Daily Sales Deposit,Sales Revenue,Credit,993,330479
+23-02-2023,TX00505,Daily Sales Deposit,Sales Revenue,Credit,1002,331481
+24-02-2023,TX00506,Daily Sales Deposit,Sales Revenue,Credit,915,332396
+25-02-2023,TX00507,Daily Sales Deposit,Sales Revenue,Credit,714,333110
+26-02-2023,TX00508,Daily Sales Deposit,Sales Revenue,Credit,960,334070
+27-02-2023,TX00509,Daily Sales Deposit,Sales Revenue,Credit,1023,335093
+28-02-2023,TX00510,Daily Sales Deposit,Sales Revenue,Credit,829,335922
+28-02-2023,TX00511,Utility Bill Payment,Operating Expense,Debit,214,335708
+01-03-2023,TX00512,Daily Sales Deposit,Sales Revenue,Credit,691,336399
+02-03-2023,TX00513,Daily Sales Deposit,Sales Revenue,Credit,682,337081
+03-03-2023,TX00514,Daily Sales Deposit,Sales Revenue,Credit,410,337491
+04-03-2023,TX00515,Daily Sales Deposit,Sales Revenue,Credit,759,338250
+05-03-2023,TX00516,Daily Sales Deposit,Sales Revenue,Credit,599,338849
+06-03-2023,TX00517,Daily Sales Deposit,Sales Revenue,Credit,745,339594
+07-03-2023,TX00518,Daily Sales Deposit,Sales Revenue,Credit,795,340389
+08-03-2023,TX00519,Daily Sales Deposit,Sales Revenue,Credit,503,340892
+09-03-2023,TX00520,Daily Sales Deposit,Sales Revenue,Credit,510,341402
+10-03-2023,TX00521,Daily Sales Deposit,Sales Revenue,Credit,570,341972
+11-03-2023,TX00522,Daily Sales Deposit,Sales Revenue,Credit,755,342727
+12-03-2023,TX00523,Daily Sales Deposit,Sales Revenue,Credit,532,343259
+13-03-2023,TX00524,Daily Sales Deposit,Sales Revenue,Credit,727,343986
+14-03-2023,TX00525,Daily Sales Deposit,Sales Revenue,Credit,491,344477
+15-03-2023,TX00526,Daily Sales Deposit,Sales Revenue,Credit,792,345269
+16-03-2023,TX00527,Daily Sales Deposit,Sales Revenue,Credit,428,345697
+16-03-2023,TX00528,Utility Bill Payment,Operating Expense,Debit,396,345301
+17-03-2023,TX00529,Daily Sales Deposit,Sales Revenue,Credit,656,345957
+17-03-2023,TX00530,Rent Payment,Operating Expense,Debit,445,345512
+18-03-2023,TX00531,Daily Sales Deposit,Sales Revenue,Credit,581,346093
+19-03-2023,TX00532,Daily Sales Deposit,Sales Revenue,Credit,400,346493
+20-03-2023,TX00533,Daily Sales Deposit,Sales Revenue,Credit,454,346947
+21-03-2023,TX00534,Daily Sales Deposit,Sales Revenue,Credit,798,347745
+22-03-2023,TX00535,Daily Sales Deposit,Sales Revenue,Credit,708,348453
+23-03-2023,TX00536,Daily Sales Deposit,Sales Revenue,Credit,712,349165
+23-03-2023,TX00537,Rent Payment,Operating Expense,Debit,390,348775
+24-03-2023,TX00538,Daily Sales Deposit,Sales Revenue,Credit,424,349199
+25-03-2023,TX00539,Daily Sales Deposit,Sales Revenue,Credit,693,349892
+26-03-2023,TX00540,Daily Sales Deposit,Sales Revenue,Credit,609,350501
+27-03-2023,TX00541,Daily Sales Deposit,Sales Revenue,Credit,746,351247
+28-03-2023,TX00542,Daily Sales Deposit,Sales Revenue,Credit,763,352010
+29-03-2023,TX00543,Daily Sales Deposit,Sales Revenue,Credit,581,352591
+29-03-2023,TX00544,Maintenance Payment,Operating Expense,Debit,279,352312
+30-03-2023,TX00545,Daily Sales Deposit,Sales Revenue,Credit,743,353055
+31-03-2023,TX00546,Daily Sales Deposit,Sales Revenue,Credit,684,353739
+01-04-2023,TX00547,Daily Sales Deposit,Sales Revenue,Credit,549,354288
+02-04-2023,TX00548,Daily Sales Deposit,Sales Revenue,Credit,769,355057
+03-04-2023,TX00549,Daily Sales Deposit,Sales Revenue,Credit,736,355793
+04-04-2023,TX00550,Daily Sales Deposit,Sales Revenue,Credit,576,356369
+05-04-2023,TX00551,Daily Sales Deposit,Sales Revenue,Credit,741,357110
+05-04-2023,TX00552,Bakery Payment,COGS,Debit,288,356822
+06-04-2023,TX00553,Daily Sales Deposit,Sales Revenue,Credit,726,357548
+07-04-2023,TX00554,Daily Sales Deposit,Sales Revenue,Credit,540,358088
+08-04-2023,TX00555,Daily Sales Deposit,Sales Revenue,Credit,778,358866
+09-04-2023,TX00556,Daily Sales Deposit,Sales Revenue,Credit,717,359583
+10-04-2023,TX00557,Daily Sales Deposit,Sales Revenue,Credit,684,360267
+11-04-2023,TX00558,Daily Sales Deposit,Sales Revenue,Credit,685,360952
+12-04-2023,TX00559,Daily Sales Deposit,Sales Revenue,Credit,418,361370
+12-04-2023,TX00560,Utility Bill Payment,Operating Expense,Debit,177,361193
+13-04-2023,TX00561,Daily Sales Deposit,Sales Revenue,Credit,574,361767
+14-04-2023,TX00562,Daily Sales Deposit,Sales Revenue,Credit,512,362279
+15-04-2023,TX00563,Daily Sales Deposit,Sales Revenue,Credit,565,362844
+16-04-2023,TX00564,Daily Sales Deposit,Sales Revenue,Credit,531,363375
+16-04-2023,TX00565,Utility Bill Payment,Operating Expense,Debit,154,363221
+17-04-2023,TX00566,Daily Sales Deposit,Sales Revenue,Credit,687,363908
+18-04-2023,TX00567,Daily Sales Deposit,Sales Revenue,Credit,765,364673
+19-04-2023,TX00568,Daily Sales Deposit,Sales Revenue,Credit,486,365159
+20-04-2023,TX00569,Daily Sales Deposit,Sales Revenue,Credit,687,365846
+21-04-2023,TX00570,Daily Sales Deposit,Sales Revenue,Credit,748,366594
+22-04-2023,TX00571,Daily Sales Deposit,Sales Revenue,Credit,712,367306
+23-04-2023,TX00572,Daily Sales Deposit,Sales Revenue,Credit,654,367960
+23-04-2023,TX00573,Bakery Payment,COGS,Debit,153,367807
+24-04-2023,TX00574,Daily Sales Deposit,Sales Revenue,Credit,638,368445
+25-04-2023,TX00575,Daily Sales Deposit,Sales Revenue,Credit,450,368895
+26-04-2023,TX00576,Daily Sales Deposit,Sales Revenue,Credit,663,369558
+26-04-2023,TX00577,Utility Bill Payment,Operating Expense,Debit,195,369363
+27-04-2023,TX00578,Daily Sales Deposit,Sales Revenue,Credit,799,370162
+28-04-2023,TX00579,Daily Sales Deposit,Sales Revenue,Credit,564,370726
+28-04-2023,TX00580,Coffee Supplier Payment,COGS,Debit,497,370229
+29-04-2023,TX00581,Daily Sales Deposit,Sales Revenue,Credit,406,370635
+30-04-2023,TX00582,Daily Sales Deposit,Sales Revenue,Credit,560,371195
+01-05-2023,TX00583,Daily Sales Deposit,Sales Revenue,Credit,546,371741
+01-05-2023,TX00584,Maintenance Payment,Operating Expense,Debit,135,371606
+02-05-2023,TX00585,Daily Sales Deposit,Sales Revenue,Credit,587,372193
+03-05-2023,TX00586,Daily Sales Deposit,Sales Revenue,Credit,784,372977
+04-05-2023,TX00587,Daily Sales Deposit,Sales Revenue,Credit,410,373387
+05-05-2023,TX00588,Daily Sales Deposit,Sales Revenue,Credit,785,374172
+06-05-2023,TX00589,Daily Sales Deposit,Sales Revenue,Credit,518,374690
+07-05-2023,TX00590,Daily Sales Deposit,Sales Revenue,Credit,660,375350
+08-05-2023,TX00591,Daily Sales Deposit,Sales Revenue,Credit,655,376005
+09-05-2023,TX00592,Daily Sales Deposit,Sales Revenue,Credit,625,376630
+10-05-2023,TX00593,Daily Sales Deposit,Sales Revenue,Credit,754,377384
+11-05-2023,TX00594,Daily Sales Deposit,Sales Revenue,Credit,741,378125
+12-05-2023,TX00595,Daily Sales Deposit,Sales Revenue,Credit,480,378605
+13-05-2023,TX00596,Daily Sales Deposit,Sales Revenue,Credit,519,379124
+14-05-2023,TX00597,Daily Sales Deposit,Sales Revenue,Credit,614,379738
+15-05-2023,TX00598,Daily Sales Deposit,Sales Revenue,Credit,608,380346
+16-05-2023,TX00599,Daily Sales Deposit,Sales Revenue,Credit,608,380954
+17-05-2023,TX00600,Daily Sales Deposit,Sales Revenue,Credit,439,381393
+18-05-2023,TX00601,Daily Sales Deposit,Sales Revenue,Credit,680,382073
+19-05-2023,TX00602,Daily Sales Deposit,Sales Revenue,Credit,645,382718
+20-05-2023,TX00603,Daily Sales Deposit,Sales Revenue,Credit,403,383121
+20-05-2023,TX00604,Maintenance Payment,Operating Expense,Debit,128,382993
+21-05-2023,TX00605,Daily Sales Deposit,Sales Revenue,Credit,497,383490
+22-05-2023,TX00606,Daily Sales Deposit,Sales Revenue,Credit,474,383964
+23-05-2023,TX00607,Daily Sales Deposit,Sales Revenue,Credit,527,384491
+23-05-2023,TX00608,Bakery Payment,COGS,Debit,455,384036
+24-05-2023,TX00609,Daily Sales Deposit,Sales Revenue,Credit,433,384469
+25-05-2023,TX00610,Daily Sales Deposit,Sales Revenue,Credit,552,385021
+26-05-2023,TX00611,Daily Sales Deposit,Sales Revenue,Credit,475,385496
+27-05-2023,TX00612,Daily Sales Deposit,Sales Revenue,Credit,761,386257
+27-05-2023,TX00613,Bakery Payment,COGS,Debit,126,386131
+28-05-2023,TX00614,Daily Sales Deposit,Sales Revenue,Credit,686,386817
+29-05-2023,TX00615,Daily Sales Deposit,Sales Revenue,Credit,567,387384
+30-05-2023,TX00616,Daily Sales Deposit,Sales Revenue,Credit,636,388020
+31-05-2023,TX00617,Daily Sales Deposit,Sales Revenue,Credit,793,388813
+01-06-2023,TX00618,Daily Sales Deposit,Sales Revenue,Credit,589,389402
+02-06-2023,TX00619,Daily Sales Deposit,Sales Revenue,Credit,463,389865
+03-06-2023,TX00620,Daily Sales Deposit,Sales Revenue,Credit,709,390574
+04-06-2023,TX00621,Daily Sales Deposit,Sales Revenue,Credit,706,391280
+04-06-2023,TX00622,Coffee Supplier Payment,COGS,Debit,470,390810
+05-06-2023,TX00623,Daily Sales Deposit,Sales Revenue,Credit,428,391238
+06-06-2023,TX00624,Daily Sales Deposit,Sales Revenue,Credit,695,391933
+07-06-2023,TX00625,Daily Sales Deposit,Sales Revenue,Credit,563,392496
+08-06-2023,TX00626,Daily Sales Deposit,Sales Revenue,Credit,694,393190
+09-06-2023,TX00627,Daily Sales Deposit,Sales Revenue,Credit,709,393899
+10-06-2023,TX00628,Daily Sales Deposit,Sales Revenue,Credit,510,394409
+11-06-2023,TX00629,Daily Sales Deposit,Sales Revenue,Credit,468,394877
+12-06-2023,TX00630,Daily Sales Deposit,Sales Revenue,Credit,649,395526
+12-06-2023,TX00631,Utility Bill Payment,Operating Expense,Debit,247,395279
+13-06-2023,TX00632,Daily Sales Deposit,Sales Revenue,Credit,626,395905
+14-06-2023,TX00633,Daily Sales Deposit,Sales Revenue,Credit,736,396641
+15-06-2023,TX00634,Daily Sales Deposit,Sales Revenue,Credit,764,397405
+15-06-2023,TX00635,Coffee Supplier Payment,COGS,Debit,300,397105
+16-06-2023,TX00636,Daily Sales Deposit,Sales Revenue,Credit,472,397577
+16-06-2023,TX00637,Bakery Payment,COGS,Debit,116,397461
+17-06-2023,TX00638,Daily Sales Deposit,Sales Revenue,Credit,616,398077
+18-06-2023,TX00639,Daily Sales Deposit,Sales Revenue,Credit,503,398580
+19-06-2023,TX00640,Daily Sales Deposit,Sales Revenue,Credit,438,399018
+19-06-2023,TX00641,Rent Payment,Operating Expense,Debit,328,398690
+20-06-2023,TX00642,Daily Sales Deposit,Sales Revenue,Credit,571,399261
+21-06-2023,TX00643,Daily Sales Deposit,Sales Revenue,Credit,501,399762
+22-06-2023,TX00644,Daily Sales Deposit,Sales Revenue,Credit,674,400436
+23-06-2023,TX00645,Daily Sales Deposit,Sales Revenue,Credit,704,401140
+23-06-2023,TX00646,Bakery Payment,COGS,Debit,429,400711
+24-06-2023,TX00647,Daily Sales Deposit,Sales Revenue,Credit,710,401421
+25-06-2023,TX00648,Daily Sales Deposit,Sales Revenue,Credit,411,401832
+26-06-2023,TX00649,Daily Sales Deposit,Sales Revenue,Credit,615,402447
+27-06-2023,TX00650,Daily Sales Deposit,Sales Revenue,Credit,548,402995
+28-06-2023,TX00651,Daily Sales Deposit,Sales Revenue,Credit,773,403768
+29-06-2023,TX00652,Daily Sales Deposit,Sales Revenue,Credit,599,404367
+30-06-2023,TX00653,Daily Sales Deposit,Sales Revenue,Credit,488,404855
+01-07-2023,TX00654,Daily Sales Deposit,Sales Revenue,Credit,558,405413
+02-07-2023,TX00655,Daily Sales Deposit,Sales Revenue,Credit,864,406277
+03-07-2023,TX00656,Daily Sales Deposit,Sales Revenue,Credit,787,407064
+04-07-2023,TX00657,Daily Sales Deposit,Sales Revenue,Credit,698,407762
+05-07-2023,TX00658,Daily Sales Deposit,Sales Revenue,Credit,781,408543
+06-07-2023,TX00659,Daily Sales Deposit,Sales Revenue,Credit,749,409292
+07-07-2023,TX00660,Daily Sales Deposit,Sales Revenue,Credit,834,410126
+08-07-2023,TX00661,Daily Sales Deposit,Sales Revenue,Credit,636,410762
+08-07-2023,TX00662,Coffee Supplier Payment,COGS,Debit,427,410335
+09-07-2023,TX00663,Daily Sales Deposit,Sales Revenue,Credit,814,411149
+10-07-2023,TX00664,Daily Sales Deposit,Sales Revenue,Credit,581,411730
+11-07-2023,TX00665,Daily Sales Deposit,Sales Revenue,Credit,871,412601
+12-07-2023,TX00666,Daily Sales Deposit,Sales Revenue,Credit,901,413502
+13-07-2023,TX00667,Daily Sales Deposit,Sales Revenue,Credit,602,414104
+13-07-2023,TX00668,Utility Bill Payment,Operating Expense,Debit,258,413846
+14-07-2023,TX00669,Daily Sales Deposit,Sales Revenue,Credit,607,414453
+14-07-2023,TX00670,Utility Bill Payment,Operating Expense,Debit,197,414256
+15-07-2023,TX00671,Daily Sales Deposit,Sales Revenue,Credit,792,415048
+16-07-2023,TX00672,Daily Sales Deposit,Sales Revenue,Credit,973,416021
+17-07-2023,TX00673,Daily Sales Deposit,Sales Revenue,Credit,863,416884
+18-07-2023,TX00674,Daily Sales Deposit,Sales Revenue,Credit,875,417759
+19-07-2023,TX00675,Daily Sales Deposit,Sales Revenue,Credit,848,418607
+20-07-2023,TX00676,Daily Sales Deposit,Sales Revenue,Credit,896,419503
+21-07-2023,TX00677,Daily Sales Deposit,Sales Revenue,Credit,515,420018
+22-07-2023,TX00678,Daily Sales Deposit,Sales Revenue,Credit,607,420625
+23-07-2023,TX00679,Daily Sales Deposit,Sales Revenue,Credit,810,421435
+24-07-2023,TX00680,Daily Sales Deposit,Sales Revenue,Credit,533,421968
+24-07-2023,TX00681,Maintenance Payment,Operating Expense,Debit,346,421622
+25-07-2023,TX00682,Daily Sales Deposit,Sales Revenue,Credit,640,422262
+26-07-2023,TX00683,Daily Sales Deposit,Sales Revenue,Credit,595,422857
+27-07-2023,TX00684,Daily Sales Deposit,Sales Revenue,Credit,538,423395
+27-07-2023,TX00685,Bakery Payment,COGS,Debit,128,423267
+28-07-2023,TX00686,Daily Sales Deposit,Sales Revenue,Credit,976,424243
+28-07-2023,TX00687,Bakery Payment,COGS,Debit,335,423908
+29-07-2023,TX00688,Daily Sales Deposit,Sales Revenue,Credit,771,424679
+30-07-2023,TX00689,Daily Sales Deposit,Sales Revenue,Credit,738,425417
+31-07-2023,TX00690,Daily Sales Deposit,Sales Revenue,Credit,913,426330
+01-08-2023,TX00691,Daily Sales Deposit,Sales Revenue,Credit,858,427188
+02-08-2023,TX00692,Daily Sales Deposit,Sales Revenue,Credit,564,427752
+03-08-2023,TX00693,Daily Sales Deposit,Sales Revenue,Credit,502,428254
+04-08-2023,TX00694,Daily Sales Deposit,Sales Revenue,Credit,875,429129
+05-08-2023,TX00695,Daily Sales Deposit,Sales Revenue,Credit,823,429952
+06-08-2023,TX00696,Daily Sales Deposit,Sales Revenue,Credit,792,430744
+06-08-2023,TX00697,Maintenance Payment,Operating Expense,Debit,292,430452
+07-08-2023,TX00698,Daily Sales Deposit,Sales Revenue,Credit,993,431445
+07-08-2023,TX00699,Bakery Payment,COGS,Debit,498,430947
+08-08-2023,TX00700,Daily Sales Deposit,Sales Revenue,Credit,876,431823
+09-08-2023,TX00701,Daily Sales Deposit,Sales Revenue,Credit,639,432462
+10-08-2023,TX00702,Daily Sales Deposit,Sales Revenue,Credit,792,433254
+11-08-2023,TX00703,Daily Sales Deposit,Sales Revenue,Credit,926,434180
+12-08-2023,TX00704,Daily Sales Deposit,Sales Revenue,Credit,794,434974
+13-08-2023,TX00705,Daily Sales Deposit,Sales Revenue,Credit,801,435775
+14-08-2023,TX00706,Daily Sales Deposit,Sales Revenue,Credit,561,436336
+15-08-2023,TX00707,Daily Sales Deposit,Sales Revenue,Credit,652,436988
+16-08-2023,TX00708,Daily Sales Deposit,Sales Revenue,Credit,759,437747
+17-08-2023,TX00709,Daily Sales Deposit,Sales Revenue,Credit,647,438394
+18-08-2023,TX00710,Daily Sales Deposit,Sales Revenue,Credit,809,439203
+19-08-2023,TX00711,Daily Sales Deposit,Sales Revenue,Credit,992,440195
+19-08-2023,TX00712,Coffee Supplier Payment,COGS,Debit,206,439989
+20-08-2023,TX00713,Daily Sales Deposit,Sales Revenue,Credit,812,440801
+21-08-2023,TX00714,Daily Sales Deposit,Sales Revenue,Credit,740,441541
+22-08-2023,TX00715,Daily Sales Deposit,Sales Revenue,Credit,875,442416
+23-08-2023,TX00716,Daily Sales Deposit,Sales Revenue,Credit,760,443176
+24-08-2023,TX00717,Daily Sales Deposit,Sales Revenue,Credit,714,443890
+25-08-2023,TX00718,Daily Sales Deposit,Sales Revenue,Credit,598,444488
+26-08-2023,TX00719,Daily Sales Deposit,Sales Revenue,Credit,740,445228
+26-08-2023,TX00720,Coffee Supplier Payment,COGS,Debit,277,444951
+27-08-2023,TX00721,Daily Sales Deposit,Sales Revenue,Credit,561,445512
+28-08-2023,TX00722,Daily Sales Deposit,Sales Revenue,Credit,502,446014
+29-08-2023,TX00723,Daily Sales Deposit,Sales Revenue,Credit,985,446999
+30-08-2023,TX00724,Daily Sales Deposit,Sales Revenue,Credit,880,447879
+31-08-2023,TX00725,Daily Sales Deposit,Sales Revenue,Credit,828,448707
+01-09-2023,TX00726,Daily Sales Deposit,Sales Revenue,Credit,1056,449763
+01-09-2023,TX00727,Utility Bill Payment,Operating Expense,Debit,204,449559
+02-09-2023,TX00728,Daily Sales Deposit,Sales Revenue,Credit,822,450381
+02-09-2023,TX00729,Utility Bill Payment,Operating Expense,Debit,236,450145
+03-09-2023,TX00730,Daily Sales Deposit,Sales Revenue,Credit,1108,451253
+04-09-2023,TX00731,Daily Sales Deposit,Sales Revenue,Credit,869,452122
+05-09-2023,TX00732,Daily Sales Deposit,Sales Revenue,Credit,739,452861
+06-09-2023,TX00733,Daily Sales Deposit,Sales Revenue,Credit,1094,453955
+06-09-2023,TX00734,Utility Bill Payment,Operating Expense,Debit,223,453732
+07-09-2023,TX00735,Daily Sales Deposit,Sales Revenue,Credit,1088,454820
+07-09-2023,TX00736,Rent Payment,Operating Expense,Debit,136,454684
+08-09-2023,TX00737,Daily Sales Deposit,Sales Revenue,Credit,875,455559
+09-09-2023,TX00738,Daily Sales Deposit,Sales Revenue,Credit,1152,456711
+10-09-2023,TX00739,Daily Sales Deposit,Sales Revenue,Credit,813,457524
+11-09-2023,TX00740,Daily Sales Deposit,Sales Revenue,Credit,923,458447
+12-09-2023,TX00741,Daily Sales Deposit,Sales Revenue,Credit,814,459261
+13-09-2023,TX00742,Daily Sales Deposit,Sales Revenue,Credit,755,460016
+14-09-2023,TX00743,Daily Sales Deposit,Sales Revenue,Credit,739,460755
+15-09-2023,TX00744,Daily Sales Deposit,Sales Revenue,Credit,936,461691
+16-09-2023,TX00745,Daily Sales Deposit,Sales Revenue,Credit,915,462606
+17-09-2023,TX00746,Daily Sales Deposit,Sales Revenue,Credit,867,463473
+18-09-2023,TX00747,Daily Sales Deposit,Sales Revenue,Credit,758,464231
+19-09-2023,TX00748,Daily Sales Deposit,Sales Revenue,Credit,868,465099
+20-09-2023,TX00749,Daily Sales Deposit,Sales Revenue,Credit,744,465843
+21-09-2023,TX00750,Daily Sales Deposit,Sales Revenue,Credit,869,466712
+21-09-2023,TX00751,Rent Payment,Operating Expense,Debit,254,466458
+22-09-2023,TX00752,Daily Sales Deposit,Sales Revenue,Credit,706,467164
+23-09-2023,TX00753,Daily Sales Deposit,Sales Revenue,Credit,744,467908
+24-09-2023,TX00754,Daily Sales Deposit,Sales Revenue,Credit,1198,469106
+25-09-2023,TX00755,Daily Sales Deposit,Sales Revenue,Credit,1125,470231
+25-09-2023,TX00756,Maintenance Payment,Operating Expense,Debit,462,469769
+26-09-2023,TX00757,Daily Sales Deposit,Sales Revenue,Credit,857,470626
+27-09-2023,TX00758,Daily Sales Deposit,Sales Revenue,Credit,781,471407
+28-09-2023,TX00759,Daily Sales Deposit,Sales Revenue,Credit,905,472312
+29-09-2023,TX00760,Daily Sales Deposit,Sales Revenue,Credit,711,473023
+29-09-2023,TX00761,Maintenance Payment,Operating Expense,Debit,323,472700
+30-09-2023,TX00762,Daily Sales Deposit,Sales Revenue,Credit,745,473445
+01-10-2023,TX00763,Daily Sales Deposit,Sales Revenue,Credit,932,474377
+02-10-2023,TX00764,Daily Sales Deposit,Sales Revenue,Credit,922,475299
+03-10-2023,TX00765,Daily Sales Deposit,Sales Revenue,Credit,1147,476446
+04-10-2023,TX00766,Daily Sales Deposit,Sales Revenue,Credit,862,477308
+04-10-2023,TX00767,Bakery Payment,COGS,Debit,173,477135
+05-10-2023,TX00768,Daily Sales Deposit,Sales Revenue,Credit,923,478058
+06-10-2023,TX00769,Daily Sales Deposit,Sales Revenue,Credit,1111,479169
+07-10-2023,TX00770,Daily Sales Deposit,Sales Revenue,Credit,921,480090
+08-10-2023,TX00771,Daily Sales Deposit,Sales Revenue,Credit,977,481067
+09-10-2023,TX00772,Daily Sales Deposit,Sales Revenue,Credit,1051,482118
+10-10-2023,TX00773,Daily Sales Deposit,Sales Revenue,Credit,1023,483141
+11-10-2023,TX00774,Daily Sales Deposit,Sales Revenue,Credit,716,483857
+12-10-2023,TX00775,Daily Sales Deposit,Sales Revenue,Credit,1100,484957
+13-10-2023,TX00776,Daily Sales Deposit,Sales Revenue,Credit,892,485849
+13-10-2023,TX00777,Utility Bill Payment,Operating Expense,Debit,219,485630
+14-10-2023,TX00778,Daily Sales Deposit,Sales Revenue,Credit,909,486539
+15-10-2023,TX00779,Daily Sales Deposit,Sales Revenue,Credit,891,487430
+16-10-2023,TX00780,Daily Sales Deposit,Sales Revenue,Credit,903,488333
+17-10-2023,TX00781,Daily Sales Deposit,Sales Revenue,Credit,926,489259
+18-10-2023,TX00782,Daily Sales Deposit,Sales Revenue,Credit,1159,490418
+18-10-2023,TX00783,Bakery Payment,COGS,Debit,494,489924
+19-10-2023,TX00784,Daily Sales Deposit,Sales Revenue,Credit,833,490757
+20-10-2023,TX00785,Daily Sales Deposit,Sales Revenue,Credit,1115,491872
+21-10-2023,TX00786,Daily Sales Deposit,Sales Revenue,Credit,757,492629
+21-10-2023,TX00787,Maintenance Payment,Operating Expense,Debit,325,492304
+22-10-2023,TX00788,Daily Sales Deposit,Sales Revenue,Credit,703,493007
+23-10-2023,TX00789,Daily Sales Deposit,Sales Revenue,Credit,1096,494103
+24-10-2023,TX00790,Daily Sales Deposit,Sales Revenue,Credit,970,495073
+25-10-2023,TX00791,Daily Sales Deposit,Sales Revenue,Credit,856,495929
+26-10-2023,TX00792,Daily Sales Deposit,Sales Revenue,Credit,987,496916
+26-10-2023,TX00793,Utility Bill Payment,Operating Expense,Debit,183,496733
+27-10-2023,TX00794,Daily Sales Deposit,Sales Revenue,Credit,726,497459
+28-10-2023,TX00795,Daily Sales Deposit,Sales Revenue,Credit,1081,498540
+28-10-2023,TX00796,Maintenance Payment,Operating Expense,Debit,191,498349
+29-10-2023,TX00797,Daily Sales Deposit,Sales Revenue,Credit,720,499069
+30-10-2023,TX00798,Daily Sales Deposit,Sales Revenue,Credit,1056,500125
+31-10-2023,TX00799,Daily Sales Deposit,Sales Revenue,Credit,961,501086
+01-11-2023,TX00800,Daily Sales Deposit,Sales Revenue,Credit,1152,502238
+02-11-2023,TX00801,Daily Sales Deposit,Sales Revenue,Credit,956,503194
+03-11-2023,TX00802,Daily Sales Deposit,Sales Revenue,Credit,1121,504315
+04-11-2023,TX00803,Daily Sales Deposit,Sales Revenue,Credit,1144,505459
+05-11-2023,TX00804,Daily Sales Deposit,Sales Revenue,Credit,1196,506655
+06-11-2023,TX00805,Daily Sales Deposit,Sales Revenue,Credit,711,507366
+07-11-2023,TX00806,Daily Sales Deposit,Sales Revenue,Credit,1191,508557
+08-11-2023,TX00807,Daily Sales Deposit,Sales Revenue,Credit,771,509328
+08-11-2023,TX00808,Maintenance Payment,Operating Expense,Debit,244,509084
+09-11-2023,TX00809,Daily Sales Deposit,Sales Revenue,Credit,1008,510092
+09-11-2023,TX00810,Coffee Supplier Payment,COGS,Debit,126,509966
+10-11-2023,TX00811,Daily Sales Deposit,Sales Revenue,Credit,1199,511165
+10-11-2023,TX00812,Rent Payment,Operating Expense,Debit,448,510717
+11-11-2023,TX00813,Daily Sales Deposit,Sales Revenue,Credit,880,511597
+12-11-2023,TX00814,Daily Sales Deposit,Sales Revenue,Credit,1077,512674
+13-11-2023,TX00815,Daily Sales Deposit,Sales Revenue,Credit,745,513419
+14-11-2023,TX00816,Daily Sales Deposit,Sales Revenue,Credit,921,514340
+14-11-2023,TX00817,Rent Payment,Operating Expense,Debit,372,513968
+15-11-2023,TX00818,Daily Sales Deposit,Sales Revenue,Credit,1039,515007
+16-11-2023,TX00819,Daily Sales Deposit,Sales Revenue,Credit,865,515872
+17-11-2023,TX00820,Daily Sales Deposit,Sales Revenue,Credit,1143,517015
+17-11-2023,TX00821,Coffee Supplier Payment,COGS,Debit,216,516799
+18-11-2023,TX00822,Daily Sales Deposit,Sales Revenue,Credit,1043,517842
+19-11-2023,TX00823,Daily Sales Deposit,Sales Revenue,Credit,763,518605
+20-11-2023,TX00824,Daily Sales Deposit,Sales Revenue,Credit,771,519376
+21-11-2023,TX00825,Daily Sales Deposit,Sales Revenue,Credit,1177,520553
+22-11-2023,TX00826,Daily Sales Deposit,Sales Revenue,Credit,1065,521618
+23-11-2023,TX00827,Daily Sales Deposit,Sales Revenue,Credit,865,522483
+24-11-2023,TX00828,Daily Sales Deposit,Sales Revenue,Credit,1000,523483
+25-11-2023,TX00829,Daily Sales Deposit,Sales Revenue,Credit,801,524284
+26-11-2023,TX00830,Daily Sales Deposit,Sales Revenue,Credit,966,525250
+27-11-2023,TX00831,Daily Sales Deposit,Sales Revenue,Credit,787,526037
+27-11-2023,TX00832,Bakery Payment,COGS,Debit,175,525862
+28-11-2023,TX00833,Daily Sales Deposit,Sales Revenue,Credit,745,526607
+28-11-2023,TX00834,Rent Payment,Operating Expense,Debit,179,526428
+29-11-2023,TX00835,Daily Sales Deposit,Sales Revenue,Credit,847,527275
+30-11-2023,TX00836,Daily Sales Deposit,Sales Revenue,Credit,1123,528398
+30-11-2023,TX00837,Coffee Supplier Payment,COGS,Debit,452,527946
+01-12-2023,TX00838,Daily Sales Deposit,Sales Revenue,Credit,924,528870
+01-12-2023,TX00839,Rent Payment,Operating Expense,Debit,176,528694
+02-12-2023,TX00840,Daily Sales Deposit,Sales Revenue,Credit,853,529547
+03-12-2023,TX00841,Daily Sales Deposit,Sales Revenue,Credit,893,530440
+04-12-2023,TX00842,Daily Sales Deposit,Sales Revenue,Credit,789,531229
+05-12-2023,TX00843,Daily Sales Deposit,Sales Revenue,Credit,1197,532426
+06-12-2023,TX00844,Daily Sales Deposit,Sales Revenue,Credit,805,533231
+06-12-2023,TX00845,Utility Bill Payment,Operating Expense,Debit,404,532827
+07-12-2023,TX00846,Daily Sales Deposit,Sales Revenue,Credit,1016,533843
+08-12-2023,TX00847,Daily Sales Deposit,Sales Revenue,Credit,1089,534932
+09-12-2023,TX00848,Daily Sales Deposit,Sales Revenue,Credit,772,535704
+09-12-2023,TX00849,Coffee Supplier Payment,COGS,Debit,140,535564
+10-12-2023,TX00850,Daily Sales Deposit,Sales Revenue,Credit,903,536467
+11-12-2023,TX00851,Daily Sales Deposit,Sales Revenue,Credit,877,537344
+12-12-2023,TX00852,Daily Sales Deposit,Sales Revenue,Credit,783,538127
+13-12-2023,TX00853,Daily Sales Deposit,Sales Revenue,Credit,950,539077
+14-12-2023,TX00854,Daily Sales Deposit,Sales Revenue,Credit,1158,540235
+15-12-2023,TX00855,Daily Sales Deposit,Sales Revenue,Credit,1087,541322
+16-12-2023,TX00856,Daily Sales Deposit,Sales Revenue,Credit,721,542043
+17-12-2023,TX00857,Daily Sales Deposit,Sales Revenue,Credit,702,542745
+17-12-2023,TX00858,Coffee Supplier Payment,COGS,Debit,287,542458
+18-12-2023,TX00859,Daily Sales Deposit,Sales Revenue,Credit,713,543171
+18-12-2023,TX00860,Rent Payment,Operating Expense,Debit,111,543060
+19-12-2023,TX00861,Daily Sales Deposit,Sales Revenue,Credit,1096,544156
+20-12-2023,TX00862,Daily Sales Deposit,Sales Revenue,Credit,942,545098
+21-12-2023,TX00863,Daily Sales Deposit,Sales Revenue,Credit,754,545852
+22-12-2023,TX00864,Daily Sales Deposit,Sales Revenue,Credit,872,546724
+22-12-2023,TX00865,Maintenance Payment,Operating Expense,Debit,218,546506
+23-12-2023,TX00866,Daily Sales Deposit,Sales Revenue,Credit,882,547388
+23-12-2023,TX00867,Coffee Supplier Payment,COGS,Debit,399,546989
+24-12-2023,TX00868,Daily Sales Deposit,Sales Revenue,Credit,1153,548142
+25-12-2023,TX00869,Daily Sales Deposit,Sales Revenue,Credit,849,548991
+26-12-2023,TX00870,Daily Sales Deposit,Sales Revenue,Credit,1011,550002
+27-12-2023,TX00871,Daily Sales Deposit,Sales Revenue,Credit,830,550832
+27-12-2023,TX00872,Utility Bill Payment,Operating Expense,Debit,342,550490
+28-12-2023,TX00873,Daily Sales Deposit,Sales Revenue,Credit,1144,551634
+28-12-2023,TX00874,Bakery Payment,COGS,Debit,306,551328
+29-12-2023,TX00875,Daily Sales Deposit,Sales Revenue,Credit,1090,552418
+30-12-2023,TX00876,Daily Sales Deposit,Sales Revenue,Credit,1049,553467
+31-12-2023,TX00877,Daily Sales Deposit,Sales Revenue,Credit,1141,554608
