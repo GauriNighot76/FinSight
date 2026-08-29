@@ -170,3 +170,127 @@ ON financial_accounts(business_id, account_status);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_financial_account_identifier
 ON financial_accounts(business_id, account_identifier)
 WHERE account_identifier IS NOT NULL AND account_identifier <> '';
+
+-- Module 4 ingestion boundary.
+-- These structures are additive. Legacy business_registry and
+-- transaction_general_ledger ownership semantics remain unchanged.
+
+CREATE TABLE IF NOT EXISTS business_registry_bridges (
+    bridge_id TEXT PRIMARY KEY,
+    business_id TEXT NOT NULL,
+    registry_business_id TEXT NOT NULL,
+    proposed_by_user_id TEXT NOT NULL,
+    verified_by_user_id TEXT,
+    bridge_status TEXT NOT NULL
+        CHECK (bridge_status IN ('pending','active','rejected','disabled')),
+    proposed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    verified_at TEXT,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (business_id) REFERENCES businesses(business_id) ON DELETE RESTRICT,
+    FOREIGN KEY (registry_business_id) REFERENCES business_registry(business_id) ON DELETE RESTRICT,
+    FOREIGN KEY (proposed_by_user_id) REFERENCES users(user_id) ON DELETE RESTRICT,
+    FOREIGN KEY (verified_by_user_id) REFERENCES users(user_id) ON DELETE RESTRICT,
+    CHECK (
+        bridge_status <> 'active'
+        OR (verified_by_user_id IS NOT NULL AND verified_at IS NOT NULL)
+    )
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_bridge_one_active_business
+ON business_registry_bridges(business_id)
+WHERE bridge_status = 'active';
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_bridge_one_active_registry
+ON business_registry_bridges(registry_business_id)
+WHERE bridge_status = 'active';
+
+CREATE INDEX IF NOT EXISTS idx_bridge_business_status
+ON business_registry_bridges(business_id, bridge_status);
+
+CREATE INDEX IF NOT EXISTS idx_bridge_registry_status
+ON business_registry_bridges(registry_business_id, bridge_status);
+
+CREATE TABLE IF NOT EXISTS ingestion_attempts (
+    attempt_id TEXT PRIMARY KEY,
+    parent_attempt_id TEXT,
+    business_id TEXT NOT NULL,
+    registry_business_id TEXT NOT NULL,
+    account_id TEXT NOT NULL,
+    uploader_user_id TEXT NOT NULL,
+    source_system TEXT NOT NULL
+        CHECK (source_system IN ('finsight_demo_bank_statement_v1')),
+    contract_version TEXT NOT NULL,
+    currency TEXT NOT NULL
+        CHECK (length(currency) = 3 AND currency = upper(currency)),
+    record_count INTEGER NOT NULL DEFAULT 0 CHECK (record_count >= 0),
+    inserted_count INTEGER NOT NULL DEFAULT 0 CHECK (inserted_count >= 0),
+    duplicate_count INTEGER NOT NULL DEFAULT 0 CHECK (duplicate_count >= 0),
+    rejected_count INTEGER NOT NULL DEFAULT 0 CHECK (rejected_count >= 0),
+    attempt_status TEXT NOT NULL
+        CHECK (attempt_status IN ('processing','completed','failed')),
+    public_error_code TEXT,
+    public_error_message TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    completed_at TEXT,
+    FOREIGN KEY (parent_attempt_id) REFERENCES ingestion_attempts(attempt_id) ON DELETE RESTRICT,
+    FOREIGN KEY (business_id) REFERENCES businesses(business_id) ON DELETE RESTRICT,
+    FOREIGN KEY (registry_business_id) REFERENCES business_registry(business_id) ON DELETE RESTRICT,
+    FOREIGN KEY (account_id) REFERENCES financial_accounts(account_id) ON DELETE RESTRICT,
+    FOREIGN KEY (uploader_user_id) REFERENCES users(user_id) ON DELETE RESTRICT,
+    CHECK (attempt_status <> 'completed' OR completed_at IS NOT NULL)
+);
+
+CREATE INDEX IF NOT EXISTS idx_ingestion_attempt_business_created
+ON ingestion_attempts(business_id, created_at);
+
+CREATE INDEX IF NOT EXISTS idx_ingestion_attempt_account_created
+ON ingestion_attempts(account_id, created_at);
+
+CREATE INDEX IF NOT EXISTS idx_ingestion_attempt_uploader_created
+ON ingestion_attempts(uploader_user_id, created_at);
+
+CREATE INDEX IF NOT EXISTS idx_ingestion_attempt_status_created
+ON ingestion_attempts(attempt_status, created_at);
+
+CREATE INDEX IF NOT EXISTS idx_ingestion_attempt_parent
+ON ingestion_attempts(parent_attempt_id);
+
+CREATE TABLE IF NOT EXISTS ingested_transaction_identities (
+    identity_id TEXT PRIMARY KEY,
+    transaction_id TEXT NOT NULL UNIQUE,
+    attempt_id TEXT NOT NULL,
+    business_id TEXT NOT NULL,
+    registry_business_id TEXT NOT NULL,
+    account_id TEXT NOT NULL,
+    source_system TEXT NOT NULL
+        CHECK (source_system IN ('finsight_demo_bank_statement_v1')),
+    source_transaction_id TEXT CHECK (source_transaction_id IS NULL OR length(trim(source_transaction_id)) > 0),
+    transaction_date TEXT NOT NULL,
+    amount_minor INTEGER NOT NULL
+        CHECK (typeof(amount_minor) = 'integer' AND amount_minor >= 0),
+    direction TEXT NOT NULL CHECK (direction IN ('income','expense')),
+    currency TEXT NOT NULL
+        CHECK (length(currency) = 3 AND currency = upper(currency)),
+    canonical_identity_hash TEXT NOT NULL UNIQUE
+        CHECK (length(trim(canonical_identity_hash)) > 0),
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (transaction_id) REFERENCES transaction_general_ledger(transaction_id) ON DELETE RESTRICT,
+    FOREIGN KEY (attempt_id) REFERENCES ingestion_attempts(attempt_id) ON DELETE RESTRICT,
+    FOREIGN KEY (business_id) REFERENCES businesses(business_id) ON DELETE RESTRICT,
+    FOREIGN KEY (registry_business_id) REFERENCES business_registry(business_id) ON DELETE RESTRICT,
+    FOREIGN KEY (account_id) REFERENCES financial_accounts(account_id) ON DELETE RESTRICT
+);
+
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_ingested_source_identity
+ON ingested_transaction_identities(account_id, source_system, source_transaction_id)
+WHERE source_transaction_id IS NOT NULL AND trim(source_transaction_id) <> '';
+
+CREATE INDEX IF NOT EXISTS idx_ingested_identity_account_created
+ON ingested_transaction_identities(account_id, created_at);
+
+CREATE INDEX IF NOT EXISTS idx_ingested_identity_attempt
+ON ingested_transaction_identities(attempt_id);
+
+CREATE INDEX IF NOT EXISTS idx_ingested_identity_registry_date
+ON ingested_transaction_identities(registry_business_id, transaction_date);
