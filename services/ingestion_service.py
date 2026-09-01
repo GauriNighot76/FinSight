@@ -1,13 +1,14 @@
-"""Authorization and read-only orchestration for Module 4 ingestion.
+"""Module 4 authorization, identity preparation, and atomic write orchestration.
 
-This module deliberately stops before attempt creation or financial writes.  It
-establishes the trusted context, validates the canonical payload, and performs
-identity classification so a later write phase can operate on a fully checked
-plan.
+``prepare_ingestion`` is read-only.  ``ingest`` uses the repository's
+caller-owned transaction boundary to persist an authorized attempt, legacy
+ledger row, and canonical identity companion as one unit.
 """
 
 import hashlib
+import sqlite3
 from dataclasses import dataclass
+from decimal import Decimal
 from typing import Any, Optional
 
 from database import queries
@@ -31,12 +32,15 @@ class IngestionServiceError(ValueError):
         "REGISTRY_OWNER_NOT_FOUND": "The linked registry owner is unavailable.",
         "VALIDATION_FAILED": "The ingestion payload is invalid.",
         "IDENTITY_CONFLICT": "The ingestion contains a conflicting transaction identity.",
+        "STORAGE_FAILED": "The ingestion could not be completed.",
     }
 
     def __init__(self, code: str) -> None:
         if code not in self._MESSAGES:
             code = "VALIDATION_FAILED"
         self.code = code
+        self.error = code
+        self.success = False
         super().__init__(self._MESSAGES[code])
 
 
@@ -71,6 +75,22 @@ class PreparedIngestion:
     @property
     def record_count(self) -> int:
         return len(self.records)
+
+
+@dataclass(frozen=True)
+class IngestionWriteResult:
+    """Safe bounded result for a completed atomic write operation."""
+
+    status: str
+    attempt_id: Optional[str]
+    record_count: int
+    inserted_count: int
+    duplicate_count: int
+    rejected_count: int
+
+    @property
+    def success(self) -> bool:
+        return self.status == "completed"
 
 
 def _raise(code: str) -> None:
@@ -111,20 +131,23 @@ def _duplicate_for_within_batch(
     )
 
 
-def prepare_ingestion(
+@dataclass(frozen=True)
+class _VerifiedContext:
+    uploader_user_id: str
+    business_id: str
+    registry_business_id: str
+    legacy_owner_user_id: str
+    account_id: str
+    currency: str
+
+
+def _resolve_verified_context(
     *,
     session_token: Any,
-    business_id: str,
-    account_id: str,
-    payload: Any,
-) -> PreparedIngestion:
-    """Authorize, validate, and classify a canonical ingestion request.
-
-    The function is intentionally read-only: it creates no attempt, ledger
-    row, identity row, or transaction.  All context identifiers are supplied
-    explicitly and verified through repository lookups; canonical records
-    cannot override the selected business or account.
-    """
+    business_id: Any,
+    account_id: Any,
+    connection: Optional[Any] = None,
+) -> _VerifiedContext:
     session = queries.get_active_session(_session_token_hash(session_token))
     if session is None or session["account_status"] != "active":
         _raise("AUTHENTICATION_FAILED")
@@ -133,21 +156,25 @@ def prepare_ingestion(
     business_id = _require_context_id(business_id, "BUSINESS_NOT_FOUND")
     account_id = _require_context_id(account_id, "ACCOUNT_NOT_AUTHORIZED")
 
-    business = queries.get_active_business(business_id)
+    business = queries.get_active_business(business_id, connection=connection)
     if business is None:
         _raise("BUSINESS_NOT_FOUND")
 
-    membership = queries.get_active_business_membership(business_id, uploader_user_id)
+    membership = queries.get_active_business_membership(
+        business_id, uploader_user_id, connection=connection
+    )
     if membership is None:
         _raise("MEMBERSHIP_REQUIRED")
     if membership["membership_role"] not in AUTHORIZED_MEMBERSHIP_ROLES:
         _raise("INGESTION_FORBIDDEN")
 
-    account = queries.get_active_financial_account(account_id, business_id)
+    account = queries.get_active_financial_account(
+        account_id, business_id, connection=connection
+    )
     if account is None:
         _raise("ACCOUNT_NOT_AUTHORIZED")
 
-    bridge = queries.get_active_bridge(business_id)
+    bridge = queries.get_active_bridge(business_id, connection=connection)
     if (
         bridge is None
         or bridge["proposed_by_user_id"] == bridge["verified_by_user_id"]
@@ -155,35 +182,48 @@ def prepare_ingestion(
         _raise("BRIDGE_NOT_VERIFIED")
     registry_business_id = bridge["registry_business_id"]
 
-    registry_business = queries.get_registry_business(registry_business_id)
+    registry_business = queries.get_registry_business(
+        registry_business_id, connection=connection
+    )
     if registry_business is None:
         _raise("REGISTRY_BUSINESS_NOT_FOUND")
-    legacy_owner_user_id = queries.get_registry_owner(registry_business_id)
+    legacy_owner_user_id = queries.get_registry_owner(
+        registry_business_id, connection=connection
+    )
     if legacy_owner_user_id is None:
         _raise("REGISTRY_OWNER_NOT_FOUND")
 
-    try:
-        validated_payload = ingestion_validation.validate_ingestion_payload(payload)
-    except ingestion_validation.ValidationError:
-        _raise("VALIDATION_FAILED")
+    return _VerifiedContext(
+        uploader_user_id=uploader_user_id,
+        business_id=business_id,
+        registry_business_id=registry_business_id,
+        legacy_owner_user_id=legacy_owner_user_id,
+        account_id=account_id,
+        currency=account["currency"],
+    )
 
-    source_system = validated_payload["source_system"]
-    contract_version = validated_payload["contract_version"]
-    currency = account["currency"]
 
-    prepared_records: list[PreparedRecord] = []
+def _classify_records(
+    *,
+    context: _VerifiedContext,
+    source_system: str,
+    records: list[dict[str, Any]],
+    connection: Optional[Any] = None,
+) -> list[ingestion_identity.IdentityClassification]:
+    classifications: list[ingestion_identity.IdentityClassification] = []
     seen_hashes: dict[str, int] = {}
     seen_source_ids: dict[str, tuple[str, int]] = {}
 
-    for index, record in enumerate(validated_payload["records"]):
+    for index, record in enumerate(records):
         try:
             classification = ingestion_identity.classify_transaction_identity(
-                business_id=business_id,
-                registry_business_id=registry_business_id,
-                account_id=account_id,
+                business_id=context.business_id,
+                registry_business_id=context.registry_business_id,
+                account_id=context.account_id,
                 source_system=source_system,
-                currency=currency,
+                currency=context.currency,
                 record=record,
+                connection=connection,
             )
         except ingestion_identity.IdentityError:
             _raise("IDENTITY_CONFLICT")
@@ -204,9 +244,8 @@ def prepare_ingestion(
                     outcome=ingestion_identity.IdentityOutcome.DUPLICATE_SOURCE_ID,
                 )
 
-        prior_hash_index = seen_hashes.get(classification.canonical_identity_hash)
         if (
-            prior_hash_index is not None
+            classification.canonical_identity_hash in seen_hashes
             and classification.outcome == ingestion_identity.IdentityOutcome.UNIQUE
         ):
             classification = _duplicate_for_within_batch(
@@ -223,31 +262,294 @@ def prepare_ingestion(
                 classification.canonical_identity_hash,
                 index,
             )
-        prepared_records.append(
-            PreparedRecord(
-                index=index,
-                outcome=classification.outcome,
-                canonical_identity_hash=classification.canonical_identity_hash,
-                existing_identity_id=classification.existing_identity_id,
-            )
+        classifications.append(classification)
+
+    return classifications
+
+
+def prepare_ingestion(
+    *,
+    session_token: Any,
+    business_id: str,
+    account_id: str,
+    payload: Any,
+) -> PreparedIngestion:
+    """Authorize, validate, and classify a canonical ingestion request.
+
+    The function is intentionally read-only: it creates no attempt, ledger
+    row, identity row, or transaction.  All context identifiers are supplied
+    explicitly and verified through repository lookups; canonical records
+    cannot override the selected business or account.
+    """
+    context = _resolve_verified_context(
+        session_token=session_token,
+        business_id=business_id,
+        account_id=account_id,
+    )
+
+    try:
+        validated_payload = ingestion_validation.validate_ingestion_payload(payload)
+    except ingestion_validation.ValidationError:
+        _raise("VALIDATION_FAILED")
+
+    source_system = validated_payload["source_system"]
+    contract_version = validated_payload["contract_version"]
+    classifications = _classify_records(
+        context=context,
+        source_system=source_system,
+        records=validated_payload["records"],
+    )
+    prepared_records = [
+        PreparedRecord(
+            index=index,
+            outcome=classification.outcome,
+            canonical_identity_hash=classification.canonical_identity_hash,
+            existing_identity_id=classification.existing_identity_id,
         )
+        for index, classification in enumerate(classifications)
+    ]
 
     return PreparedIngestion(
-        uploader_user_id=uploader_user_id,
-        business_id=business_id,
-        registry_business_id=registry_business_id,
-        legacy_owner_user_id=legacy_owner_user_id,
-        account_id=account_id,
-        currency=currency,
+        uploader_user_id=context.uploader_user_id,
+        business_id=context.business_id,
+        registry_business_id=context.registry_business_id,
+        legacy_owner_user_id=context.legacy_owner_user_id,
+        account_id=context.account_id,
+        currency=context.currency,
         source_system=source_system,
         contract_version=contract_version,
         records=tuple(prepared_records),
     )
 
 
+def _legacy_amount(amount_minor: int) -> float:
+    """Project exact minor units into the unchanged legacy REAL column."""
+    return float(Decimal(amount_minor) / Decimal(100))
+
+
+def _persist_ingestion(
+    *,
+    session_token: Any,
+    business_id: Any,
+    account_id: Any,
+    payload: Any,
+    parent_attempt_id: Optional[str],
+    connection: Any,
+) -> IngestionWriteResult:
+    """Perform the write path on the caller's connection only."""
+    context = _resolve_verified_context(
+        session_token=session_token,
+        business_id=business_id,
+        account_id=account_id,
+        connection=connection,
+    )
+    try:
+        validated_payload = ingestion_validation.validate_ingestion_payload(payload)
+    except ingestion_validation.ValidationError:
+        _raise("VALIDATION_FAILED")
+
+    source_system = validated_payload["source_system"]
+    contract_version = validated_payload["contract_version"]
+    records = validated_payload["records"]
+    classifications = _classify_records(
+        context=context,
+        source_system=source_system,
+        records=records,
+        connection=connection,
+    )
+
+    attempt_id = queries.create_ingestion_attempt(
+        business_id=context.business_id,
+        registry_business_id=context.registry_business_id,
+        account_id=context.account_id,
+        uploader_user_id=context.uploader_user_id,
+        source_system=source_system,
+        contract_version=contract_version,
+        currency=context.currency,
+        record_count=len(records),
+        parent_attempt_id=parent_attempt_id,
+        connection=connection,
+    )
+
+    inserted_count = 0
+    duplicate_count = 0
+    for record, classification in zip(records, classifications):
+        if classification.outcome in {
+            ingestion_identity.IdentityOutcome.DUPLICATE_SOURCE_ID,
+            ingestion_identity.IdentityOutcome.DUPLICATE_CANONICAL_IDENTITY,
+        }:
+            duplicate_count += 1
+            continue
+        if _identity_conflict(classification):
+            _raise("IDENTITY_CONFLICT")
+
+        transaction_id = queries.insert_ledger_transaction(
+            registry_business_id=context.registry_business_id,
+            legacy_owner_user_id=context.legacy_owner_user_id,
+            transaction_date=record["transaction_date"],
+            amount=_legacy_amount(record["amount_minor"]),
+            transaction_type=record["direction"],
+            transaction_hash=classification.canonical_identity_hash,
+            connection=connection,
+        )
+        queries.insert_transaction_identity(
+            transaction_id=transaction_id,
+            attempt_id=attempt_id,
+            business_id=context.business_id,
+            registry_business_id=context.registry_business_id,
+            account_id=context.account_id,
+            source_system=source_system,
+            source_transaction_id=record.get("source_transaction_id"),
+            transaction_date=record["transaction_date"],
+            amount_minor=record["amount_minor"],
+            direction=record["direction"],
+            currency=context.currency,
+            canonical_identity_hash=classification.canonical_identity_hash,
+            connection=connection,
+        )
+        inserted_count += 1
+
+    if not queries.complete_ingestion_attempt(
+        attempt_id,
+        inserted_count=inserted_count,
+        duplicate_count=duplicate_count,
+        rejected_count=0,
+        connection=connection,
+    ):
+        _raise("STORAGE_FAILED")
+
+    return IngestionWriteResult(
+        status="completed",
+        attempt_id=attempt_id,
+        record_count=len(records),
+        inserted_count=inserted_count,
+        duplicate_count=duplicate_count,
+        rejected_count=0,
+    )
+
+
+def _reclassify_after_rollback(
+    *,
+    session_token: Any,
+    business_id: Any,
+    account_id: Any,
+    payload: Any,
+) -> Optional[IngestionWriteResult]:
+    """Interpret a post-check uniqueness failure without exposing SQLite."""
+    try:
+        context = _resolve_verified_context(
+            session_token=session_token,
+            business_id=business_id,
+            account_id=account_id,
+        )
+        validated_payload = ingestion_validation.validate_ingestion_payload(payload)
+        records = validated_payload["records"]
+        classifications = _classify_records(
+            context=context,
+            source_system=validated_payload["source_system"],
+            records=records,
+        )
+    except IngestionServiceError as error:
+        if error.code == "IDENTITY_CONFLICT":
+            raise
+        return None
+    except (ingestion_validation.ValidationError, ingestion_identity.IdentityError):
+        return None
+
+    if any(_identity_conflict(classification) for classification in classifications):
+        _raise("IDENTITY_CONFLICT")
+    if not classifications or not all(
+        classification.outcome
+        in {
+            ingestion_identity.IdentityOutcome.DUPLICATE_SOURCE_ID,
+            ingestion_identity.IdentityOutcome.DUPLICATE_CANONICAL_IDENTITY,
+        }
+        for classification in classifications
+    ):
+        return None
+
+    return IngestionWriteResult(
+        status="completed",
+        attempt_id=None,
+        record_count=len(records),
+        inserted_count=0,
+        duplicate_count=len(records),
+        rejected_count=0,
+    )
+
+
+def ingest(
+    *,
+    session_token: Any,
+    business_id: str,
+    account_id: str,
+    payload: Any,
+    parent_attempt_id: Optional[str] = None,
+    connection: Optional[Any] = None,
+) -> IngestionWriteResult:
+    """Persist a validated batch atomically, or raise a safe service error.
+
+    With no connection supplied, this function owns the Module 4 transaction
+    and guarantees rollback on every failure.  A supplied connection remains
+    caller-owned: this function never commits or rolls it back.
+    """
+    # Run the read-only preparation first so unauthorized and malformed
+    # requests cannot create an attempt.  The write transaction then repeats
+    # all sensitive lookups and identity classification on its own connection.
+    try:
+        prepare_ingestion(
+            session_token=session_token,
+            business_id=business_id,
+            account_id=account_id,
+            payload=payload,
+        )
+    except IngestionServiceError:
+        raise
+    except (sqlite3.IntegrityError, sqlite3.OperationalError):
+        _raise("STORAGE_FAILED")
+    except Exception:
+        _raise("STORAGE_FAILED")
+
+    try:
+        if connection is not None:
+            return _persist_ingestion(
+                session_token=session_token,
+                business_id=business_id,
+                account_id=account_id,
+                payload=payload,
+                parent_attempt_id=parent_attempt_id,
+                connection=connection,
+            )
+        with queries.module4_transaction() as transaction_connection:
+            return _persist_ingestion(
+                session_token=session_token,
+                business_id=business_id,
+                account_id=account_id,
+                payload=payload,
+                parent_attempt_id=parent_attempt_id,
+                connection=transaction_connection,
+            )
+    except IngestionServiceError:
+        raise
+    except (sqlite3.IntegrityError, sqlite3.OperationalError):
+        if connection is None:
+            reclassified = _reclassify_after_rollback(
+                session_token=session_token,
+                business_id=business_id,
+                account_id=account_id,
+                payload=payload,
+            )
+            if reclassified is not None:
+                return reclassified
+        _raise("STORAGE_FAILED")
+    except Exception:
+        _raise("STORAGE_FAILED")
+
+
 __all__ = [
     "AUTHORIZED_MEMBERSHIP_ROLES",
     "IngestionServiceError",
+    "IngestionWriteResult",
     "PreparedIngestion",
     "PreparedRecord",
     "prepare_ingestion",

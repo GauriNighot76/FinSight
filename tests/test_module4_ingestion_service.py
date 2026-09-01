@@ -1,4 +1,5 @@
 import hashlib
+import sqlite3
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -378,3 +379,250 @@ def test_validation_and_identity_layers_are_reused(ingestion_repository, monkeyp
     ingestion_service.prepare_ingestion(**prepare_args())
 
     assert calls == {"validation": 1, "identity": 1}
+
+
+def _module4_counts(connection):
+    return tuple(
+        connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+        for table in (
+            "ingestion_attempts",
+            "transaction_general_ledger",
+            "ingested_transaction_identities",
+        )
+    )
+
+
+def test_ingest_commits_attempt_ledger_and_identity_together(ingestion_repository):
+    result = ingestion_service.ingest(**prepare_args())
+
+    assert result.status == "completed"
+    assert result.attempt_id is not None
+    assert (result.record_count, result.inserted_count,
+            result.duplicate_count, result.rejected_count) == (1, 1, 0, 0)
+    with ingestion_repository() as connection:
+        attempt = connection.execute(
+            "SELECT * FROM ingestion_attempts WHERE attempt_id=?",
+            (result.attempt_id,),
+        ).fetchone()
+        ledger = connection.execute(
+            "SELECT * FROM transaction_general_ledger"
+        ).fetchone()
+        identity = connection.execute(
+            "SELECT * FROM ingested_transaction_identities"
+        ).fetchone()
+
+    assert attempt["attempt_status"] == "completed"
+    assert attempt["uploader_user_id"] == "owner_user_001"
+    assert ledger["business_id"] == REGISTRY_BUSINESS_ID
+    assert ledger["user_id"] == "legacy_owner_001"
+    assert ledger["transaction_type"] == "income"
+    assert ledger["amount"] == pytest.approx(12.34)
+    assert identity["transaction_id"] == ledger["transaction_id"]
+    assert identity["attempt_id"] == result.attempt_id
+    assert identity["amount_minor"] == 1234
+    assert identity["direction"] == "income"
+    assert identity["currency"] == "INR"
+    assert identity["canonical_identity_hash"] == ingestion_identity.build_canonical_identity_hash(
+        ACCOUNT_ID, SOURCE_SYSTEM, "INR", "2026-08-31", 1234, "income"
+    )
+
+
+def test_ingest_manager_writes_legacy_owner_not_uploader(ingestion_repository):
+    result = ingestion_service.ingest(
+        **prepare_args(token="token-manager_user_001")
+    )
+
+    with ingestion_repository() as connection:
+        attempt = connection.execute(
+            "SELECT uploader_user_id FROM ingestion_attempts WHERE attempt_id=?",
+            (result.attempt_id,),
+        ).fetchone()
+        ledger = connection.execute(
+            "SELECT user_id FROM transaction_general_ledger"
+        ).fetchone()
+    assert attempt["uploader_user_id"] == "manager_user_001"
+    assert ledger["user_id"] == "legacy_owner_001"
+
+
+@pytest.mark.parametrize(
+    "source_transaction_id",
+    ["SRC-001", "SRC-002"],
+)
+def test_known_duplicates_do_not_insert_financial_rows(
+    ingestion_repository, source_transaction_id
+):
+    with ingestion_repository() as connection:
+        seed_identity(connection)
+    before = None
+    with ingestion_repository() as connection:
+        before = _module4_counts(connection)
+
+    result = ingestion_service.ingest(
+        **prepare_args(
+            payload=make_payload(
+                [make_record(source_transaction_id=source_transaction_id)]
+            )
+        )
+    )
+
+    assert result.status == "completed"
+    assert result.inserted_count == 0
+    assert result.duplicate_count == 1
+    with ingestion_repository() as connection:
+        after = _module4_counts(connection)
+    assert after == (before[0] + 1, before[1], before[2])
+
+
+def test_source_identity_conflict_fails_without_partial_writes(ingestion_repository):
+    with ingestion_repository() as connection:
+        seed_identity(connection, values={"amount_minor": 9999})
+
+    with pytest.raises(ingestion_service.IngestionServiceError) as exc_info:
+        ingestion_service.ingest(
+            **prepare_args(
+                payload=make_payload(
+                    [make_record(source_transaction_id="SRC-001")]
+                )
+            )
+        )
+    assert exc_info.value.code == "IDENTITY_CONFLICT"
+    with ingestion_repository() as connection:
+        assert _module4_counts(connection) == (1, 1, 1)
+
+
+def test_canonical_identity_conflict_fails_without_partial_writes(ingestion_repository):
+    with ingestion_repository() as connection:
+        seed_identity(connection, source_transaction_id="SRC-OLD", values={"amount_minor": 9999})
+        connection.execute(
+            "UPDATE ingested_transaction_identities SET canonical_identity_hash=?",
+            (
+                ingestion_identity.build_canonical_identity_hash(
+                    ACCOUNT_ID,
+                    SOURCE_SYSTEM,
+                    "INR",
+                    "2026-08-31",
+                    1234,
+                    "income",
+                ),
+            ),
+        )
+
+    with pytest.raises(ingestion_service.IngestionServiceError) as exc_info:
+        ingestion_service.ingest(
+            **prepare_args(
+                payload=make_payload(
+                    [make_record(source_transaction_id="SRC-NEW")]
+                )
+            )
+        )
+    assert exc_info.value.code == "IDENTITY_CONFLICT"
+    with ingestion_repository() as connection:
+        assert _module4_counts(connection) == (1, 1, 1)
+
+
+@pytest.mark.parametrize("failure_point", ["attempt", "ledger", "identity"])
+def test_financial_failure_rolls_back_attempt_and_all_rows(
+    ingestion_repository, monkeypatch, failure_point
+):
+    if failure_point == "attempt":
+        original = queries.create_ingestion_attempt
+
+        def fail_after_attempt(**kwargs):
+            original(**kwargs)
+            raise sqlite3.IntegrityError("simulated attempt failure")
+
+        monkeypatch.setattr(queries, "create_ingestion_attempt", fail_after_attempt)
+    elif failure_point == "ledger":
+        monkeypatch.setattr(
+            queries,
+            "insert_ledger_transaction",
+            lambda **_kwargs: (_ for _ in ()).throw(
+                sqlite3.OperationalError("simulated ledger failure")
+            ),
+        )
+    else:
+        original = queries.insert_transaction_identity
+
+        def fail_after_identity(**kwargs):
+            original(**kwargs)
+            raise sqlite3.IntegrityError("simulated identity failure")
+
+        monkeypatch.setattr(queries, "insert_transaction_identity", fail_after_identity)
+
+    with pytest.raises(ingestion_service.IngestionServiceError) as exc_info:
+        ingestion_service.ingest(**prepare_args())
+    assert exc_info.value.code == "STORAGE_FAILED"
+    assert "simulated" not in str(exc_info.value)
+    with ingestion_repository() as connection:
+        assert _module4_counts(connection) == (0, 0, 0)
+
+
+def test_caller_owned_connection_has_no_hidden_commit(ingestion_repository):
+    with ingestion_repository() as connection:
+        result = ingestion_service.ingest(**prepare_args(), connection=connection)
+        assert connection.in_transaction
+        with ingestion_repository() as separate_connection:
+            assert _module4_counts(separate_connection) == (0, 0, 0)
+        connection.commit()
+        assert result.attempt_id is not None
+
+    with ingestion_repository() as connection:
+        assert _module4_counts(connection) == (1, 1, 1)
+
+
+def test_caller_owned_connection_has_no_hidden_rollback(ingestion_repository, monkeypatch):
+    monkeypatch.setattr(
+        queries,
+        "insert_ledger_transaction",
+        lambda **_kwargs: (_ for _ in ()).throw(
+            sqlite3.OperationalError("simulated ledger failure")
+        ),
+    )
+    with ingestion_repository() as connection:
+        with pytest.raises(ingestion_service.IngestionServiceError):
+            ingestion_service.ingest(**prepare_args(), connection=connection)
+        assert connection.in_transaction
+        assert connection.execute("SELECT COUNT(*) FROM ingestion_attempts").fetchone()[0] == 1
+        connection.rollback()
+
+    with ingestion_repository() as connection:
+        assert _module4_counts(connection) == (0, 0, 0)
+
+
+def test_retry_attempt_uses_new_id_and_parent_lineage(ingestion_repository):
+    parent = queries.create_ingestion_attempt(
+        business_id=BUSINESS_ID,
+        registry_business_id=REGISTRY_BUSINESS_ID,
+        account_id=ACCOUNT_ID,
+        uploader_user_id="owner_user_001",
+        source_system=SOURCE_SYSTEM,
+        contract_version=CONTRACT_VERSION,
+        currency="INR",
+        record_count=1,
+    )
+    result = ingestion_service.ingest(**prepare_args(), parent_attempt_id=parent)
+
+    with ingestion_repository() as connection:
+        row = connection.execute(
+            "SELECT parent_attempt_id FROM ingestion_attempts WHERE attempt_id=?",
+            (result.attempt_id,),
+        ).fetchone()
+    assert result.attempt_id != parent
+    assert row["parent_attempt_id"] == parent
+
+
+def test_rejected_database_error_is_safe_and_rolls_back(ingestion_repository, monkeypatch):
+    monkeypatch.setattr(
+        queries,
+        "insert_transaction_identity",
+        lambda **_kwargs: (_ for _ in ()).throw(
+            sqlite3.IntegrityError("SQLITE_SECRET_PATH / raw payload")
+        ),
+    )
+    with pytest.raises(ingestion_service.IngestionServiceError) as exc_info:
+        ingestion_service.ingest(**prepare_args())
+    assert exc_info.value.code == "STORAGE_FAILED"
+    assert "SQLITE" not in str(exc_info.value)
+    assert "raw payload" not in str(exc_info.value)
+    with ingestion_repository() as connection:
+        assert _module4_counts(connection) == (0, 0, 0)
