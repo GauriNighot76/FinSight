@@ -1,5 +1,6 @@
 """Read-only financial analytics for accepted Module 4 transactions."""
 
+from collections import defaultdict
 from datetime import date
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Any
@@ -80,13 +81,144 @@ def _load_accepted_rows(
 ) -> list[Any]:
     with queries.get_connection() as connection:
         return connection.execute(
-            """SELECT transaction_date, amount_minor, direction, currency
-               FROM ingested_transaction_identities
-               WHERE business_id=? AND account_id=?
-                 AND transaction_date BETWEEN ? AND ?
-               ORDER BY transaction_date, identity_id""",
+            """SELECT i.transaction_date, i.amount_minor, i.direction, i.currency,
+                      i.identity_id, t.category, t.payment_mode
+               FROM ingested_transaction_identities i
+               JOIN transaction_general_ledger t
+                 ON t.transaction_id=i.transaction_id
+               WHERE i.business_id=? AND i.account_id=?
+                 AND i.transaction_date BETWEEN ? AND ?
+               ORDER BY i.transaction_date, i.identity_id""",
             (business_id, account_id, start_date, end_date),
         ).fetchall()
+
+
+def _empty_trends() -> dict[str, list[dict[str, Any]]]:
+    return {"daily": [], "weekly": [], "monthly": []}
+
+
+def _trend_row(period: str, rows: list[Any]) -> dict[str, Any]:
+    income = sum(row["amount_minor"] for row in rows if row["direction"] == "income")
+    expense = sum(row["amount_minor"] for row in rows if row["direction"] == "expense")
+    return {
+        "period": period,
+        "income_minor": income,
+        "expense_minor": expense,
+        "net_cash_flow_minor": income - expense,
+        "transaction_count": len(rows),
+    }
+
+
+def _build_trends(rows: list[Any]) -> dict[str, list[dict[str, Any]]]:
+    if not rows:
+        return _empty_trends()
+
+    daily_groups: dict[str, list[Any]] = defaultdict(list)
+    weekly_groups: dict[str, list[Any]] = defaultdict(list)
+    monthly_groups: dict[str, list[Any]] = defaultdict(list)
+    for row in rows:
+        transaction_date = date.fromisoformat(row["transaction_date"])
+        day = transaction_date.isoformat()
+        week = f"{transaction_date:%G}-W{transaction_date:%V}"
+        month = transaction_date.strftime("%Y-%m")
+        daily_groups[day].append(row)
+        weekly_groups[week].append(row)
+        monthly_groups[month].append(row)
+
+    return {
+        "daily": [_trend_row(period, daily_groups[period]) for period in sorted(daily_groups)],
+        "weekly": [_trend_row(period, weekly_groups[period]) for period in sorted(weekly_groups)],
+        "monthly": [
+            _trend_row(period, monthly_groups[period])
+            for period in sorted(monthly_groups)
+        ],
+    }
+
+
+def _build_category_summary(rows: list[Any]) -> list[dict[str, Any]]:
+    groups: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        category = row["category"] or "Uncategorized"
+        group = groups.setdefault(
+            category,
+            {"income_minor": 0, "expense_minor": 0, "count": 0},
+        )
+        group["count"] += 1
+        group[f"{row['direction']}_minor"] += row["amount_minor"]
+
+    total_amount = sum(row["amount_minor"] for row in rows)
+    result = []
+    for category, group in groups.items():
+        amount = group["income_minor"] + group["expense_minor"]
+        result.append(
+            {
+                "category": category,
+                "income_minor": group["income_minor"],
+                "expense_minor": group["expense_minor"],
+                "amount_minor": amount,
+                "count": group["count"],
+                "percentage": _percentage(amount, total_amount),
+            }
+        )
+    return sorted(result, key=lambda item: (-item["amount_minor"], item["category"]))
+
+
+_PAYMENT_MODE_ORDER = {
+    mode: index
+    for index, mode in enumerate(("Cash", "UPI", "Card", "Bank", "Other"))
+}
+
+
+def _build_payment_mode_summary(rows: list[Any]) -> list[dict[str, Any]]:
+    groups: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        payment_mode = row["payment_mode"]
+        if payment_mode not in _PAYMENT_MODE_ORDER:
+            payment_mode = "Other"
+        group = groups.setdefault(
+            payment_mode,
+            {"income_minor": 0, "expense_minor": 0, "count": 0},
+        )
+        group["count"] += 1
+        group[f"{row['direction']}_minor"] += row["amount_minor"]
+
+    total_amount = sum(row["amount_minor"] for row in rows)
+    result = []
+    for payment_mode, group in groups.items():
+        amount = group["income_minor"] + group["expense_minor"]
+        result.append(
+            {
+                "payment_mode": payment_mode,
+                "income_minor": group["income_minor"],
+                "expense_minor": group["expense_minor"],
+                "amount_minor": amount,
+                "count": group["count"],
+                "percentage": _percentage(amount, total_amount),
+            }
+        )
+    return sorted(result, key=lambda item: _PAYMENT_MODE_ORDER[item["payment_mode"]])
+
+
+def _build_account_summary(
+    account_id: str, account: Any, rows: list[Any]
+) -> list[dict[str, Any]]:
+    if not rows:
+        return []
+    income = sum(row["amount_minor"] for row in rows if row["direction"] == "income")
+    expense = sum(row["amount_minor"] for row in rows if row["direction"] == "expense")
+    net = income - expense
+    opening = account["opening_balance_minor"]
+    return [
+        {
+            "account_id": account_id,
+            "opening_balance_minor": opening,
+            "closing_balance_minor": opening + net if opening is not None else None,
+            "total_income_minor": income,
+            "total_expense_minor": expense,
+            "net_cash_flow_minor": net,
+            "transaction_count": len(rows),
+        }
+    ]
 
 
 def get_financial_analytics(
@@ -97,7 +229,7 @@ def get_financial_analytics(
     start_date: str,
     end_date: str,
     currency: str,
-) -> dict[str, dict[str, Any]]:
+) -> dict[str, Any]:
     """Return KPI aggregates without modifying any FinSight data."""
     _require_authorized_session(session_token, business_id)
     start_date, end_date = _validate_date_range(start_date, end_date)
@@ -145,7 +277,11 @@ def get_financial_analytics(
                 else None
             ),
             "savings_rate": _percentage(total_income - total_expense, total_income),
-        }
+        },
+        "trends": _build_trends(rows),
+        "categories": _build_category_summary(rows),
+        "payment_modes": _build_payment_mode_summary(rows),
+        "accounts": _build_account_summary(account_id, account, rows),
     }
 
 
