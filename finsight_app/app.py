@@ -1,9 +1,62 @@
+import sys
+from pathlib import Path
+
 import streamlit as st
-from kpi_engine import compute_kpis
-from eligibility_engine import check_eligibility
-from pdf_generator import generate_report
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+try:
+    from .eligibility_engine import check_eligibility
+    from .kpi_engine import compute_kpis
+    from .pdf_generator import generate_report
+except ImportError:
+    # ``streamlit run finsight_app/app.py`` executes this file as a script.
+    from eligibility_engine import check_eligibility
+    from kpi_engine import compute_kpis
+    from pdf_generator import generate_report
+
+from database import db
+from finsight_app.ingestion_ui import render_ingestion_page
+from services import auth_service
+
+
+db.initialize_database()
+
+
+def _render_authentication():
+    token = st.session_state.get("auth_token")
+    if token:
+        session = auth_service.validate_session(token)
+        if session.get("success"):
+            st.caption(f"Signed in as {session['user']['username']}")
+            if st.button("Sign out"):
+                auth_service.logout(token)
+                st.session_state.pop("auth_token", None)
+                st.rerun()
+            return token
+        st.session_state.pop("auth_token", None)
+
+    st.subheader("Sign in to FinSight")
+    email = st.text_input("Email", key="login_email")
+    password = st.text_input("Password", type="password", key="login_password")
+    if st.button("Sign in"):
+        result = auth_service.login(email, password)
+        if result.get("success"):
+            st.session_state["auth_token"] = result["session"]["token"]
+            st.rerun()
+        else:
+            st.error("Unable to sign in. Check your credentials and try again.")
+    return None
 
 st.set_page_config(page_title="FinSight - Scheme Suggestions", layout="centered")
+auth_token = _render_authentication()
+if auth_token:
+    render_ingestion_page(st, auth_token)
+else:
+    st.info("Sign in to access transaction ingestion.")
+
 st.title("FinSight: Financial Report & Government Scheme Matcher")
 st.caption("Demo Coffee Shop | Synthetic dataset")
 
@@ -57,8 +110,8 @@ else:
                         vectorstore = load_index()
                         answer = ask_scheme_question(r["scheme_name"], question, vectorstore)
                         st.write(answer)
-                    except Exception as e:
-                        st.error(f"Chat unavailable right now: {e}")
+                    except Exception:
+                        st.error("Chat unavailable right now.")
 
 with st.expander("Schemes not matched"):
     for r in not_eligible:
