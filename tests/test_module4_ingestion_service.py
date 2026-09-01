@@ -626,3 +626,207 @@ def test_rejected_database_error_is_safe_and_rolls_back(ingestion_repository, mo
     assert "raw payload" not in str(exc_info.value)
     with ingestion_repository() as connection:
         assert _module4_counts(connection) == (0, 0, 0)
+
+
+# Phase: batch outcomes, sanitized failure logging, and retry lifecycle.
+def test_batch_outcome_aggregates_inserted_and_duplicate_records(ingestion_repository):
+    with ingestion_repository() as connection:
+        seed_identity(connection, source_transaction_id="SRC-EXISTING")
+
+    records = [
+        make_record(source_transaction_id="SRC-EXISTING"),
+        make_record(source_transaction_id="SRC-NEW", amount_minor=4321),
+    ]
+    result = ingestion_service.ingest(
+        **prepare_args(payload=make_payload(records)),
+    )
+
+    assert result.status == "completed"
+    assert (result.record_count, result.inserted_count,
+            result.duplicate_count, result.rejected_count) == (2, 1, 1, 0)
+    with ingestion_repository() as connection:
+        attempt = connection.execute(
+            "SELECT record_count,inserted_count,duplicate_count,rejected_count,attempt_status "
+            "FROM ingestion_attempts WHERE attempt_id=?",
+            (result.attempt_id,),
+        ).fetchone()
+    assert tuple(attempt) == (2, 1, 1, 0, "completed")
+
+
+def test_retry_number_and_parent_lineage_increase_across_retries(ingestion_repository):
+    first = ingestion_service.ingest(**prepare_args())
+    second = ingestion_service.ingest(**prepare_args(), parent_attempt_id=first.attempt_id)
+    third = ingestion_service.ingest(**prepare_args(), parent_attempt_id=second.attempt_id)
+
+    assert first.retry_count == 0
+    assert second.retry_count == 1
+    assert third.retry_count == 2
+    with ingestion_repository() as connection:
+        rows = connection.execute(
+            "SELECT attempt_id,parent_attempt_id,attempt_status FROM ingestion_attempts "
+            "ORDER BY created_at,attempt_id"
+        ).fetchall()
+    assert {row["attempt_id"] for row in rows} >= {
+        first.attempt_id, second.attempt_id, third.attempt_id,
+    }
+    assert next(row["parent_attempt_id"] for row in rows if row["attempt_id"] == second.attempt_id) == first.attempt_id
+    assert next(row["parent_attempt_id"] for row in rows if row["attempt_id"] == third.attempt_id) == second.attempt_id
+
+
+@pytest.mark.parametrize(
+    "failure,code_message",
+    [
+        (sqlite3.IntegrityError("private SQL / source id"), "STORAGE_FAILED"),
+        (sqlite3.OperationalError("/secret/path payload"), "STORAGE_FAILED"),
+        (RuntimeError("unexpected stack trace and token"), "STORAGE_FAILED"),
+    ],
+)
+def test_storage_failure_can_be_finalized_as_sanitized_failed_attempt(
+    ingestion_repository, monkeypatch, failure, code_message
+):
+    monkeypatch.setattr(
+        queries,
+        "insert_ledger_transaction",
+        lambda **_kwargs: (_ for _ in ()).throw(failure),
+    )
+
+    result = ingestion_service.ingest(**prepare_args(), record_failure=True)
+
+    assert result.status == "failed"
+    assert result.error_code == code_message
+    assert result.error_message == "The ingestion could not be completed."
+    assert result.attempt_id is not None
+    assert "private" not in result.error_message
+    assert "secret" not in result.error_message
+    assert "token" not in result.error_message
+    with ingestion_repository() as connection:
+        attempt = connection.execute(
+            "SELECT attempt_status,public_error_code,public_error_message,completed_at "
+            "FROM ingestion_attempts WHERE attempt_id=?",
+            (result.attempt_id,),
+        ).fetchone()
+        assert attempt["attempt_status"] == "failed"
+        assert attempt["public_error_code"] == code_message
+        assert attempt["public_error_message"] == result.error_message
+        assert attempt["completed_at"] is not None
+        assert _module4_counts(connection)[1:] == (0, 0)
+
+
+def test_failed_attempt_does_not_log_payload_or_operational_identifiers(
+    ingestion_repository, monkeypatch
+):
+    monkeypatch.setattr(
+        queries,
+        "insert_ledger_transaction",
+        lambda **_kwargs: (_ for _ in ()).throw(sqlite3.OperationalError("raw SQL")),
+    )
+
+    result = ingestion_service.ingest(
+        **prepare_args(
+            payload=make_payload(
+                [make_record(source_transaction_id="PRIVATE-SOURCE", description="PRIVATE-DESCRIPTION")]
+            )
+        ),
+        record_failure=True,
+    )
+
+    with ingestion_repository() as connection:
+        row = connection.execute(
+            "SELECT public_error_code,public_error_message FROM ingestion_attempts WHERE attempt_id=?",
+            (result.attempt_id,),
+        ).fetchone()
+    assert row["public_error_code"] == "STORAGE_FAILED"
+    assert row["public_error_message"] == "The ingestion could not be completed."
+    assert "PRIVATE" not in row["public_error_message"]
+    assert "raw SQL" not in row["public_error_message"]
+
+
+def test_validation_failure_is_not_recorded_as_attempt(ingestion_repository):
+    with pytest.raises(ingestion_service.IngestionServiceError) as exc_info:
+        ingestion_service.ingest(
+            **prepare_args(payload=make_payload([make_record(amount_minor=0)])),
+            record_failure=True,
+        )
+    assert exc_info.value.code == "VALIDATION_FAILED"
+    with ingestion_repository() as connection:
+        assert_no_module4_writes(connection)
+
+
+def test_retry_after_failed_attempt_links_to_failed_parent(ingestion_repository, monkeypatch):
+    original_insert = queries.insert_ledger_transaction
+    monkeypatch.setattr(
+        queries,
+        "insert_ledger_transaction",
+        lambda **_kwargs: (_ for _ in ()).throw(sqlite3.OperationalError("temporary")),
+    )
+    failed = ingestion_service.ingest(**prepare_args(), record_failure=True)
+    assert failed.status == "failed"
+
+    monkeypatch.setattr(queries, "insert_ledger_transaction", original_insert)
+    retried = ingestion_service.ingest(
+        **prepare_args(), parent_attempt_id=failed.attempt_id
+    )
+
+    assert retried.status == "completed"
+    assert retried.retry_count == 1
+    with ingestion_repository() as connection:
+        row = connection.execute(
+            "SELECT parent_attempt_id,attempt_status FROM ingestion_attempts WHERE attempt_id=?",
+            (retried.attempt_id,),
+        ).fetchone()
+    assert row["parent_attempt_id"] == failed.attempt_id
+    assert row["attempt_status"] == "completed"
+
+
+def test_retry_after_duplicate_is_a_new_completed_attempt(ingestion_repository):
+    first = ingestion_service.ingest(**prepare_args())
+    duplicate = ingestion_service.ingest(
+        **prepare_args(), parent_attempt_id=first.attempt_id
+    )
+
+    assert duplicate.status == "completed"
+    assert duplicate.inserted_count == 0
+    assert duplicate.duplicate_count == 1
+    assert duplicate.retry_count == 1
+    with ingestion_repository() as connection:
+        assert connection.execute(
+            "SELECT COUNT(*) FROM transaction_general_ledger"
+        ).fetchone()[0] == 1
+        assert connection.execute(
+            "SELECT COUNT(*) FROM ingested_transaction_identities"
+        ).fetchone()[0] == 1
+
+
+def test_failed_attempt_is_terminal(ingestion_repository):
+    attempt_id = queries.create_ingestion_attempt(
+        business_id=BUSINESS_ID,
+        registry_business_id=REGISTRY_BUSINESS_ID,
+        account_id=ACCOUNT_ID,
+        uploader_user_id="owner_user_001",
+        source_system=SOURCE_SYSTEM,
+        contract_version=CONTRACT_VERSION,
+        currency="INR",
+        record_count=1,
+    )
+    assert queries.fail_ingestion_attempt(
+        attempt_id,
+        inserted_count=0,
+        duplicate_count=0,
+        rejected_count=1,
+        public_error_code="STORAGE_FAILED",
+        public_error_message="The ingestion could not be completed.",
+    )
+    assert not queries.complete_ingestion_attempt(
+        attempt_id,
+        inserted_count=1,
+        duplicate_count=0,
+        rejected_count=0,
+    )
+    assert not queries.fail_ingestion_attempt(
+        attempt_id,
+        inserted_count=0,
+        duplicate_count=0,
+        rejected_count=1,
+        public_error_code="STORAGE_FAILED",
+        public_error_message="The ingestion could not be completed.",
+    )

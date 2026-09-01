@@ -615,6 +615,15 @@ def create_ingestion_attempt(
     return attempt_id
 
 
+def get_ingestion_attempt(attempt_id: str, connection: Optional[Any] = None):
+    """Return one ingestion attempt without changing caller transaction state."""
+    with _module4_connection(connection) as active_connection:
+        return active_connection.execute(
+            "SELECT * FROM ingestion_attempts WHERE attempt_id=?",
+            (attempt_id,),
+        ).fetchone()
+
+
 def complete_ingestion_attempt(
     attempt_id: str,
     *,

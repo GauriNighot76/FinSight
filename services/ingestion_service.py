@@ -2,7 +2,9 @@
 
 ``prepare_ingestion`` is read-only.  ``ingest`` uses the repository's
 caller-owned transaction boundary to persist an authorized attempt, legacy
-ledger row, and canonical identity companion as one unit.
+ledger row, and canonical identity companion as one unit.  Callers that opt
+into ``record_failure`` receive a sanitized failed-attempt record after a
+service-owned financial transaction is rolled back.
 """
 
 import hashlib
@@ -87,10 +89,18 @@ class IngestionWriteResult:
     inserted_count: int
     duplicate_count: int
     rejected_count: int
+    retry_count: int = 0
+    error_code: Optional[str] = None
+    error_message: Optional[str] = None
 
     @property
     def success(self) -> bool:
         return self.status == "completed"
+
+    @property
+    def failed_count(self) -> int:
+        """Expose a bounded failure count without persisting another counter."""
+        return 1 if self.status == "failed" else 0
 
 
 def _raise(code: str) -> None:
@@ -327,6 +337,63 @@ def _legacy_amount(amount_minor: int) -> float:
     return float(Decimal(amount_minor) / Decimal(100))
 
 
+def _retry_count(parent_attempt_id: Optional[str], *, connection: Any) -> int:
+    """Derive retry ordinal from immutable attempt parent links."""
+    if parent_attempt_id is None:
+        return 0
+    if type(parent_attempt_id) is not str or parent_attempt_id == "":
+        _raise("STORAGE_FAILED")
+
+    count = 0
+    current_id: Optional[str] = parent_attempt_id
+    seen: set[str] = set()
+    while current_id is not None:
+        if current_id in seen:
+            _raise("STORAGE_FAILED")
+        seen.add(current_id)
+        row = queries.get_ingestion_attempt(current_id, connection=connection)
+        if row is None:
+            _raise("STORAGE_FAILED")
+        count += 1
+        current_id = row["parent_attempt_id"]
+    return count
+
+
+def _record_failed_attempt(
+    *,
+    prepared: PreparedIngestion,
+    parent_attempt_id: Optional[str],
+    record_count: int,
+) -> tuple[str, int]:
+    """Persist only sanitized failure metadata after financial rollback."""
+    safe_error = IngestionServiceError("STORAGE_FAILED")
+    with queries.module4_transaction() as connection:
+        retry_count = _retry_count(parent_attempt_id, connection=connection)
+        attempt_id = queries.create_ingestion_attempt(
+            business_id=prepared.business_id,
+            registry_business_id=prepared.registry_business_id,
+            account_id=prepared.account_id,
+            uploader_user_id=prepared.uploader_user_id,
+            source_system=prepared.source_system,
+            contract_version=prepared.contract_version,
+            currency=prepared.currency,
+            record_count=record_count,
+            parent_attempt_id=parent_attempt_id,
+            connection=connection,
+        )
+        if not queries.fail_ingestion_attempt(
+            attempt_id,
+            inserted_count=0,
+            duplicate_count=0,
+            rejected_count=0,
+            public_error_code=safe_error.code,
+            public_error_message=str(safe_error),
+            connection=connection,
+        ):
+            _raise("STORAGE_FAILED")
+    return attempt_id, retry_count
+
+
 def _persist_ingestion(
     *,
     session_token: Any,
@@ -357,6 +424,7 @@ def _persist_ingestion(
         records=records,
         connection=connection,
     )
+    retry_count = _retry_count(parent_attempt_id, connection=connection)
 
     attempt_id = queries.create_ingestion_attempt(
         business_id=context.business_id,
@@ -425,6 +493,7 @@ def _persist_ingestion(
         inserted_count=inserted_count,
         duplicate_count=duplicate_count,
         rejected_count=0,
+        retry_count=retry_count,
     )
 
 
@@ -486,6 +555,7 @@ def ingest(
     payload: Any,
     parent_attempt_id: Optional[str] = None,
     connection: Optional[Any] = None,
+    record_failure: bool = False,
 ) -> IngestionWriteResult:
     """Persist a validated batch atomically, or raise a safe service error.
 
@@ -497,7 +567,7 @@ def ingest(
     # requests cannot create an attempt.  The write transaction then repeats
     # all sensitive lookups and identity classification on its own connection.
     try:
-        prepare_ingestion(
+        prepared = prepare_ingestion(
             session_token=session_token,
             business_id=business_id,
             account_id=account_id,
@@ -529,20 +599,89 @@ def ingest(
                 parent_attempt_id=parent_attempt_id,
                 connection=transaction_connection,
             )
-    except IngestionServiceError:
+    except IngestionServiceError as error:
+        if error.code == "STORAGE_FAILED" and record_failure and connection is None:
+            try:
+                attempt_id, retry_count = _record_failed_attempt(
+                    prepared=prepared,
+                    parent_attempt_id=parent_attempt_id,
+                    record_count=prepared.record_count,
+                )
+            except Exception:
+                _raise("STORAGE_FAILED")
+            return IngestionWriteResult(
+                status="failed",
+                attempt_id=attempt_id,
+                record_count=prepared.record_count,
+                inserted_count=0,
+                duplicate_count=0,
+                rejected_count=0,
+                retry_count=retry_count,
+                error_code=error.code,
+                error_message=str(error),
+            )
         raise
     except (sqlite3.IntegrityError, sqlite3.OperationalError):
         if connection is None:
-            reclassified = _reclassify_after_rollback(
-                session_token=session_token,
-                business_id=business_id,
-                account_id=account_id,
-                payload=payload,
-            )
+            try:
+                reclassified = _reclassify_after_rollback(
+                    session_token=session_token,
+                    business_id=business_id,
+                    account_id=account_id,
+                    payload=payload,
+                )
+            except IngestionServiceError:
+                raise
+            except Exception:
+                # Reclassification is best-effort.  A failure while reading
+                # the race state must still map to the fixed storage outcome.
+                reclassified = None
             if reclassified is not None:
                 return reclassified
+            if record_failure:
+                try:
+                    attempt_id, retry_count = _record_failed_attempt(
+                        prepared=prepared,
+                        parent_attempt_id=parent_attempt_id,
+                        record_count=prepared.record_count,
+                    )
+                except Exception:
+                    _raise("STORAGE_FAILED")
+                error = IngestionServiceError("STORAGE_FAILED")
+                return IngestionWriteResult(
+                    status="failed",
+                    attempt_id=attempt_id,
+                    record_count=prepared.record_count,
+                    inserted_count=0,
+                    duplicate_count=0,
+                    rejected_count=0,
+                    retry_count=retry_count,
+                    error_code=error.code,
+                    error_message=str(error),
+                )
         _raise("STORAGE_FAILED")
     except Exception:
+        if record_failure and connection is None:
+            try:
+                attempt_id, retry_count = _record_failed_attempt(
+                    prepared=prepared,
+                    parent_attempt_id=parent_attempt_id,
+                    record_count=prepared.record_count,
+                )
+            except Exception:
+                _raise("STORAGE_FAILED")
+            error = IngestionServiceError("STORAGE_FAILED")
+            return IngestionWriteResult(
+                status="failed",
+                attempt_id=attempt_id,
+                record_count=prepared.record_count,
+                inserted_count=0,
+                duplicate_count=0,
+                rejected_count=0,
+                retry_count=retry_count,
+                error_code=error.code,
+                error_message=str(error),
+            )
         _raise("STORAGE_FAILED")
 
 
@@ -552,5 +691,6 @@ __all__ = [
     "IngestionWriteResult",
     "PreparedIngestion",
     "PreparedRecord",
+    "ingest",
     "prepare_ingestion",
 ]
