@@ -1,8 +1,9 @@
 import hashlib
 import uuid
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from decimal import Decimal, ROUND_HALF_UP
-from typing import Any, Optional
+from typing import Any, Iterator, Optional
 
 from database.db import get_connection
 
@@ -469,3 +470,335 @@ def disable_financial_account(account_id: str) -> bool:
             (account_id,),
         )
     return cursor.rowcount == 1
+
+
+# Module 4: ingestion repository queries
+
+@contextmanager
+def _module4_connection(connection: Optional[Any] = None) -> Iterator[Any]:
+    """Yield a caller-owned connection or manage a repository connection.
+
+    Callers coordinating multiple Module 4 writes must provide their own
+    connection so that this layer never commits an individual operation out
+    from under the caller's transaction.
+    """
+    if connection is not None:
+        yield connection
+        return
+
+    owned_connection = get_connection()
+    try:
+        yield owned_connection
+        owned_connection.commit()
+    except Exception:
+        owned_connection.rollback()
+        raise
+    finally:
+        owned_connection.close()
+
+
+@contextmanager
+def module4_transaction() -> Iterator[Any]:
+    """Open one caller-owned SQLite transaction for Module 4 operations."""
+    connection = get_connection()
+    try:
+        connection.execute("BEGIN")
+        yield connection
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        raise
+    finally:
+        connection.close()
+
+
+def get_active_business(business_id: str, connection: Optional[Any] = None):
+    with _module4_connection(connection) as active_connection:
+        return active_connection.execute(
+            """SELECT * FROM businesses
+               WHERE business_id=? AND business_status='active'""",
+            (business_id,),
+        ).fetchone()
+
+
+def get_active_business_membership(
+    business_id: str, user_id: str, connection: Optional[Any] = None
+):
+    with _module4_connection(connection) as active_connection:
+        return active_connection.execute(
+            """SELECT m.*,b.business_name,b.business_status
+               FROM business_memberships m
+               JOIN businesses b ON b.business_id=m.business_id
+               WHERE m.business_id=? AND m.user_id=?
+                 AND b.business_status='active'
+                 AND m.membership_status='active'""",
+            (business_id, user_id),
+        ).fetchone()
+
+
+def get_active_financial_account(
+    account_id: str, business_id: str, connection: Optional[Any] = None
+):
+    with _module4_connection(connection) as active_connection:
+        return active_connection.execute(
+            """SELECT * FROM financial_accounts
+               WHERE account_id=? AND business_id=?
+                 AND account_status='active'""",
+            (account_id, business_id),
+        ).fetchone()
+
+
+def get_active_bridge(business_id: str, connection: Optional[Any] = None):
+    with _module4_connection(connection) as active_connection:
+        return active_connection.execute(
+            """SELECT * FROM business_registry_bridges
+               WHERE business_id=? AND bridge_status='active'
+                 AND verified_by_user_id IS NOT NULL
+                 AND verified_at IS NOT NULL""",
+            (business_id,),
+        ).fetchone()
+
+
+def get_registry_business(registry_business_id: str, connection: Optional[Any] = None):
+    with _module4_connection(connection) as active_connection:
+        return active_connection.execute(
+            "SELECT * FROM business_registry WHERE business_id=?",
+            (registry_business_id,),
+        ).fetchone()
+
+
+def get_registry_owner(
+    registry_business_id: str, connection: Optional[Any] = None
+) -> Optional[str]:
+    with _module4_connection(connection) as active_connection:
+        row = active_connection.execute(
+            "SELECT user_id FROM business_registry WHERE business_id=?",
+            (registry_business_id,),
+        ).fetchone()
+    return None if row is None else row["user_id"]
+
+
+def create_ingestion_attempt(
+    *,
+    business_id: str,
+    registry_business_id: str,
+    account_id: str,
+    uploader_user_id: str,
+    source_system: str,
+    contract_version: str,
+    currency: str,
+    record_count: int,
+    parent_attempt_id: Optional[str] = None,
+    connection: Optional[Any] = None,
+) -> str:
+    attempt_id = generate_id("att")
+    with _module4_connection(connection) as active_connection:
+        active_connection.execute(
+            """INSERT INTO ingestion_attempts
+               (attempt_id,parent_attempt_id,business_id,registry_business_id,
+                account_id,uploader_user_id,source_system,contract_version,
+                currency,record_count,attempt_status)
+               VALUES (?,?,?,?,?,?,?,?,?,?,'processing')""",
+            (
+                attempt_id,
+                parent_attempt_id,
+                business_id,
+                registry_business_id,
+                account_id,
+                uploader_user_id,
+                source_system,
+                contract_version,
+                currency,
+                record_count,
+            ),
+        )
+    return attempt_id
+
+
+def complete_ingestion_attempt(
+    attempt_id: str,
+    *,
+    inserted_count: int,
+    duplicate_count: int,
+    rejected_count: int,
+    connection: Optional[Any] = None,
+) -> bool:
+    with _module4_connection(connection) as active_connection:
+        cursor = active_connection.execute(
+            """UPDATE ingestion_attempts
+               SET inserted_count=?,duplicate_count=?,rejected_count=?,
+                   attempt_status='completed',public_error_code=NULL,
+                   public_error_message=NULL,completed_at=CURRENT_TIMESTAMP
+               WHERE attempt_id=? AND attempt_status='processing'""",
+            (
+                inserted_count,
+                duplicate_count,
+                rejected_count,
+                attempt_id,
+            ),
+        )
+    return cursor.rowcount == 1
+
+
+def fail_ingestion_attempt(
+    attempt_id: str,
+    *,
+    inserted_count: int,
+    duplicate_count: int,
+    rejected_count: int,
+    public_error_code: str,
+    public_error_message: str,
+    connection: Optional[Any] = None,
+) -> bool:
+    with _module4_connection(connection) as active_connection:
+        cursor = active_connection.execute(
+            """UPDATE ingestion_attempts
+               SET inserted_count=?,duplicate_count=?,rejected_count=?,
+                   attempt_status='failed',public_error_code=?,
+                   public_error_message=?,completed_at=CURRENT_TIMESTAMP
+               WHERE attempt_id=? AND attempt_status='processing'""",
+            (
+                inserted_count,
+                duplicate_count,
+                rejected_count,
+                public_error_code,
+                public_error_message,
+                attempt_id,
+            ),
+        )
+    return cursor.rowcount == 1
+
+
+def find_identity_by_hash(
+    *,
+    business_id: str,
+    registry_business_id: str,
+    account_id: str,
+    source_system: str,
+    canonical_identity_hash: str,
+    connection: Optional[Any] = None,
+):
+    with _module4_connection(connection) as active_connection:
+        return active_connection.execute(
+            """SELECT * FROM ingested_transaction_identities
+               WHERE business_id=? AND registry_business_id=?
+                 AND account_id=? AND source_system=?
+                 AND canonical_identity_hash=?""",
+            (
+                business_id,
+                registry_business_id,
+                account_id,
+                source_system,
+                canonical_identity_hash,
+            ),
+        ).fetchone()
+
+
+def find_identity_by_source(
+    *,
+    business_id: str,
+    registry_business_id: str,
+    account_id: str,
+    source_system: str,
+    source_transaction_id: Optional[str],
+    connection: Optional[Any] = None,
+):
+    if source_transaction_id is None:
+        return None
+    with _module4_connection(connection) as active_connection:
+        return active_connection.execute(
+            """SELECT * FROM ingested_transaction_identities
+               WHERE business_id=? AND registry_business_id=?
+                 AND account_id=? AND source_system=?
+                 AND source_transaction_id=?""",
+            (
+                business_id,
+                registry_business_id,
+                account_id,
+                source_system,
+                source_transaction_id,
+            ),
+        ).fetchone()
+
+
+def insert_ledger_transaction(
+    *,
+    registry_business_id: str,
+    legacy_owner_user_id: str,
+    transaction_date: str,
+    amount: Any,
+    transaction_type: str,
+    transaction_hash: str,
+    entity_id: Optional[str] = None,
+    category: Optional[str] = None,
+    payment_mode: Optional[str] = None,
+    description: Optional[str] = None,
+    connection: Optional[Any] = None,
+) -> str:
+    transaction_id = generate_id("txn")
+    with _module4_connection(connection) as active_connection:
+        active_connection.execute(
+            """INSERT INTO transaction_general_ledger
+               (transaction_id,business_id,entity_id,user_id,transaction_date,
+                amount,transaction_type,category,payment_mode,description,
+                transaction_hash)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
+            (
+                transaction_id,
+                registry_business_id,
+                entity_id,
+                legacy_owner_user_id,
+                transaction_date,
+                amount,
+                transaction_type,
+                category,
+                payment_mode,
+                description,
+                transaction_hash,
+            ),
+        )
+    return transaction_id
+
+
+def insert_transaction_identity(
+    *,
+    transaction_id: str,
+    attempt_id: str,
+    business_id: str,
+    registry_business_id: str,
+    account_id: str,
+    source_system: str,
+    source_transaction_id: Optional[str],
+    transaction_date: str,
+    amount_minor: int,
+    direction: str,
+    currency: str,
+    canonical_identity_hash: str,
+    connection: Optional[Any] = None,
+) -> str:
+    identity_id = generate_id("iti")
+    with _module4_connection(connection) as active_connection:
+        active_connection.execute(
+            """INSERT INTO ingested_transaction_identities
+               (identity_id,transaction_id,attempt_id,business_id,
+                registry_business_id,account_id,source_system,
+                source_transaction_id,transaction_date,amount_minor,
+                direction,currency,canonical_identity_hash)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+            (
+                identity_id,
+                transaction_id,
+                attempt_id,
+                business_id,
+                registry_business_id,
+                account_id,
+                source_system,
+                source_transaction_id,
+                transaction_date,
+                amount_minor,
+                direction,
+                currency,
+                canonical_identity_hash,
+            ),
+        )
+    return identity_id
