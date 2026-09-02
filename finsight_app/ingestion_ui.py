@@ -9,7 +9,13 @@ responsibilities.
 import json
 from typing import Any, Optional
 
-from services import account_service, auth_service, business_service, ingestion_service
+from services import (
+    account_service,
+    auth_service,
+    business_service,
+    csv_normalizer,
+    ingestion_service,
+)
 
 
 AUTHORIZED_MEMBERSHIP_ROLES = frozenset({"owner", "manager"})
@@ -62,6 +68,9 @@ def _authorized_businesses(result: Any) -> list[dict[str, Any]]:
 
 
 def _display_counts(st: Any, result: ingestion_service.IngestionWriteResult) -> None:
+    st.caption(f"Rows detected: {result.record_count}")
+    st.caption(f"Rows accepted: {result.inserted_count}")
+    st.caption(f"Rows rejected: {result.rejected_count}")
     st.metric("Records", result.record_count)
     st.metric("Inserted", result.inserted_count)
     st.metric("Duplicates", result.duplicate_count)
@@ -77,6 +86,38 @@ def _read_uploaded_json(uploaded_file: Any) -> Any:
     if type(raw) is not str:
         raise ValueError
     return json.loads(raw)
+
+
+def _is_csv_upload(uploaded_file: Any) -> bool:
+    name = getattr(uploaded_file, "name", None)
+    if type(name) is str:
+        lowered_name = name.lower()
+        if lowered_name.endswith(".csv"):
+            return True
+        if lowered_name.endswith(".json"):
+            return False
+    content_type = getattr(uploaded_file, "type", None)
+    if type(content_type) is str:
+        lowered_type = content_type.lower()
+        if lowered_type == "text/csv":
+            return True
+        if lowered_type == "application/json" or lowered_type.endswith("+json"):
+            return False
+    try:
+        raw = uploaded_file.getvalue()
+    except Exception:
+        return False
+    if isinstance(raw, bytes):
+        raw = raw.lstrip().decode("utf-8-sig", errors="ignore")
+    if type(raw) is str:
+        return not raw.lstrip().startswith(("{", "["))
+    return False
+
+
+def _read_uploaded_payload(uploaded_file: Any) -> Any:
+    if _is_csv_upload(uploaded_file):
+        return csv_normalizer.normalize_csv(uploaded_file.getvalue())
+    return _read_uploaded_json(uploaded_file)
 
 
 def _render_result(st: Any, result: Any) -> bool:
@@ -150,17 +191,23 @@ def render_ingestion_page(st: Any, session_token: Any) -> bool:
     selected_account = accounts[account_index]
 
     uploaded_file = st.file_uploader(
-        "Upload canonical JSON payload",
-        type=["json"],
+        "Upload canonical JSON or CSV payload",
+        type=["json", "csv"],
         accept_multiple_files=False,
     )
     if uploaded_file is None or not st.button("Ingest transactions"):
         return False
 
     try:
-        payload = _read_uploaded_json(uploaded_file)
+        payload = _read_uploaded_payload(uploaded_file)
+    except csv_normalizer.CSVNormalizationError:
+        st.error("The uploaded CSV could not be normalized.")
+        return False
     except (UnicodeDecodeError, ValueError, TypeError, json.JSONDecodeError):
-        st.error("The uploaded canonical JSON could not be read.")
+        if _is_csv_upload(uploaded_file):
+            st.error("The uploaded CSV could not be normalized.")
+        else:
+            st.error("The uploaded canonical JSON could not be read.")
         return False
 
     try:
