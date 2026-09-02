@@ -18,6 +18,7 @@ except ImportError:
     from pdf_generator import generate_report
 
 from database import db
+from finsight_app.analytics_ui import render_analytics_page
 from finsight_app.ingestion_ui import render_ingestion_page
 from services import auth_service
 
@@ -54,6 +55,7 @@ st.set_page_config(page_title="FinSight - Scheme Suggestions", layout="centered"
 auth_token = _render_authentication()
 if auth_token:
     render_ingestion_page(st, auth_token)
+    render_analytics_page(st, auth_token)
 else:
     st.info("Sign in to access transaction ingestion.")
 

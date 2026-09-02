@@ -11,6 +11,16 @@ class UploadedJson:
         return self._value
 
 
+class UploadedCsv:
+    def __init__(self, value, name="statement.csv"):
+        self._value = value
+        self.name = name
+        self.type = "text/csv"
+
+    def getvalue(self):
+        return self._value
+
+
 class FakeStreamlit:
     def __init__(self, *, uploaded=None, button_values=None):
         self.uploaded = uploaded
@@ -332,13 +342,13 @@ def test_unexpected_service_error_never_leaks_raw_details(monkeypatch):
     assert "raw payload" not in rendered
 
 
-def test_upload_widget_accepts_only_canonical_json(monkeypatch):
+def test_upload_widget_accepts_canonical_json_and_csv(monkeypatch):
     ingestion_ui = _authorized_context(monkeypatch)
     ui = FakeStreamlit()
 
     ingestion_ui.render_ingestion_page(ui, "session-token")
     uploader = next(event for event in ui.events if event[0] == "file_uploader")
-    assert uploader[2]["type"] == ["json"]
+    assert uploader[2]["type"] == ["json", "csv"]
 
 
 def test_no_database_or_service_call_occurs_before_submit(monkeypatch):
@@ -353,3 +363,130 @@ def test_no_database_or_service_call_occurs_before_submit(monkeypatch):
 
     ingestion_ui.render_ingestion_page(ui, "session-token")
     assert calls == []
+
+
+def test_owner_can_submit_csv_through_the_existing_ingestion_service(monkeypatch):
+    ingestion_ui = _authorized_context(monkeypatch)
+    captured = []
+
+    def ingest(**kwargs):
+        captured.append(kwargs)
+        return ingestion_service.IngestionWriteResult(
+            status="completed",
+            attempt_id="csv-attempt",
+            record_count=1,
+            inserted_count=1,
+            duplicate_count=0,
+            rejected_count=0,
+        )
+
+    monkeypatch.setattr(ingestion_ui.ingestion_service, "ingest", ingest)
+    ui = FakeStreamlit(
+        uploaded=UploadedCsv(
+            b"Date,Description,Amount,Direction\n"
+            b"2026-08-01,Sale,10.00,income\n"
+        ),
+        button_values={"Ingest transactions": True},
+    )
+
+    assert ingestion_ui.render_ingestion_page(ui, "session-token") is True
+    assert len(captured) == 1
+    assert captured[0]["payload"]["records"][0] == {
+        "transaction_date": "2026-08-01",
+        "amount_minor": 1000,
+        "direction": "income",
+        "description": "Sale",
+    }
+
+
+def test_csv_normalization_and_ingestion_are_each_called_once(monkeypatch):
+    from services import csv_normalizer
+
+    ingestion_ui = _authorized_context(monkeypatch)
+    normalization_calls = []
+    ingestion_calls = []
+    original_normalize = csv_normalizer.normalize_csv
+
+    def normalize_once(uploaded_file):
+        normalization_calls.append(uploaded_file)
+        return original_normalize(uploaded_file)
+
+    monkeypatch.setattr(ingestion_ui, "csv_normalizer", csv_normalizer, raising=False)
+    monkeypatch.setattr(csv_normalizer, "normalize_csv", normalize_once)
+    monkeypatch.setattr(
+        ingestion_ui.ingestion_service,
+        "ingest",
+        lambda **kwargs: ingestion_calls.append(kwargs)
+        or ingestion_service.IngestionWriteResult(
+            status="completed",
+            attempt_id="csv-attempt",
+            record_count=1,
+            inserted_count=1,
+            duplicate_count=0,
+            rejected_count=0,
+        ),
+    )
+    ui = FakeStreamlit(
+        uploaded=UploadedCsv(
+            b"Date;Narration;Amount;Type\n"
+            b"2026-08-01;Sale;10.00;income\n"
+        ),
+        button_values={"Ingest transactions": True},
+    )
+
+    assert ingestion_ui.render_ingestion_page(ui, "session-token") is True
+    assert len(normalization_calls) == 1
+    assert len(ingestion_calls) == 1
+
+
+def test_malformed_csv_has_a_sanitized_error_and_no_ingestion(monkeypatch):
+    ingestion_ui = _authorized_context(monkeypatch)
+    ingestion_calls = []
+    monkeypatch.setattr(
+        ingestion_ui.ingestion_service,
+        "ingest",
+        lambda **kwargs: ingestion_calls.append(kwargs),
+    )
+    ui = FakeStreamlit(
+        uploaded=UploadedCsv(
+            b"Date,Amount,Direction\n2026-08-01,\"unterminated,income\n"
+        ),
+        button_values={"Ingest transactions": True},
+    )
+
+    assert ingestion_ui.render_ingestion_page(ui, "session-token") is False
+    rendered = _events_text(ui)
+    assert "CSV" in rendered
+    assert "could not be normalized" in rendered
+    assert "unterminated" not in rendered
+    assert ingestion_calls == []
+
+
+def test_csv_counts_and_warnings_are_displayed_without_internal_values(monkeypatch):
+    ingestion_ui = _authorized_context(monkeypatch)
+    monkeypatch.setattr(
+        ingestion_ui.ingestion_service,
+        "ingest",
+        lambda **kwargs: ingestion_service.IngestionWriteResult(
+            status="completed",
+            attempt_id="internal-csv-attempt",
+            record_count=4,
+            inserted_count=2,
+            duplicate_count=1,
+            rejected_count=1,
+        ),
+    )
+    ui = FakeStreamlit(
+        uploaded=UploadedCsv(
+            b"Date,Amount,Direction\n2026-08-01,10.00,income\n"
+        ),
+        button_values={"Ingest transactions": True},
+    )
+
+    ingestion_ui.render_ingestion_page(ui, "session-token")
+    rendered = _events_text(ui)
+    assert "Rows detected" in rendered
+    assert "Rows accepted" in rendered
+    assert "Duplicates" in rendered
+    assert "Rows rejected" in rendered
+    assert "internal-csv-attempt" not in rendered
