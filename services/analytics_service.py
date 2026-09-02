@@ -37,18 +37,37 @@ def _validate_date_range(start_date: Any, end_date: Any) -> tuple[str, str]:
 def _require_authorized_session(session_token: Any, business_id: Any) -> None:
     if type(session_token) is not str or not session_token:
         raise AnalyticsError("Authentication is required for analytics.")
-    session = auth_service.validate_session(session_token)
+    try:
+        session = auth_service.validate_session(session_token)
+    except Exception as error:
+        raise AnalyticsError("Authentication is required for analytics.") from error
     if not isinstance(session, dict) or session.get("success") is not True:
+        raise AnalyticsError("Authentication is required for analytics.")
+    user = session.get("user")
+    if (
+        not isinstance(user, dict)
+        or type(user.get("user_id")) is not str
+        or not user["user_id"]
+    ):
         raise AnalyticsError("Authentication is required for analytics.")
     if type(business_id) is not str or not business_id:
         raise AnalyticsError("The selected business is unavailable.")
-    membership = queries.get_business_membership(
-        business_id, session["user"]["user_id"]
-    )
+    try:
+        membership = queries.get_business_membership(business_id, user["user_id"])
+    except Exception as error:
+        raise AnalyticsError("The selected business is unavailable.") from error
+    if membership is None:
+        raise AnalyticsError("The selected business is unavailable.")
+    try:
+        business_status = membership["business_status"]
+        membership_status = membership["membership_status"]
+        membership_role = membership["membership_role"]
+    except (KeyError, TypeError, IndexError) as error:
+        raise AnalyticsError("The selected business is unavailable.") from error
     if (
-        membership is None
-        or membership["business_status"] != "active"
-        or membership["membership_status"] != "active"
+        business_status != "active"
+        or membership_status != "active"
+        or membership_role not in {"owner", "manager"}
     ):
         raise AnalyticsError("The selected business is unavailable.")
 
