@@ -59,11 +59,22 @@ def _require_access(session_token: Any, business_id: Any) -> None:
         )
     except Exception as error:
         raise BusinessHealthError("The selected business is unavailable.") from error
+    if isinstance(membership, dict):
+        business_status = membership.get("business_status")
+        membership_status = membership.get("membership_status")
+        membership_role = membership.get("membership_role")
+    else:
+        try:
+            business_status = membership["business_status"]
+            membership_status = membership["membership_status"]
+            membership_role = membership["membership_role"]
+        except (KeyError, TypeError):
+            business_status = membership_status = membership_role = None
     if (
         membership is None
-        or not isinstance(membership, dict)
-        or membership.get("business_status") != "active"
-        or membership.get("membership_status") != "active"
+        or business_status != "active"
+        or membership_status != "active"
+        or membership_role not in {"owner", "manager"}
     ):
         raise BusinessHealthError("The selected business is unavailable.")
 
@@ -85,7 +96,11 @@ def _period_value(row: Any, key: str) -> Decimal:
     if key in row:
         return _decimal(row[key])
     if key == "net_cash_flow_minor":
-        return _decimal(row.get("cashflow_minor"))
+        if "cashflow_minor" in row:
+            return _decimal(row.get("cashflow_minor"))
+        return _decimal(row.get("income_minor")) - _decimal(
+            row.get("expense_minor")
+        )
     return Decimal("0")
 
 
@@ -242,7 +257,13 @@ def _anomaly(
     threshold: Any,
     *,
     period: Optional[str] = None,
+    metric_value: Any = None,
 ) -> dict[str, Any]:
+    transaction_reference = None
+    if isinstance(row, dict):
+        transaction_reference = row.get("transaction_reference") or row.get(
+            "source_transaction_id"
+        )
     return {
         "type": anomaly_type,
         "severity": severity,
@@ -251,6 +272,8 @@ def _anomaly(
         "reason": reason,
         "trigger_metric": trigger_metric,
         "threshold": threshold,
+        "metric_value": threshold if metric_value is None else metric_value,
+        "transaction_reference": transaction_reference,
     }
 
 
@@ -373,6 +396,34 @@ def _detect_period_anomalies(
                 )
             )
 
+    expense_ratio = _decimal(metrics.get("expense_to_income_ratio"))
+    if expense_ratio > Decimal("1.00"):
+        anomalies.append(
+            _anomaly(
+                "high_expense_ratio",
+                "HIGH",
+                None,
+                "Expenses exceed recorded income in the selected period.",
+                "expense_to_income_ratio",
+                Decimal("1.00"),
+                metric_value=expense_ratio,
+            )
+        )
+
+    cash_flow_stability = _decimal(metrics.get("cash_flow_stability"))
+    if cash_flow_stability < Decimal("50.00") and _periods(analysis):
+        anomalies.append(
+            _anomaly(
+                "cash_flow_instability",
+                "HIGH",
+                None,
+                "Fewer than half of the observed periods had non-negative cash flow.",
+                "cash_flow_stability",
+                Decimal("50.00"),
+                metric_value=cash_flow_stability,
+            )
+        )
+
     daily = _trend_values(analysis, "daily")
     parsed_daily: list[tuple[date, dict[str, Any]]] = []
     for period in daily:
@@ -450,6 +501,20 @@ def _detect_period_anomalies(
                     period=current_month,
                 )
             )
+            anomalies.append(
+                _anomaly(
+                    "recurring_expense_growth",
+                    "HIGH",
+                    category_rows.get((category, current_month)),
+                    "A recurring expense category increased sharply compared with the prior month.",
+                    "recurring_expense_growth",
+                    Decimal("50.00"),
+                    period=current_month,
+                    metric_value=_percentage(
+                        current_amount - previous_amount, previous_amount
+                    ),
+                )
+            )
 
     payment_modes = _payment_values(analysis)
     total_count = sum(int(_decimal(row.get("count"))) for row in payment_modes)
@@ -480,6 +545,54 @@ def _detect_period_anomalies(
             )
         )
     return anomalies
+
+
+_PHASE2_TYPE_ALIASES = {
+    "unusually_large_income": "large_transaction",
+    "unusually_large_expense": "large_transaction",
+    "sudden_income_drop": "income_drop",
+    "negative_cash_flow_period": "negative_cash_flow",
+    "unexpected_payment_mode": "payment_mode_change",
+    "repeated_identical_transactions": "duplicate_pattern",
+    "very_high_recurring_expenses": "recurring_expense_growth",
+}
+
+
+def _phase2_severity(value: Any) -> str:
+    normalized = str(value or "MEDIUM").upper()
+    if normalized in {"LOW", "MEDIUM", "HIGH", "CRITICAL"}:
+        return normalized
+    return "MEDIUM"
+
+
+def _finalize_anomalies(
+    anomalies: list[dict[str, Any]],
+    *,
+    business_id: str,
+    account_id: str,
+) -> list[dict[str, Any]]:
+    finalized: list[dict[str, Any]] = []
+    for anomaly in anomalies:
+        base = dict(anomaly)
+        anomaly_type = base.get("type")
+        base["business_id"] = business_id
+        base["account_id"] = account_id
+        base["date_detected"] = base.get("date")
+        base["metric_value"] = base.get("metric_value", base.get("threshold"))
+        base["explanation"] = base.get("explanation") or base.get("reason")
+        base["affected_period"] = base.get("affected_period", base.get("date"))
+        base.setdefault("transaction_reference", None)
+        if anomaly_type != "sudden_expense_spike":
+            base["severity"] = _phase2_severity(base.get("severity"))
+        finalized.append(base)
+
+        alias = _PHASE2_TYPE_ALIASES.get(anomaly_type)
+        if alias is not None:
+            aliased = dict(base)
+            aliased["type"] = alias
+            aliased["severity"] = _phase2_severity(base.get("severity"))
+            finalized.append(aliased)
+    return finalized
 
 
 def _sort_anomalies(anomalies: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -582,10 +695,30 @@ def get_business_health(
     score, health_level = _health_score(metrics)
     metrics["overall_financial_health_score"] = score
     metrics["health_level"] = health_level
+    metrics["health_score"] = score
+    metrics["health_rating"] = {
+        "Excellent": "Excellent",
+        "Good": "Good",
+        "Moderate": "Stable",
+        "Poor": "Warning",
+        "Critical": "Critical",
+    }[health_level]
+    metrics["income_growth"] = metrics["income_trend"]
+    metrics["expense_growth"] = metrics["expense_trend"]
+    metrics["income_ratio"] = (
+        (total_income / total_expense).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        if total_expense
+        else Decimal("0.00")
+    )
 
     anomalies = _detect_transaction_anomalies(transactions)
     anomalies.extend(_detect_period_anomalies(analysis, metrics))
-    return {"metrics": metrics, "anomalies": _sort_anomalies(anomalies)}
+    finalized = _finalize_anomalies(
+        anomalies,
+        business_id=business_id,
+        account_id=account_id,
+    )
+    return {"metrics": metrics, "anomalies": _sort_anomalies(finalized)}
 
 
 analyze_business_health = get_business_health

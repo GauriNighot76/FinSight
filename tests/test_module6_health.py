@@ -537,3 +537,288 @@ def test_category_spike_inactive_period_and_expense_explosion(monkeypatch):
     assert "category_spike" in anomaly_types
     assert "inactive_period" in anomaly_types
     assert "expense_explosion" in anomaly_types
+
+
+def _phase2_analysis(*, income=1000, expense=300, trends=None, transactions=None):
+    transaction_rows = transactions or []
+    return {
+        "kpis": {
+            "total_income_minor": income,
+            "total_expense_minor": expense,
+            "net_cash_flow_minor": income - expense,
+            "transaction_count": len(transaction_rows),
+            "closing_balance_minor": 5000 + income - expense,
+            "savings_rate": Decimal(income - expense) * Decimal(100) / Decimal(income)
+            if income
+            else Decimal("0.00"),
+        },
+        "trends": trends or {"daily": [], "weekly": [], "monthly": []},
+        "categories": [
+            {
+                "category": "Food",
+                "income_minor": 0,
+                "expense_minor": expense,
+                "amount_minor": expense,
+                "count": len(transaction_rows),
+            }
+        ]
+        if transaction_rows
+        else [],
+        "payment_modes": [
+            {
+                "payment_mode": "UPI",
+                "count": len(transaction_rows),
+                "amount_minor": expense,
+            }
+        ]
+        if transaction_rows
+        else [],
+        "accounts": [{"account_id": ACCOUNT_ID}],
+        "transactions": transaction_rows,
+    }
+
+
+def test_phase2_anomalies_have_required_safe_metadata(monkeypatch):
+    transactions = [
+        {
+            "transaction_date": "2026-08-01",
+            "amount_minor": 100,
+            "direction": "expense",
+            "category": "Food",
+            "payment_mode": "UPI",
+            "source_transaction_id": "source-1",
+        },
+        {
+            "transaction_date": "2026-08-02",
+            "amount_minor": 100,
+            "direction": "expense",
+            "category": "Food",
+            "payment_mode": "UPI",
+            "source_transaction_id": "source-2",
+        },
+        {
+            "transaction_date": "2026-08-03",
+            "amount_minor": 1000,
+            "direction": "expense",
+            "category": "Food",
+            "payment_mode": "UPI",
+            "source_transaction_id": "source-3",
+        },
+    ]
+    service = _authorized_context(
+        monkeypatch,
+        _phase2_analysis(income=1000, expense=1200, transactions=transactions),
+    )
+
+    anomalies = _health(service)["anomalies"]
+
+    assert any(item["type"] == "large_transaction" for item in anomalies)
+    for anomaly in anomalies:
+        assert anomaly["severity"] in {"LOW", "MEDIUM", "HIGH", "CRITICAL"}
+        assert anomaly["business_id"] == BUSINESS_ID
+        assert anomaly["account_id"] == ACCOUNT_ID
+        assert set(anomaly) >= {
+            "type",
+            "severity",
+            "business_id",
+            "account_id",
+            "date_detected",
+            "metric_value",
+            "threshold",
+            "explanation",
+            "affected_period",
+            "transaction_reference",
+        }
+
+
+def test_phase2_period_rules_are_all_detected(monkeypatch):
+    trends = {
+        "daily": [
+            {"period": "2026-01-01", "income_minor": 100, "expense_minor": 0},
+            {"period": "2026-01-10", "income_minor": 0, "expense_minor": 100},
+        ],
+        "weekly": [],
+        "monthly": [
+            {"period": "2026-01", "income_minor": 1000, "expense_minor": 100},
+            {"period": "2026-02", "income_minor": 0, "expense_minor": 250},
+        ],
+    }
+    transactions = [
+        {
+            "transaction_date": "2026-01-02",
+            "amount_minor": 100,
+            "direction": "expense",
+            "category": "Food",
+            "payment_mode": "UPI",
+        },
+        {
+            "transaction_date": "2026-02-02",
+            "amount_minor": 250,
+            "direction": "expense",
+            "category": "Food",
+            "payment_mode": "Cash",
+        },
+    ]
+    analysis = _phase2_analysis(
+        income=1000,
+        expense=350,
+        trends=trends,
+        transactions=transactions,
+    )
+    analysis["payment_modes"] = [
+        {"payment_mode": "UPI", "count": 3, "amount_minor": 100},
+        {"payment_mode": "Cash", "count": 1, "amount_minor": 250},
+    ]
+    service = _authorized_context(monkeypatch, analysis)
+
+    anomaly_types = {item["type"] for item in _health(service)["anomalies"]}
+
+    assert {
+        "expense_explosion",
+        "income_drop",
+        "negative_cash_flow",
+        "category_spike",
+        "payment_mode_change",
+        "inactive_period",
+        "income_interruption",
+    } <= anomaly_types
+
+
+def test_phase2_ratio_and_stability_rules_use_strict_boundaries(monkeypatch):
+    trends = {
+        "daily": [
+            {"period": "2026-08-01", "net_cash_flow_minor": -10},
+            {"period": "2026-08-02", "net_cash_flow_minor": -20},
+            {"period": "2026-08-03", "net_cash_flow_minor": -30},
+            {"period": "2026-08-04", "net_cash_flow_minor": 40},
+        ],
+        "weekly": [],
+        "monthly": [],
+    }
+    service = _authorized_context(
+        monkeypatch,
+        _phase2_analysis(income=100, expense=150, trends=trends),
+    )
+
+    result = _health(service)
+    anomaly_types = {item["type"] for item in result["anomalies"]}
+
+    assert result["metrics"]["expense_to_income_ratio"] == Decimal("1.50")
+    assert "high_expense_ratio" in anomaly_types
+    assert "cash_flow_instability" in anomaly_types
+
+
+def test_phase2_duplicate_pattern_and_recurring_growth_are_deterministic(monkeypatch):
+    transactions = [
+        {
+            "transaction_date": "2026-01-01",
+            "amount_minor": 100,
+            "direction": "expense",
+            "category": "Rent",
+            "payment_mode": "Bank",
+        },
+        {
+            "transaction_date": "2026-01-02",
+            "amount_minor": 100,
+            "direction": "expense",
+            "category": "Rent",
+            "payment_mode": "Bank",
+        },
+        {
+            "transaction_date": "2026-02-01",
+            "amount_minor": 200,
+            "direction": "expense",
+            "category": "Rent",
+            "payment_mode": "Bank",
+        },
+    ]
+    service = _authorized_context(
+        monkeypatch,
+        _phase2_analysis(
+            income=1000,
+            expense=400,
+            trends={"daily": [], "weekly": [], "monthly": []},
+            transactions=transactions,
+        ),
+    )
+
+    first = _health(service)
+    second = _health(service)
+    anomaly_types = {item["type"] for item in first["anomalies"]}
+
+    assert "duplicate_pattern" in anomaly_types
+    assert "recurring_expense_growth" in anomaly_types
+    assert first == second
+
+
+def test_phase2_member_access_is_rejected_before_analytics(monkeypatch):
+    from services import business_health_service
+
+    _authorized_context(monkeypatch)
+    monkeypatch.setattr(
+        business_health_service.queries,
+        "get_business_membership",
+        lambda business_id, user_id: {
+            "business_status": "active",
+            "membership_status": "active",
+            "membership_role": "member",
+        },
+    )
+    calls = []
+    monkeypatch.setattr(
+        business_health_service.analytics_service,
+        "get_financial_analytics",
+        lambda **kwargs: calls.append(kwargs),
+    )
+
+    with pytest.raises(business_health_service.BusinessHealthError):
+        _health(business_health_service)
+    assert calls == []
+
+
+def test_phase2_analytics_contract_exposes_sanitized_transaction_rows(monkeypatch):
+    from services import analytics_service
+
+    monkeypatch.setattr(analytics_service, "_require_authorized_session", lambda *args: None)
+    monkeypatch.setattr(
+        analytics_service,
+        "_load_account",
+        lambda account_id, business_id, currency: {
+            "opening_balance_minor": 0,
+            "currency": currency,
+        },
+    )
+    monkeypatch.setattr(
+        analytics_service,
+        "_load_accepted_rows",
+        lambda **kwargs: [
+            {
+                "transaction_date": "2026-08-01",
+                "amount_minor": 100,
+                "direction": "expense",
+                "currency": "INR",
+                "identity_id": "internal-identity",
+                "category": "Food",
+                "payment_mode": "UPI",
+            }
+        ],
+    )
+
+    result = analytics_service.get_financial_analytics(
+        session_token="session-token",
+        business_id=BUSINESS_ID,
+        account_id=ACCOUNT_ID,
+        start_date="2026-08-01",
+        end_date="2026-08-31",
+        currency="INR",
+    )
+
+    assert result["transactions"] == [
+        {
+            "transaction_date": "2026-08-01",
+            "amount_minor": 100,
+            "direction": "expense",
+            "category": "Food",
+            "payment_mode": "UPI",
+        }
+    ]

@@ -221,6 +221,20 @@ def _build_account_summary(
     ]
 
 
+def _build_transaction_rows(rows: list[Any]) -> list[dict[str, Any]]:
+    """Expose only non-sensitive accepted fields for downstream read-only analysis."""
+    return [
+        {
+            "transaction_date": row["transaction_date"],
+            "amount_minor": row["amount_minor"],
+            "direction": row["direction"],
+            "category": row["category"],
+            "payment_mode": row["payment_mode"],
+        }
+        for row in rows
+    ]
+
+
 def get_financial_analytics(
     *,
     session_token: str,
@@ -282,6 +296,7 @@ def get_financial_analytics(
         "categories": _build_category_summary(rows),
         "payment_modes": _build_payment_mode_summary(rows),
         "accounts": _build_account_summary(account_id, account, rows),
+        "transactions": _build_transaction_rows(rows),
     }
 
 
