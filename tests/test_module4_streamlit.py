@@ -112,6 +112,11 @@ def _authorized_context(monkeypatch, role="owner"):
             ],
         },
     )
+    monkeypatch.setattr(
+        ingestion_ui.bridge_service,
+        "bridge_status",
+        lambda token, business_id: {"success": True, "status": "active"},
+    )
     return ingestion_ui
 
 
@@ -348,7 +353,7 @@ def test_upload_widget_accepts_canonical_json_and_csv(monkeypatch):
 
     ingestion_ui.render_ingestion_page(ui, "session-token")
     uploader = next(event for event in ui.events if event[0] == "file_uploader")
-    assert uploader[2]["type"] == ["json", "csv"]
+    assert uploader[2]["type"] == ["json", "csv", "xml"]
 
 
 def test_no_database_or_service_call_occurs_before_submit(monkeypatch):
@@ -457,7 +462,7 @@ def test_malformed_csv_has_a_sanitized_error_and_no_ingestion(monkeypatch):
     assert ingestion_ui.render_ingestion_page(ui, "session-token") is False
     rendered = _events_text(ui)
     assert "CSV" in rendered
-    assert "could not be normalized" in rendered
+    assert "malformed" in rendered
     assert "unterminated" not in rendered
     assert ingestion_calls == []
 

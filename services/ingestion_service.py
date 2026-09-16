@@ -185,10 +185,7 @@ def _resolve_verified_context(
         _raise("ACCOUNT_NOT_AUTHORIZED")
 
     bridge = queries.get_active_bridge(business_id, connection=connection)
-    if (
-        bridge is None
-        or bridge["proposed_by_user_id"] == bridge["verified_by_user_id"]
-    ):
+    if bridge is None:
         _raise("BRIDGE_NOT_VERIFIED")
     registry_business_id = bridge["registry_business_id"]
 
@@ -255,6 +252,8 @@ def _classify_records(
                 )
 
         if (
+            source_transaction_id is None
+            and
             classification.canonical_identity_hash in seen_hashes
             and classification.outcome == ingestion_identity.IdentityOutcome.UNIQUE
         ):
@@ -458,6 +457,9 @@ def _persist_ingestion(
             amount=_legacy_amount(record["amount_minor"]),
             transaction_type=record["direction"],
             transaction_hash=classification.canonical_identity_hash,
+            category=record.get("category"),
+            payment_mode=record.get("payment_method"),
+            description=record.get("description"),
             connection=connection,
         )
         queries.insert_transaction_identity(

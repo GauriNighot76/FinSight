@@ -3,6 +3,7 @@
 from collections import defaultdict
 from datetime import date
 from decimal import Decimal, ROUND_HALF_UP
+from statistics import median
 from typing import Any, Optional
 
 from database import queries
@@ -280,56 +281,51 @@ def _anomaly(
 def _detect_transaction_anomalies(
     transactions: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
-    anomalies: list[dict[str, Any]] = []
-    by_direction: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    for row in transactions:
-        if row.get("direction") in {"income", "expense"}:
-            by_direction[row["direction"]].append(row)
+    """Find a small set of material, explainable transaction exceptions.
 
-    for direction, rows in by_direction.items():
-        average = (
-            sum(_decimal(row.get("amount_minor")) for row in rows) / len(rows)
-            if rows
-            else Decimal("0")
-        )
-        threshold = average * Decimal(2)
+    Values are compared with transactions of the same direction and category.
+    Median absolute deviation is deliberately used instead of a global average:
+    regular rent and payroll must not become suspicious merely because most
+    day-to-day receipts are smaller.
+    """
+    anomalies: list[dict[str, Any]] = []
+    groups: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
+    for row in transactions:
+        direction = row.get("direction")
+        if direction in {"income", "expense"}:
+            category = str(row.get("category") or "Uncategorized")
+            groups[(direction, category)].append(row)
+
+    for (direction, category), rows in groups.items():
+        if len(rows) < 8:
+            continue
+        amounts = [_decimal(row.get("amount_minor")) for row in rows]
+        centre = Decimal(str(median(amounts)))
+        deviations = [abs(value - centre) for value in amounts]
+        mad = Decimal(str(median(deviations)))
+        # Six MADs is intentionally conservative.  The percentage floor avoids
+        # noisy flags where a category normally contains near-identical prices.
+        threshold = centre + max(mad * Decimal(6), centre * Decimal("1.5"))
         for row in rows:
             amount = _decimal(row.get("amount_minor"))
             if amount > threshold and threshold > 0:
                 label = "income" if direction == "income" else "expense"
                 anomalies.append(
                     _anomaly(
-                        f"unusually_large_{label}",
-                        "High",
+                        "amount_outside_usual_range",
+                        "Medium",
                         row,
-                        f"The {label} is more than twice the average {label} amount.",
+                        f"This {label} is above the usual range for {category}.",
                         "amount_minor",
                         threshold,
+                        metric_value=amount,
                     )
                 )
-
-    identical: dict[tuple[Any, ...], list[dict[str, Any]]] = defaultdict(list)
-    for row in transactions:
-        key = (
-            row.get("amount_minor"),
-            row.get("direction"),
-            row.get("category") or "Uncategorized",
-            row.get("payment_mode") or "Other",
-        )
-        identical[key].append(row)
-    for rows in identical.values():
-        if len(rows) >= 2:
-            anomalies.append(
-                _anomaly(
-                    "repeated_identical_transactions",
-                    "Medium",
-                    rows[0],
-                    "The same amount, direction, category, and payment mode repeat.",
-                    "identical_transaction_count",
-                    2,
-                )
-            )
-    return anomalies
+    return sorted(
+        anomalies,
+        key=lambda item: _decimal(item.get("metric_value")),
+        reverse=True,
+    )[:20]
 
 
 def _detect_period_anomalies(
@@ -347,27 +343,27 @@ def _detect_period_anomalies(
         current_expense = _decimal(current.get("expense_minor"))
         previous_income = _decimal(previous.get("income_minor"))
         current_income = _decimal(current.get("income_minor"))
-        if previous_expense > 0 and current_expense >= previous_expense * Decimal("1.5"):
-            anomalies.append(
-                _anomaly(
-                    "sudden_expense_spike",
-                    "High",
-                    None,
-                    "Monthly expenses increased sharply compared with the prior period.",
-                    "monthly_expense_growth",
-                    Decimal("50.00"),
-                    period=current.get("period"),
-                )
-            )
         if previous_expense > 0 and current_expense >= previous_expense * Decimal("2"):
             anomalies.append(
                 _anomaly(
-                    "expense_explosion",
+                    "monthly_expenses_doubled",
                     "Critical",
                     None,
-                    "Monthly expenses doubled or more compared with the prior period.",
+                    "Monthly expenses doubled compared with the previous month.",
                     "monthly_expense_growth",
                     Decimal("100.00"),
+                    period=current.get("period"),
+                )
+            )
+        elif previous_expense > 0 and current_expense >= previous_expense * Decimal("1.5"):
+            anomalies.append(
+                _anomaly(
+                    "monthly_expense_increase",
+                    "High",
+                    None,
+                    "Monthly expenses increased by at least 50% compared with the previous month.",
+                    "monthly_expense_growth",
+                    Decimal("50.00"),
                     period=current.get("period"),
                 )
             )
@@ -447,7 +443,9 @@ def _detect_period_anomalies(
                 )
             )
 
-    for period in _periods(analysis):
+    # Daily losses are normal for many businesses.  Flag only loss-making
+    # months so the review list remains actionable.
+    for period in monthly:
         net = _period_value(period, "net_cash_flow_minor")
         if net < 0:
             anomalies.append(
@@ -501,61 +499,7 @@ def _detect_period_anomalies(
                     period=current_month,
                 )
             )
-            anomalies.append(
-                _anomaly(
-                    "recurring_expense_growth",
-                    "HIGH",
-                    category_rows.get((category, current_month)),
-                    "A recurring expense category increased sharply compared with the prior month.",
-                    "recurring_expense_growth",
-                    Decimal("50.00"),
-                    period=current_month,
-                    metric_value=_percentage(
-                        current_amount - previous_amount, previous_amount
-                    ),
-                )
-            )
-
-    payment_modes = _payment_values(analysis)
-    total_count = sum(int(_decimal(row.get("count"))) for row in payment_modes)
-    if total_count >= 3:
-        for row in payment_modes:
-            if int(_decimal(row.get("count"))) == 1:
-                anomalies.append(
-                    _anomaly(
-                        "unexpected_payment_mode",
-                        "Medium",
-                        None,
-                        "This payment mode appears only once in the selected period.",
-                        "payment_mode_count",
-                        1,
-                        period=None,
-                    )
-                )
-
-    if _decimal(metrics["recurring_expense_burden"]) > 50:
-        anomalies.append(
-            _anomaly(
-                "very_high_recurring_expenses",
-                "High",
-                None,
-                "Recurring expenses consume more than half of total expenses.",
-                "recurring_expense_burden",
-                Decimal("50.00"),
-            )
-        )
     return anomalies
-
-
-_PHASE2_TYPE_ALIASES = {
-    "unusually_large_income": "large_transaction",
-    "unusually_large_expense": "large_transaction",
-    "sudden_income_drop": "income_drop",
-    "negative_cash_flow_period": "negative_cash_flow",
-    "unexpected_payment_mode": "payment_mode_change",
-    "repeated_identical_transactions": "duplicate_pattern",
-    "very_high_recurring_expenses": "recurring_expense_growth",
-}
 
 
 def _phase2_severity(value: Any) -> str:
@@ -572,6 +516,7 @@ def _finalize_anomalies(
     account_id: str,
 ) -> list[dict[str, Any]]:
     finalized: list[dict[str, Any]] = []
+    seen: set[tuple[Any, ...]] = set()
     for anomaly in anomalies:
         base = dict(anomaly)
         anomaly_type = base.get("type")
@@ -582,17 +527,18 @@ def _finalize_anomalies(
         base["explanation"] = base.get("explanation") or base.get("reason")
         base["affected_period"] = base.get("affected_period", base.get("date"))
         base.setdefault("transaction_reference", None)
-        if anomaly_type != "sudden_expense_spike":
-            base["severity"] = _phase2_severity(base.get("severity"))
+        base["severity"] = _phase2_severity(base.get("severity"))
+        identity = (
+            anomaly_type,
+            base.get("date"),
+            base.get("transaction_reference"),
+            str(base.get("metric_value")),
+        )
+        if identity in seen:
+            continue
+        seen.add(identity)
         finalized.append(base)
-
-        alias = _PHASE2_TYPE_ALIASES.get(anomaly_type)
-        if alias is not None:
-            aliased = dict(base)
-            aliased["type"] = alias
-            aliased["severity"] = _phase2_severity(base.get("severity"))
-            finalized.append(aliased)
-    return finalized
+    return finalized[:25]
 
 
 def _sort_anomalies(anomalies: list[dict[str, Any]]) -> list[dict[str, Any]]:

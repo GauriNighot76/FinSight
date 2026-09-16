@@ -112,6 +112,23 @@ def _load_accepted_rows(
         ).fetchall()
 
 
+def get_available_date_range(
+    *, session_token: str, business_id: str, account_id: str, currency: str
+) -> tuple[str | None, str | None]:
+    """Return the actual stored date range for an authorized data source."""
+    _require_authorized_session(session_token, business_id)
+    _load_account(account_id, business_id, currency)
+    with queries.get_connection() as connection:
+        row = connection.execute(
+            """SELECT MIN(transaction_date) AS first_date,
+                      MAX(transaction_date) AS last_date
+               FROM ingested_transaction_identities
+               WHERE business_id=? AND account_id=?""",
+            (business_id, account_id),
+        ).fetchone()
+    return (row["first_date"], row["last_date"]) if row else (None, None)
+
+
 def _empty_trends() -> dict[str, list[dict[str, Any]]]:
     return {"daily": [], "weekly": [], "monthly": []}
 
@@ -319,4 +336,4 @@ def get_financial_analytics(
     }
 
 
-__all__ = ["AnalyticsError", "get_financial_analytics"]
+__all__ = ["AnalyticsError", "get_available_date_range", "get_financial_analytics"]
