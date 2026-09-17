@@ -28,7 +28,7 @@ _SAFE_ERROR_MESSAGES = {
     "MEMBERSHIP_REQUIRED": "An active business membership is required.",
     "INGESTION_FORBIDDEN": "The current business role cannot ingest data.",
     "ACCOUNT_NOT_AUTHORIZED": "The selected financial account is unavailable.",
-    "BRIDGE_NOT_VERIFIED": "The business registry relationship is unavailable.",
+    "BRIDGE_NOT_VERIFIED": "Finish the business setup before importing transactions.",
     "REGISTRY_BUSINESS_NOT_FOUND": "The linked registry business is unavailable.",
     "REGISTRY_OWNER_NOT_FOUND": "The linked registry owner is unavailable.",
     "VALIDATION_FAILED": "The ingestion payload is invalid.",
@@ -213,6 +213,20 @@ def _canonical_batches(payload: Any) -> list[dict[str, Any]]:
     ]
 
 
+def _json_batches(uploaded_file: Any) -> list[dict[str, Any]]:
+    """Read a canonical JSON transaction file and reject unusable envelopes early."""
+    payload = _read_uploaded_json(uploaded_file)
+    if not isinstance(payload, dict) or not isinstance(payload.get("records"), list):
+        raise flexible_import.FlexibleImportError(
+            "JSON must contain a top-level 'records' list of transactions."
+        )
+    if not payload["records"]:
+        raise flexible_import.FlexibleImportError("The JSON file contains no transaction records.")
+    if len(payload["records"]) > 10000:
+        raise flexible_import.FlexibleImportError("Import up to 10,000 JSON records at a time.")
+    return _canonical_batches(payload)
+
+
 def _ingest_batches(
     st: Any,
     *,
@@ -255,6 +269,11 @@ def render_ingestion_page(st: Any, session_token: Any) -> bool:
 
     st.header("Import transactions")
     st.caption("Upload a file and FinSight will identify the columns and check the totals before saving anything.")
+    st.info(
+        "Transaction imports support CSV, JSON, and XML. PDF statements are not "
+        "transaction data files, so they cannot be imported here yet. Files up to "
+        "5 MB are supported; larger imports are processed in safe 1,000-row batches."
+    )
     business_labels = [business["business_name"] for business in businesses]
     selected_business_label = st.selectbox("Business", business_labels)
     try:
@@ -307,7 +326,7 @@ def render_ingestion_page(st: Any, session_token: Any) -> bool:
     selected_account = accounts[account_index]
 
     uploaded_file = st.file_uploader(
-        "Choose a transaction file (CSV, XML, or JSON)",
+        "Choose a transaction file (CSV, JSON, or XML)",
         type=["json", "csv", "xml"],
         accept_multiple_files=False,
     )
@@ -330,9 +349,15 @@ def render_ingestion_page(st: Any, session_token: Any) -> bool:
             if not st.button("Ingest transactions", type="primary"):
                 return False
         else:
+            payloads = _json_batches(uploaded_file)
+            summary = _payload_summary(payloads)
+            columns = st.columns(3) if hasattr(st, "columns") else [st, st, st]
+            columns[0].metric("Transactions found", f"{summary['rows']:,}")
+            columns[1].metric("Money received", _money(summary["income"]))
+            columns[2].metric("Money spent", _money(summary["expenses"]))
+            st.caption("Nothing is saved until you confirm the import.")
             if not st.button("Ingest transactions", type="primary"):
                 return False
-            payloads = _canonical_batches(_read_uploaded_json(uploaded_file))
     except flexible_import.FlexibleImportError as error:
         st.error(str(error))
         return False

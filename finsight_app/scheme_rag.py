@@ -132,11 +132,17 @@ def load_index() -> None:
     return None
 
 
+def has_scheme_guide(scheme_name: str) -> bool:
+    """Whether FinSight has a local guide for assistant answers."""
+    filename = SCHEME_FILE_MAP.get(scheme_name)
+    return bool(filename and (SCHEME_DOCS_FOLDER / filename).is_file())
+
+
 def ask_scheme_question(scheme_name: str, question: str, _index=None) -> str:
     return answer_scheme_question(scheme_name, question).answer
 
 
 __all__ = [
     "SchemeAnswer", "SchemeAssistantError", "answer_scheme_question",
-    "ask_scheme_question", "load_index", "retrieve_scheme_passages",
+    "ask_scheme_question", "has_scheme_guide", "load_index", "retrieve_scheme_passages",
 ]

@@ -38,10 +38,10 @@ ALIASES = {
     "debit": {"debit", "debit amount", "withdrawal", "withdrawal amount", "money out", "paid out", "dr amount", "debit amt"},
     "credit": {"credit", "credit amount", "deposit", "deposit amount", "money in", "received", "cr amount", "credit amt"},
     "direction": {"direction", "type", "transaction type", "txn type", "debit credit", "dr cr", "income expense", "flow"},
-    "description": {"description", "narration", "particulars", "remarks", "details", "memo", "transaction details", "what"},
-    "category": {"category", "expense category", "income category", "classification", "purpose"},
+    "description": {"description", "narration", "particulars", "remarks", "details", "memo", "transaction details", "what", "product name", "medicine product name", "item name"},
+    "category": {"category", "expense category", "income category", "classification", "purpose", "product category"},
     "payment_method": {"payment mode", "payment method", "mode", "method", "channel", "transaction mode"},
-    "source_transaction_id": {"transaction id", "txn id", "reference", "reference id", "ref no", "reference number", "utr", "rrn", "cheque number"},
+    "source_transaction_id": {"transaction id", "transaction bill id", "bill id", "txn id", "reference", "reference id", "ref no", "reference number", "utr", "rrn", "cheque number"},
     "counterparty": {"counterparty", "merchant", "payee", "beneficiary", "payer", "vendor", "party"},
     "balance": {"balance", "running balance", "closing balance", "available balance", "ledger balance"},
 }
