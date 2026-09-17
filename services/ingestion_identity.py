@@ -244,6 +244,12 @@ def classify_transaction_identity(
                 _identity_id(source_match),
             )
 
+        # A stable source ID is authoritative.  Different real transactions can
+        # legitimately share a date, amount and direction (for example several
+        # consultations charged at the same tariff).  Falling through to the
+        # coarse canonical hash would incorrectly discard those transactions.
+        return IdentityClassification(IdentityOutcome.UNIQUE, canonical_hash)
+
     canonical_match = queries.find_identity_by_hash(
         business_id=business_id,
         registry_business_id=registry_business_id,

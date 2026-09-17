@@ -250,7 +250,7 @@ def test_bridge_must_be_active_and_verified(ingestion_repository, status):
         assert_no_module4_writes(connection)
 
 
-def test_bridge_verification_must_be_independent(ingestion_repository):
+def test_owner_activated_bridge_is_accepted(ingestion_repository):
     with ingestion_repository() as connection:
         connection.execute(
             "UPDATE business_registry_bridges "
@@ -258,9 +258,8 @@ def test_bridge_verification_must_be_independent(ingestion_repository):
             "WHERE bridge_id='bridge_active'"
         )
 
-    with pytest.raises(ingestion_service.IngestionServiceError) as exc_info:
-        ingestion_service.prepare_ingestion(**prepare_args())
-    assert exc_info.value.code == "BRIDGE_NOT_VERIFIED"
+    result = ingestion_service.prepare_ingestion(**prepare_args())
+    assert result.records[0].outcome == ingestion_identity.IdentityOutcome.UNIQUE
 
 
 def test_missing_registry_business_fails_closed(ingestion_repository, monkeypatch):
@@ -297,16 +296,16 @@ def test_existing_source_id_is_classified_as_duplicate(ingestion_repository):
     assert result.records[0].outcome == ingestion_identity.IdentityOutcome.DUPLICATE_SOURCE_ID
 
 
-def test_existing_canonical_hash_is_classified_as_duplicate(ingestion_repository):
+def test_distinct_source_id_is_classified_as_unique(ingestion_repository):
     with ingestion_repository() as connection:
         seed_identity(connection)
     result = ingestion_service.prepare_ingestion(
         **prepare_args(payload=make_payload([make_record(source_transaction_id="SRC-002")]))
     )
-    assert result.records[0].outcome == ingestion_identity.IdentityOutcome.DUPLICATE_CANONICAL_IDENTITY
+    assert result.records[0].outcome == ingestion_identity.IdentityOutcome.UNIQUE
 
 
-def test_within_batch_duplicate_is_classified_without_writes(ingestion_repository):
+def test_distinct_source_ids_with_same_amount_and_date_are_kept(ingestion_repository):
     record = make_record(source_transaction_id="SRC-NEW")
     second_record = dict(record, source_transaction_id="SRC-NEW-2")
     result = ingestion_service.prepare_ingestion(
@@ -314,7 +313,7 @@ def test_within_batch_duplicate_is_classified_without_writes(ingestion_repositor
     )
     assert [item.outcome for item in result.records] == [
         ingestion_identity.IdentityOutcome.UNIQUE,
-        ingestion_identity.IdentityOutcome.DUPLICATE_CANONICAL_IDENTITY,
+        ingestion_identity.IdentityOutcome.UNIQUE,
     ]
     with ingestion_repository() as connection:
         assert_no_module4_writes(connection)
@@ -445,11 +444,11 @@ def test_ingest_manager_writes_legacy_owner_not_uploader(ingestion_repository):
 
 
 @pytest.mark.parametrize(
-    "source_transaction_id",
-    ["SRC-001", "SRC-002"],
+    "source_transaction_id,expected_inserted",
+    [("SRC-001", 0), ("SRC-002", 1)],
 )
 def test_known_duplicates_do_not_insert_financial_rows(
-    ingestion_repository, source_transaction_id
+    ingestion_repository, source_transaction_id, expected_inserted
 ):
     with ingestion_repository() as connection:
         seed_identity(connection)
@@ -466,11 +465,15 @@ def test_known_duplicates_do_not_insert_financial_rows(
     )
 
     assert result.status == "completed"
-    assert result.inserted_count == 0
-    assert result.duplicate_count == 1
+    assert result.inserted_count == expected_inserted
+    assert result.duplicate_count == 1 - expected_inserted
     with ingestion_repository() as connection:
         after = _module4_counts(connection)
-    assert after == (before[0] + 1, before[1], before[2])
+    assert after == (
+        before[0] + 1,
+        before[1] + expected_inserted,
+        before[2] + expected_inserted,
+    )
 
 
 def test_source_identity_conflict_fails_without_partial_writes(ingestion_repository):
@@ -490,7 +493,7 @@ def test_source_identity_conflict_fails_without_partial_writes(ingestion_reposit
         assert _module4_counts(connection) == (1, 1, 1)
 
 
-def test_canonical_identity_conflict_fails_without_partial_writes(ingestion_repository):
+def test_canonical_collision_with_distinct_source_id_is_inserted(ingestion_repository):
     with ingestion_repository() as connection:
         seed_identity(connection, source_transaction_id="SRC-OLD", values={"amount_minor": 9999})
         connection.execute(
@@ -507,17 +510,16 @@ def test_canonical_identity_conflict_fails_without_partial_writes(ingestion_repo
             ),
         )
 
-    with pytest.raises(ingestion_service.IngestionServiceError) as exc_info:
-        ingestion_service.ingest(
-            **prepare_args(
-                payload=make_payload(
-                    [make_record(source_transaction_id="SRC-NEW")]
-                )
+    result = ingestion_service.ingest(
+        **prepare_args(
+            payload=make_payload(
+                [make_record(source_transaction_id="SRC-NEW")]
             )
         )
-    assert exc_info.value.code == "IDENTITY_CONFLICT"
+    )
+    assert result.inserted_count == 1
     with ingestion_repository() as connection:
-        assert _module4_counts(connection) == (1, 1, 1)
+        assert _module4_counts(connection) == (2, 2, 2)
 
 
 @pytest.mark.parametrize("failure_point", ["attempt", "ledger", "identity"])

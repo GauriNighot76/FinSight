@@ -559,6 +559,125 @@ def get_active_bridge(business_id: str, connection: Optional[Any] = None):
         ).fetchone()
 
 
+def get_latest_bridge(business_id: str):
+    with get_connection() as connection:
+        return connection.execute(
+            """SELECT br.*,b.business_name,u.username AS proposer_name
+               FROM business_registry_bridges br
+               JOIN businesses b ON b.business_id=br.business_id
+               JOIN users u ON u.user_id=br.proposed_by_user_id
+               WHERE br.business_id=?
+               ORDER BY br.proposed_at DESC,br.bridge_id DESC LIMIT 1""",
+            (business_id,),
+        ).fetchone()
+
+
+def create_registry_bridge_proposal(
+    business_id: str, owner_user_id: str, business_name: str
+) -> str:
+    """Create the legacy ledger and pending bridge as one transaction."""
+    bridge_id = generate_id("brg")
+    with get_connection() as connection:
+        existing = connection.execute(
+            """SELECT bridge_id FROM business_registry_bridges
+               WHERE business_id=? AND bridge_status IN ('pending','active')""",
+            (business_id,),
+        ).fetchone()
+        if existing:
+            return existing["bridge_id"]
+        registry = connection.execute(
+            """SELECT business_id FROM business_registry
+               WHERE user_id=? AND business_name=?""",
+            (owner_user_id, business_name),
+        ).fetchone()
+        registry_business_id = registry["business_id"] if registry else generate_id("reg")
+        if registry is None:
+            connection.execute(
+                """INSERT INTO business_registry
+                   (business_id,user_id,business_name) VALUES (?,?,?)""",
+                (registry_business_id, owner_user_id, business_name),
+            )
+        connection.execute(
+            """INSERT INTO business_registry_bridges
+               (bridge_id,business_id,registry_business_id,proposed_by_user_id,
+                bridge_status) VALUES (?,?,?,?,'pending')""",
+            (bridge_id, business_id, registry_business_id, owner_user_id),
+        )
+    return bridge_id
+
+
+def create_active_registry_bridge(
+    business_id: str, owner_user_id: str, business_name: str
+) -> str:
+    """Create the legacy ledger link immediately for a verified signed-in owner.
+
+    Manual review is reserved for exceptional ownership disputes; routine
+    single-owner onboarding must not depend on a continuously staffed queue.
+    """
+    bridge_id = generate_id("brg")
+    with get_connection() as connection:
+        existing = connection.execute(
+            """SELECT bridge_id FROM business_registry_bridges
+               WHERE business_id=? AND bridge_status='active'""",
+            (business_id,),
+        ).fetchone()
+        if existing:
+            return existing["bridge_id"]
+        registry = connection.execute(
+            """SELECT business_id FROM business_registry
+               WHERE user_id=? AND business_name=?""",
+            (owner_user_id, business_name),
+        ).fetchone()
+        registry_business_id = registry["business_id"] if registry else generate_id("reg")
+        if registry is None:
+            connection.execute(
+                """INSERT INTO business_registry
+                   (business_id,user_id,business_name) VALUES (?,?,?)""",
+                (registry_business_id, owner_user_id, business_name),
+            )
+        connection.execute(
+            """UPDATE business_registry_bridges
+               SET bridge_status='rejected',updated_at=CURRENT_TIMESTAMP
+               WHERE business_id=? AND bridge_status='pending'""",
+            (business_id,),
+        )
+        connection.execute(
+            """INSERT INTO business_registry_bridges
+               (bridge_id,business_id,registry_business_id,proposed_by_user_id,
+                verified_by_user_id,bridge_status,verified_at)
+               VALUES (?,?,?,?,?,'active',CURRENT_TIMESTAMP)""",
+            (bridge_id, business_id, registry_business_id, owner_user_id, owner_user_id),
+        )
+    return bridge_id
+
+
+def list_pending_registry_bridges():
+    with get_connection() as connection:
+        return connection.execute(
+            """SELECT br.*,b.business_name,b.legal_identifier,
+                      u.username AS proposer_name,u.email AS proposer_email
+               FROM business_registry_bridges br
+               JOIN businesses b ON b.business_id=br.business_id
+               JOIN users u ON u.user_id=br.proposed_by_user_id
+               WHERE br.bridge_status='pending'
+               ORDER BY br.proposed_at,br.bridge_id"""
+        ).fetchall()
+
+
+def review_registry_bridge(bridge_id: str, admin_user_id: str, decision: str) -> bool:
+    status = "active" if decision == "approve" else "rejected"
+    with get_connection() as connection:
+        cursor = connection.execute(
+            """UPDATE business_registry_bridges
+               SET bridge_status=?,verified_by_user_id=?,verified_at=CURRENT_TIMESTAMP,
+                   updated_at=CURRENT_TIMESTAMP
+               WHERE bridge_id=? AND bridge_status='pending'
+                 AND proposed_by_user_id<>?""",
+            (status, admin_user_id, bridge_id, admin_user_id),
+        )
+    return cursor.rowcount == 1
+
+
 def get_registry_business(registry_business_id: str, connection: Optional[Any] = None):
     with _module4_connection(connection) as active_connection:
         return active_connection.execute(

@@ -126,7 +126,7 @@ def test_source_conflict_fails_closed_without_new_rows(ingestion_repository):
         assert _module4_counts(connection) == (1, 1, 1)
 
 
-def test_canonical_conflict_fails_closed_without_new_rows(ingestion_repository):
+def test_distinct_source_id_is_not_rejected_by_coarse_canonical_hash(ingestion_repository):
     with ingestion_repository() as connection:
         seed_identity(connection, source_transaction_id="E2E-OLD", values={"amount_minor": 9999})
         connection.execute(
@@ -136,13 +136,12 @@ def test_canonical_conflict_fails_closed_without_new_rows(ingestion_repository):
             ),),
         )
 
-    with pytest.raises(ingestion_service.IngestionServiceError) as exc_info:
-        ingestion_service.ingest(
-            **prepare_args(payload=make_payload([make_record(source_transaction_id="E2E-NEW")]))
-        )
-    assert exc_info.value.code == "IDENTITY_CONFLICT"
+    result = ingestion_service.ingest(
+        **prepare_args(payload=make_payload([make_record(source_transaction_id="E2E-NEW")]))
+    )
+    assert result.inserted_count == 1
     with ingestion_repository() as connection:
-        assert _module4_counts(connection) == (1, 1, 1)
+        assert _module4_counts(connection) == (2, 2, 2)
 
 
 @pytest.mark.parametrize(

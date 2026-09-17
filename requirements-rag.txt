@@ -1,0 +1,8 @@
+# Optional AI scheme Q&A. Install only when this feature is needed.
+-r requirements.txt
+faiss-cpu>=1.7,<2.0
+langchain>=0.2,<2.0
+langchain-community>=0.2,<1.0
+langchain-groq>=0.1,<1.0
+langchain-huggingface>=0.0,<1.0
+sentence-transformers>=2.0,<6.0

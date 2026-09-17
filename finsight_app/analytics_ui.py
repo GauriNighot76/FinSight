@@ -1,10 +1,10 @@
-"""Thin Streamlit adapter for the read-only Module 5 analytics service."""
+﻿"""Thin Streamlit adapter for the read-only Module 5 analytics service."""
 
 from datetime import date
 from decimal import Decimal
 from typing import Any, Optional
 
-from services import account_service, analytics_service, auth_service, business_service
+from services import account_service, analytics_service, auth_service, business_health_service, business_service
 
 
 AUTHORIZED_MEMBERSHIP_ROLES = frozenset({"owner", "manager"})
@@ -102,7 +102,65 @@ def _format_value(label: str, value: Any, currency: str) -> str:
         return _format_minor(value, currency)
     if value is None:
         return "—"
+    if label == "Savings Rate":
+        return f"{value}%"
+    if label == "Income/Expense Ratio":
+        return f"{Decimal(value):.2f}×"
     return str(value)
+
+
+_FRIENDLY_COLUMNS = {
+    "period": "Period",
+    "transaction_date": "Date",
+    "direction": "Type",
+    "category": "Category",
+    "payment_mode": "Payment method",
+    "count": "Transactions",
+    "percentage": "Share (%)",
+    "reason": "Why this needs review",
+    "severity": "Priority",
+    "date": "Date",
+}
+
+
+def _friendly_rows(rows: Any, currency: str) -> list[dict[str, Any]]:
+    result = []
+    for row in _safe_table_rows(rows):
+        item: dict[str, Any] = {}
+        for key, value in row.items():
+            if key in {"affected_transaction", "trigger_metric", "threshold", "metric_value", "date_detected", "explanation", "affected_period"}:
+                continue
+            label = _FRIENDLY_COLUMNS.get(key, key.replace("_minor", "").replace("_", " ").title())
+            if key.endswith("_minor"):
+                value = _format_minor(value, currency)
+            elif key == "direction" and value:
+                value = str(value).title()
+            item[label] = value if value is not None else "—"
+        result.append(item)
+    return result
+
+
+_REVIEW_LABELS = {
+    "amount_outside_usual_range": "Amount outside the usual range",
+    "monthly_expenses_doubled": "Monthly expenses doubled",
+    "monthly_expense_increase": "Monthly expenses increased",
+    "sudden_income_drop": "Monthly income decreased",
+    "negative_cash_flow_period": "Loss-making month",
+    "category_spike": "Category spending increased",
+    "inactive_period": "Long period without transactions",
+}
+
+
+def _review_rows(anomalies: Any, currency: str) -> list[dict[str, Any]]:
+    rows = []
+    for anomaly in anomalies if isinstance(anomalies, list) else []:
+        rows.append({
+            "Finding": _REVIEW_LABELS.get(anomaly.get("type"), str(anomaly.get("type", "Review item")).replace("_", " ").title()),
+            "Priority": str(anomaly.get("severity", "Medium")).title(),
+            "Date or month": anomaly.get("date") or "—",
+            "Why it was flagged": anomaly.get("reason") or anomaly.get("explanation") or "—",
+        })
+    return rows
 
 
 def _safe_table_rows(rows: Any) -> list[dict[str, Any]]:
@@ -138,8 +196,17 @@ def _render_kpis(st: Any, result: dict[str, Any], currency: str) -> None:
         ("Savings Rate", "savings_rate"),
         ("Income/Expense Ratio", "income_expense_ratio"),
     )
-    for label, key in fields:
-        st.metric(label, _format_value(label, kpis.get(key), currency))
+    if not hasattr(st, "columns"):
+        for label, key in fields:
+            st.metric(label, _format_value(label, kpis.get(key), currency))
+        return
+    primary = fields[:4]
+    for column, (label, key) in zip(st.columns(4), primary):
+        column.metric(label, _format_value(label, kpis.get(key), currency))
+    with st.expander("More financial indicators"):
+        detail_columns = st.columns(3)
+        for index, (label, key) in enumerate(fields[4:]):
+            detail_columns[index % 3].metric(label, _format_value(label, kpis.get(key), currency))
 
 
 def _render_analytics(st: Any, result: dict[str, Any], currency: str) -> None:
@@ -149,23 +216,73 @@ def _render_analytics(st: Any, result: dict[str, Any], currency: str) -> None:
         st.info("No transactions found for the selected period.")
 
     trends = result.get("trends") if isinstance(result.get("trends"), dict) else {}
-    st.subheader("Daily trend")
-    st.line_chart(trends.get("daily", []))
-    st.subheader("Weekly trend")
-    st.line_chart(trends.get("weekly", []))
-    st.subheader("Monthly trend")
-    st.line_chart(trends.get("monthly", []))
+    if not hasattr(st, "columns"):
+        for label, name in (("Daily trend", "daily"), ("Weekly trend", "weekly"), ("Monthly trend", "monthly")):
+            st.subheader(label)
+            st.line_chart(trends.get(name, []))
+        for label, name in (("Category summary", "categories"), ("Payment mode summary", "payment_modes"), ("Account summary", "accounts")):
+            st.subheader(label)
+            st.dataframe(_safe_table_rows(result.get(name, [])), hide_index=True)
+        return
 
-    st.subheader("Category summary")
-    st.dataframe(_safe_table_rows(result.get("categories", [])), hide_index=True)
-    st.subheader("Payment mode summary")
-    st.dataframe(_safe_table_rows(result.get("payment_modes", [])), hide_index=True)
-    st.subheader("Account summary")
-    st.dataframe(_safe_table_rows(result.get("accounts", [])), hide_index=True)
+    st.subheader("Cash flow trend")
+    monthly = []
+    for row in trends.get("monthly", []):
+        monthly.append({
+            "Month": row.get("period"),
+            "Income": float(Decimal(row.get("income_minor", 0)) / 100),
+            "Expenses": float(Decimal(row.get("expense_minor", 0)) / 100),
+            "Net cash flow": float(Decimal(row.get("net_cash_flow_minor", 0)) / 100),
+        })
+    if monthly:
+        st.bar_chart(monthly, x="Month", y=["Income", "Expenses"])
+        st.line_chart(monthly, x="Month", y="Net cash flow")
+    else:
+        st.info("Import transactions to see cash-flow trends.")
+
+    left, right = st.columns(2)
+    with left:
+        st.subheader("Expense categories")
+        categories = _friendly_rows(result.get("categories", []), currency)
+        st.dataframe(categories, hide_index=True, use_container_width=True)
+    with right:
+        st.subheader("Payment methods")
+        payments = _friendly_rows(result.get("payment_modes", []), currency)
+        st.dataframe(payments, hide_index=True, use_container_width=True)
+    with st.expander("Recent transactions"):
+        st.dataframe(_friendly_rows(result.get("transactions", []), currency)[:100], hide_index=True, use_container_width=True)
 
 
-def render_analytics_page(st: Any, session_token: Any) -> bool:
-    """Render analytics for an authenticated owner or manager."""
+def _render_health(st: Any, health: dict[str, Any], currency: str) -> None:
+    metrics = health.get("metrics", {})
+    anomalies = health.get("anomalies", [])
+    st.subheader("Business health")
+    score, status, reserve = st.columns(3)
+    score.metric("Health score", f"{metrics.get('health_score', 0)}/100")
+    status.metric("Health rating", metrics.get("health_rating", "—"))
+    reserve.metric("Cash reserve", _format_minor(metrics.get("cash_reserve_estimate_minor"), currency))
+    with st.expander(f"Transactions to review ({len(anomalies)})", expanded=False):
+        if anomalies:
+            st.caption("A review item is not proof of fraud or an accounting error.")
+            st.dataframe(_review_rows(anomalies, currency), hide_index=True, use_container_width=True)
+        else:
+            st.success("No material anomaly flags were found for this period.")
+
+
+def render_analytics_page(
+    st: Any, session_token: Any, *, return_scope: bool = False
+) -> bool | dict[str, Any]:
+    """Render analytics for an authenticated owner or manager.
+
+    The default return value remains a boolean for compatibility with the
+    existing adapter tests.  The application can request the selected scope
+    and already-loaded analytics result by passing ``return_scope=True``;
+    this lets downstream dashboard/report views use exactly the same
+    business, account, date range, and currency selection.
+    """
+    session_state = getattr(st, "session_state", None)
+    if session_state is not None:
+        session_state.pop("_finsight_analytics_scope", None)
     try:
         auth = auth_service.validate_session(session_token)
     except Exception:
@@ -188,7 +305,7 @@ def render_analytics_page(st: Any, session_token: Any) -> bool:
 
     st.header("Financial analytics")
     business_labels = [business["business_name"] for business in businesses]
-    selected_business_label = st.selectbox("Business", business_labels)
+    selected_business_label = st.selectbox("Business", business_labels, key="analytics_business_select")
     try:
         business_index = business_labels.index(selected_business_label)
     except ValueError:
@@ -212,7 +329,7 @@ def render_analytics_page(st: Any, session_token: Any) -> bool:
     account_labels = [
         f"{account['account_name']} ({account['currency']})" for account in accounts
     ]
-    selected_account_label = st.selectbox("Account", account_labels)
+    selected_account_label = st.selectbox("Account", account_labels, key="analytics_account_select")
     try:
         account_index = account_labels.index(selected_account_label)
     except ValueError:
@@ -221,8 +338,21 @@ def render_analytics_page(st: Any, session_token: Any) -> bool:
     selected_account = accounts[account_index]
 
     today = date.today()
-    start_value = st.date_input("Start date", today.replace(day=1))
-    end_value = st.date_input("End date", today)
+    default_start, default_end = today.replace(day=1), today
+    try:
+        first_date, last_date = analytics_service.get_available_date_range(
+            session_token=session_token,
+            business_id=selected_business["business_id"],
+            account_id=selected_account["account_id"],
+            currency=selected_account["currency"],
+        )
+        if first_date and last_date:
+            default_start, default_end = date.fromisoformat(first_date), date.fromisoformat(last_date)
+    except Exception:
+        pass
+    date_columns = st.columns(2) if hasattr(st, "columns") else [st, st]
+    start_value = date_columns[0].date_input("Start date", default_start)
+    end_value = date_columns[1].date_input("End date", default_end)
     st.button("Refresh analytics")
     start_date = _date_value(start_value)
     end_date = _date_value(end_value)
@@ -247,6 +377,33 @@ def render_analytics_page(st: Any, session_token: Any) -> bool:
         return False
 
     _render_analytics(st, result, selected_account["currency"])
+    if hasattr(st, "columns"):
+        try:
+            health = business_health_service.get_business_health(
+                session_token=session_token,
+                business_id=selected_business["business_id"],
+                account_id=selected_account["account_id"],
+                start_date=start_date,
+                end_date=end_date,
+                currency=selected_account["currency"],
+            )
+            _render_health(st, health, selected_account["currency"])
+        except Exception:
+            st.info("Business-health indicators are temporarily unavailable.")
+    scope = {
+        "business": selected_business,
+        "account": selected_account,
+        "business_id": selected_business["business_id"],
+        "account_id": selected_account["account_id"],
+        "start_date": start_date,
+        "end_date": end_date,
+        "currency": selected_account["currency"],
+        "analytics": result,
+    }
+    if session_state is not None:
+        session_state["_finsight_analytics_scope"] = scope
+    if return_scope:
+        return scope
     return True
 
 

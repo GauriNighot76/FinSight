@@ -371,7 +371,7 @@ def test_classifier_reports_source_identity_conflict(identity_repository):
     assert result.outcome == ingestion_identity.IdentityOutcome.SOURCE_IDENTITY_CONFLICT
 
 
-def test_classifier_reports_duplicate_canonical_identity_for_different_source_id(
+def test_classifier_trusts_a_distinct_source_id_over_coarse_canonical_identity(
     identity_repository,
 ):
     with identity_repository() as connection:
@@ -381,7 +381,7 @@ def test_classifier_reports_duplicate_canonical_identity_for_different_source_id
             connection=connection,
         )
 
-    assert result.outcome == ingestion_identity.IdentityOutcome.DUPLICATE_CANONICAL_IDENTITY
+    assert result.outcome == ingestion_identity.IdentityOutcome.UNIQUE
 
 
 def test_classifier_reports_duplicate_canonical_identity_without_source_id(

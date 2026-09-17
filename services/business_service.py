@@ -49,10 +49,19 @@ def create_business(token: str, business_data: dict) -> dict:
         business_id, membership_id = queries.create_business_with_owner(
             auth["user"]["user_id"], name, legal_id, email, phone
         )
+        approval_status = "active"
+        try:
+            queries.create_active_registry_bridge(
+                business_id, auth["user"]["user_id"], name
+            )
+        except Exception:
+            # Business creation remains valid; Setup offers a safe retry action.
+            approval_status = "not_requested"
         business = queries.get_module2_business(business_id)
         membership = queries.get_business_membership(business_id, auth["user"]["user_id"])
         return {"success": True, "business": _business(business),
                 "membership": _membership(membership),
+                "approval_status": approval_status,
                 "message": "Business created successfully."}
     except Exception:
         return _error("BUSINESS_CREATE_FAILED", "Business creation failed.")

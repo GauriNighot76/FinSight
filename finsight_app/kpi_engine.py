@@ -1,14 +1,26 @@
+from pathlib import Path
+
 import pandas as pd
 
 
-def compute_kpis(data_folder="data"):
-    checking_main = pd.read_csv(f"{data_folder}/checking_account_main.csv")
+APP_DATA_DIR = Path(__file__).resolve().parent / "data"
+
+
+def _data_path(data_folder: str | Path | None) -> Path:
+    if data_folder is None or str(data_folder) == "data":
+        return APP_DATA_DIR
+    return Path(data_folder).expanduser().resolve()
+
+
+def compute_kpis(data_folder=None):
+    data_dir = _data_path(data_folder)
+    checking_main = pd.read_csv(data_dir / "checking_account_main.csv")
     checking_main["date"] = pd.to_datetime(checking_main["date"], format="%d-%m-%Y")
 
-    credit_card = pd.read_csv(f"{data_folder}/credit_card_account.csv")
+    credit_card = pd.read_csv(data_dir / "credit_card_account.csv")
     credit_card["date"] = pd.to_datetime(credit_card["date"], format="%Y-%m-%d")
 
-    payroll = pd.read_csv(f"{data_folder}/gusto_payroll.csv")
+    payroll = pd.read_csv(data_dir / "gusto_payroll.csv")
     payroll["pay_date"] = pd.to_datetime(payroll["pay_date"], format="%d-%m-%Y")
 
     revenue = checking_main[checking_main["category"] == "Sales Revenue"]["amount"].sum()

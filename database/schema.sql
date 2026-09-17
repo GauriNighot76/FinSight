@@ -271,7 +271,7 @@ CREATE TABLE IF NOT EXISTS ingested_transaction_identities (
     direction TEXT NOT NULL CHECK (direction IN ('income','expense')),
     currency TEXT NOT NULL
         CHECK (length(currency) = 3 AND currency = upper(currency)),
-    canonical_identity_hash TEXT NOT NULL UNIQUE
+    canonical_identity_hash TEXT NOT NULL
         CHECK (length(trim(canonical_identity_hash)) > 0),
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (transaction_id) REFERENCES transaction_general_ledger(transaction_id) ON DELETE RESTRICT,
@@ -285,6 +285,11 @@ CREATE TABLE IF NOT EXISTS ingested_transaction_identities (
 CREATE UNIQUE INDEX IF NOT EXISTS idx_ingested_source_identity
 ON ingested_transaction_identities(account_id, source_system, source_transaction_id)
 WHERE source_transaction_id IS NOT NULL AND trim(source_transaction_id) <> '';
+
+CREATE INDEX IF NOT EXISTS idx_ingested_canonical_identity
+ON ingested_transaction_identities(
+    account_id, source_system, canonical_identity_hash
+);
 
 CREATE INDEX IF NOT EXISTS idx_ingested_identity_account_created
 ON ingested_transaction_identities(account_id, created_at);

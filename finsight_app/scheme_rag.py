@@ -1,74 +1,148 @@
+"""Dependable local-first RAG assistant for government-scheme guides."""
+
+from __future__ import annotations
+
 import os
-from langchain_community.document_loaders import TextLoader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_community.vectorstores import FAISS
-from langchain_groq import ChatGroq
+import re
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Iterable
 
-SCHEME_DOCS_FOLDER = "scheme_docs"
-FAISS_INDEX_PATH = "faiss_scheme_index"
-
-# maps the scheme_name shown in the UI to its source file, so retrieval
-# only searches the ONE scheme the user clicked -- not all schemes mixed together
+SCHEME_DOCS_FOLDER = Path(__file__).resolve().parent / "scheme_docs"
 SCHEME_FILE_MAP = {
+    "PMEGP (Manufacturing)": "pmegp.txt",
     "PMEGP (Service/Business)": "pmegp.txt",
     "CGTMSE Collateral-Free Loan": "cgtmse.txt",
+    "Mudra Loan - Shishu": "mudra_kishor.txt",
     "Mudra Loan - Kishor": "mudra_kishor.txt",
+    "Mudra Loan - Tarun": "mudra_kishor.txt",
+    "Mudra Loan - Tarun Plus": "mudra_kishor.txt",
+}
+_STOP_WORDS = {
+    "a", "about", "an", "and", "are", "can", "do", "for", "how", "i",
+    "in", "is", "it", "me", "my", "of", "on", "the", "this", "to", "what",
+    "where", "which", "who", "with",
 }
 
 
-def get_embeddings():
-    return HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+class SchemeAssistantError(RuntimeError):
+    pass
 
 
-def build_index():
-    embeddings = get_embeddings()
-    all_chunks = []
-    splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
-
-    for scheme_name, filename in SCHEME_FILE_MAP.items():
-        loader = TextLoader(f"{SCHEME_DOCS_FOLDER}/{filename}")
-        doc = loader.load()[0]
-        doc.metadata["scheme_name"] = scheme_name  # tags every chunk with its scheme
-        chunks = splitter.split_documents([doc])
-        all_chunks.extend(chunks)
-
-    vectorstore = FAISS.from_documents(all_chunks, embeddings)
-    vectorstore.save_local(FAISS_INDEX_PATH)
-    print(f"[RAG] Indexed {len(all_chunks)} chunks from {len(SCHEME_FILE_MAP)} schemes")
-    return vectorstore
+@dataclass(frozen=True)
+class RetrievedPassage:
+    heading: str
+    text: str
+    score: int
 
 
-def load_index():
-    if not os.path.exists(FAISS_INDEX_PATH):
-        return build_index()
-    embeddings = get_embeddings()
-    return FAISS.load_local(FAISS_INDEX_PATH, embeddings, allow_dangerous_deserialization=True)
+@dataclass(frozen=True)
+class SchemeAnswer:
+    answer: str
+    passages: tuple[RetrievedPassage, ...]
+    mode: str
 
 
-def get_llm():
-    return ChatGroq(model="llama-3.1-8b-instant", api_key=os.environ.get("GROQ_API_KEY"), temperature=0.2)
+def _tokens(value: str) -> set[str]:
+    return {
+        token for token in re.findall(r"[a-z0-9]+", value.lower())
+        if len(token) > 1 and token not in _STOP_WORDS
+    }
 
 
-def ask_scheme_question(scheme_name, question, vectorstore):
-    # metadata filter -- only retrieve chunks belonging to THIS scheme,
-    # so a question about PMEGP can't accidentally pull CGTMSE text
-    retriever = vectorstore.as_retriever(
-        search_kwargs={"k": 4, "filter": {"scheme_name": scheme_name}}
+def _sections(text: str) -> Iterable[tuple[str, str]]:
+    for block in re.split(r"\n\s*\n", text.strip()):
+        block = " ".join(block.split())
+        if block:
+            heading, separator, body = block.partition(":")
+            yield (heading.strip() if separator else "Scheme guide",
+                   body.strip() if separator else block)
+
+
+def retrieve_scheme_passages(
+    scheme_name: str, question: str, limit: int = 3
+) -> tuple[RetrievedPassage, ...]:
+    filename = SCHEME_FILE_MAP.get(scheme_name)
+    if not filename:
+        raise SchemeAssistantError("A detailed guide is not available for this scheme yet.")
+    path = SCHEME_DOCS_FOLDER / filename
+    if not path.is_file():
+        raise SchemeAssistantError("The scheme guide could not be found.")
+
+    query = _tokens(question)
+    lowered = question.lower()
+    if any(word in lowered for word in ("apply", "application", "document")):
+        query |= {"apply", "applications", "documents", "required"}
+    if any(word in lowered for word in ("eligible", "qualify", "qualification")):
+        query |= {"qualifies", "eligible", "eligibility"}
+    if any(word in lowered for word in ("benefit", "loan", "amount", "subsidy")):
+        query |= {"benefit", "loan", "amount", "subsidy"}
+
+    ranked = []
+    for heading, body in _sections(path.read_text(encoding="utf-8")):
+        score = len(query & _tokens(body)) + 3 * len(query & _tokens(heading))
+        ranked.append(RetrievedPassage(heading, body, score))
+    ranked.sort(key=lambda item: item.score, reverse=True)
+    matched = [item for item in ranked if item.score > 0][:limit]
+    return tuple(matched or ranked[:1])
+
+
+def _local_answer(scheme_name: str, passages: tuple[RetrievedPassage, ...]) -> str:
+    details = "\n\n".join(
+        f"**{item.heading}:** {item.text}" for item in passages
     )
-    chunks = retriever.invoke(question)
+    return f"Here is what the verified {scheme_name} guide says:\n\n{details}"
 
-    if not chunks:
-        return "I don't have enough information to answer that about this scheme."
 
-    context = "\n\n".join(c.page_content for c in chunks)
-    prompt = f"""Answer the question using ONLY the context below. If the context doesn't contain the answer, say "I don't have that information in the scheme documents" instead of guessing.
+def answer_scheme_question(scheme_name: str, question: str) -> SchemeAnswer:
+    question = " ".join(str(question).split())
+    if len(question) < 3:
+        raise SchemeAssistantError("Enter a complete question.")
+    passages = retrieve_scheme_passages(scheme_name, question)
+    fallback = _local_answer(scheme_name, passages)
+    api_key = os.getenv("GROQ_API_KEY", "").strip()
+    if not api_key:
+        return SchemeAnswer(fallback, passages, "local")
 
-Context:
-{context}
+    try:
+        from langchain_groq import ChatGroq
 
-Question: {question}
-"""
-    llm = get_llm()
-    response = llm.invoke(prompt)
-    return response.content
+        context = "\n\n".join(f"{p.heading}: {p.text}" for p in passages)
+        prompt = (
+            "You are FinSight's government-scheme guide. Answer in plain language "
+            "using only the context. Give practical steps when asked how to apply. "
+            "If context is insufficient, say so. Never invent requirements, amounts, "
+            "dates, links, or approval guarantees. End by asking the user to verify "
+            "final details on the official scheme website.\n\n"
+            f"Scheme: {scheme_name}\nContext:\n{context}\n\nQuestion: {question}"
+        )
+        response = ChatGroq(
+            model="llama-3.1-8b-instant", api_key=api_key, temperature=0
+        ).invoke(prompt)
+        answer = str(getattr(response, "content", "")).strip()
+        if answer:
+            return SchemeAnswer(answer, passages, "ai")
+    except Exception:
+        pass
+    return SchemeAnswer(fallback, passages, "local")
+
+
+def load_index() -> None:
+    """Compatibility shim: local retrieval needs no generated index."""
+    return None
+
+
+def has_scheme_guide(scheme_name: str) -> bool:
+    """Whether FinSight has a local guide for assistant answers."""
+    filename = SCHEME_FILE_MAP.get(scheme_name)
+    return bool(filename and (SCHEME_DOCS_FOLDER / filename).is_file())
+
+
+def ask_scheme_question(scheme_name: str, question: str, _index=None) -> str:
+    return answer_scheme_question(scheme_name, question).answer
+
+
+__all__ = [
+    "SchemeAnswer", "SchemeAssistantError", "answer_scheme_question",
+    "ask_scheme_question", "has_scheme_guide", "load_index", "retrieve_scheme_passages",
+]

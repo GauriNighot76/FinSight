@@ -508,7 +508,7 @@ def test_ingested_identity_direction_constraint(module4_seed):
             )
 
 
-def test_canonical_identity_hash_is_unique(module4_seed):
+def test_canonical_identity_hash_allows_distinct_source_transactions(module4_seed):
     with module4_seed() as connection:
         _insert_attempt(
             connection,
@@ -546,8 +546,7 @@ def test_canonical_identity_hash_is_unique(module4_seed):
                        '2026-08-29T00:03:00+00:00')"""
         )
 
-        with pytest.raises(sqlite3.IntegrityError):
-            connection.execute(
+        connection.execute(
                 """INSERT INTO ingested_transaction_identities
                    (identity_id, transaction_id, attempt_id, business_id,
                     registry_business_id, account_id, source_system,
@@ -560,6 +559,10 @@ def test_canonical_identity_hash_is_unique(module4_seed):
                            'same-canonical-hash',
                            '2026-08-29T00:04:00+00:00')"""
             )
+        count = connection.execute(
+            "SELECT COUNT(*) FROM ingested_transaction_identities"
+        ).fetchone()[0]
+        assert count == 2
 
 
 def test_source_identity_scope_is_unique(module4_seed):
