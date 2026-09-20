@@ -11,6 +11,7 @@ import tracemalloc
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from pathlib import Path
+from statistics import median
 from typing import Any, Callable
 
 
@@ -32,6 +33,14 @@ TOKEN = "benchmark-session-token"
 START_DATE = "2026-01-01"
 END_DATE = "2026-12-31"
 CURRENCY = "INR"
+CONTRACT_KEYS = (
+    "kpis",
+    "trends",
+    "categories",
+    "payment_modes",
+    "accounts",
+    "transactions",
+)
 
 
 def _create_database(database_path: Path) -> None:
@@ -248,16 +257,77 @@ def _new_path(include_transactions: bool) -> dict[str, Any]:
     )
 
 
-def _measure(function: Callable[[], Any]) -> tuple[float, float]:
+def _time(function: Callable[[], Any], runs: int) -> float:
+    samples = []
+    for _ in range(runs):
+        gc.collect()
+        started = time.perf_counter()
+        result = function()
+        samples.append((time.perf_counter() - started) * 1000)
+        del result
+    return median(samples)
+
+
+def _peak_mib(function: Callable[[], Any]) -> float:
     gc.collect()
     tracemalloc.start()
-    started = time.perf_counter()
-    result = function()
-    elapsed_ms = (time.perf_counter() - started) * 1000
-    _, peak_bytes = tracemalloc.get_traced_memory()
-    tracemalloc.stop()
-    del result
-    return elapsed_ms, peak_bytes / (1024 * 1024)
+    try:
+        result = function()
+        _, peak_bytes = tracemalloc.get_traced_memory()
+        del result
+    finally:
+        tracemalloc.stop()
+    return peak_bytes / (1024 * 1024)
+
+
+def _assert_equivalent() -> None:
+    legacy = _legacy_path()
+    sql_with_transactions = _new_path(True)
+    for key in CONTRACT_KEYS:
+        if legacy[key] != sql_with_transactions[key]:
+            raise AssertionError(f"Legacy and SQL outputs differ for {key!r}")
+
+    sql_without_transactions = _new_path(False)
+    if sql_without_transactions["transactions"] != []:
+        raise AssertionError("include_transactions=False returned transaction rows")
+    for key in CONTRACT_KEYS:
+        if key == "transactions":
+            continue
+        if sql_with_transactions[key] != sql_without_transactions[key]:
+            raise AssertionError(
+                f"include_transactions changed non-transaction output {key!r}"
+            )
+
+
+def _query_timings(runs: int) -> dict[str, float]:
+    connection = queries.get_connection()
+    parameters = (BUSINESS_ID, ACCOUNT_ID, START_DATE, END_DATE)
+    functions = {
+        "kpi": lambda: analytics_service._query_kpis(
+            connection, *parameters, CURRENCY
+        ),
+        "daily": lambda: analytics_service._query_daily(connection, *parameters),
+        "category": lambda: analytics_service._query_groups(
+            connection, analytics_service._CATEGORY_SQL, *parameters
+        ),
+        "payment": lambda: analytics_service._query_groups(
+            connection, analytics_service._PAYMENT_MODE_SQL, *parameters
+        ),
+        "transactions": lambda: analytics_service._query_transactions(
+            connection, *parameters
+        ),
+    }
+    try:
+        connection.execute("BEGIN")
+        for function in functions.values():
+            function()
+        return {
+            name: _time(function, runs)
+            for name, function in functions.items()
+        }
+    finally:
+        connection.rollback()
+        connection.close()
 
 
 def _query_plan() -> list[str]:
@@ -274,31 +344,31 @@ def _query_plan() -> list[str]:
         connection.close()
 
 
-def _run_size(row_count: int) -> tuple[dict[str, Any], list[str]]:
+def _run_size(
+    row_count: int, runs: int
+) -> tuple[dict[str, Any], list[str], dict[str, float]]:
     with tempfile.TemporaryDirectory(prefix="finsight-analytics-") as temp_directory:
         database_path = Path(temp_directory) / "benchmark.db"
         db.DATABASE_PATH = database_path
         _create_database(database_path)
         _seed_rows(database_path, row_count)
 
-        _legacy_path()
-        _new_path(False)
-        _new_path(True)
+        _assert_equivalent()
 
-        legacy_ms, legacy_peak = _measure(_legacy_path)
-        sql_without_ms, sql_without_peak = _measure(lambda: _new_path(False))
-        sql_with_ms, sql_with_peak = _measure(lambda: _new_path(True))
+        legacy_ms = _time(_legacy_path, runs)
+        sql_without_ms = _time(lambda: _new_path(False), runs)
+        sql_with_ms = _time(lambda: _new_path(True), runs)
         result = {
             "rows": row_count,
             "legacy_ms": legacy_ms,
-            "legacy_peak": legacy_peak,
+            "legacy_peak": _peak_mib(_legacy_path),
             "sql_without_ms": sql_without_ms,
-            "sql_without_peak": sql_without_peak,
+            "sql_without_peak": _peak_mib(lambda: _new_path(False)),
             "sql_with_ms": sql_with_ms,
-            "sql_with_peak": sql_with_peak,
+            "sql_with_peak": _peak_mib(lambda: _new_path(True)),
             "database_mib": database_path.stat().st_size / (1024 * 1024),
         }
-        return result, _query_plan()
+        return result, _query_plan(), _query_timings(runs)
 
 
 def main() -> None:
@@ -308,22 +378,41 @@ def main() -> None:
         action="store_true",
         help="Also run the optional 1,000,000-row benchmark.",
     )
+    parser.add_argument(
+        "--runs",
+        type=int,
+        default=5,
+        help="Number of timing samples per path and query (default: 5).",
+    )
     args = parser.parse_args()
+    if args.runs < 1:
+        parser.error("--runs must be at least 1")
     sizes = [1000, 10000, 100000]
     if args.large:
         sizes.append(1000000)
 
     results = []
     plans = []
+    query_results = []
     for row_count in sizes:
-        result, plan = _run_size(row_count)
+        result, plan, query_timings = _run_size(row_count, args.runs)
         results.append(result)
         plans.append((row_count, plan))
+        query_results.append((row_count, query_timings))
 
     print(
-        "| Rows | Legacy ms | Legacy peak MiB | SQL no transactions ms | "
-        "SQL no transactions peak MiB | SQL with transactions ms | "
-        "SQL with transactions peak MiB | DB MiB |"
+        f"Timing values are medians of {args.runs} warmed runs with "
+        "tracemalloc disabled."
+    )
+    print(
+        "Peak memory is Python-traced allocation only; it excludes SQLite and "
+        "other process memory.\n"
+    )
+    print(
+        "| Rows | Legacy median ms | Legacy Python peak MiB | "
+        "SQL no transactions median ms | SQL no transactions Python peak MiB | "
+        "SQL with transactions median ms | "
+        "SQL with transactions Python peak MiB | DB MiB |"
     )
     print("|---:|---:|---:|---:|---:|---:|---:|---:|")
     for result in results:
@@ -332,6 +421,16 @@ def main() -> None:
             f"{result['legacy_peak']:.2f} | {result['sql_without_ms']:.2f} | "
             f"{result['sql_without_peak']:.2f} | {result['sql_with_ms']:.2f} | "
             f"{result['sql_with_peak']:.2f} | {result['database_mib']:.2f} |"
+        )
+
+    print("\n## Per-query median timings")
+    print("| Rows | KPI ms | Daily ms | Category ms | Payment ms | Transactions ms |")
+    print("|---:|---:|---:|---:|---:|---:|")
+    for row_count, timings in query_results:
+        print(
+            f"| {row_count:,} | {timings['kpi']:.2f} | {timings['daily']:.2f} | "
+            f"{timings['category']:.2f} | {timings['payment']:.2f} | "
+            f"{timings['transactions']:.2f} |"
         )
 
     print("\n## EXPLAIN QUERY PLAN")
