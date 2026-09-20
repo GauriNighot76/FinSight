@@ -249,7 +249,10 @@ def build_report(
         "currency": currency,
     }
     try:
-        analytics = analytics_service.get_financial_analytics(**service_args)
+        analytics = analytics_service.get_financial_analytics(
+            **service_args,
+            include_transactions=False,
+        )
     except analytics_service.AnalyticsError as error:
         raise ReportError("The report data could not be loaded.") from error
     except Exception as error:

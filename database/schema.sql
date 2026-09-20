@@ -294,3 +294,6 @@ ON ingested_transaction_identities(attempt_id);
 
 CREATE INDEX IF NOT EXISTS idx_ingested_identity_registry_date
 ON ingested_transaction_identities(registry_business_id, transaction_date);
+
+CREATE INDEX IF NOT EXISTS idx_ingested_identity_business_account_date
+ON ingested_transaction_identities(business_id, account_id, transaction_date);

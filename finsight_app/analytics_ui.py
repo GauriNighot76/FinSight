@@ -238,6 +238,7 @@ def render_analytics_page(st: Any, session_token: Any) -> bool:
             start_date=start_date,
             end_date=end_date,
             currency=selected_account["currency"],
+            include_transactions=False,
         )
     except analytics_service.AnalyticsError as error:
         st.error(_safe_error_message(error))

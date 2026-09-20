@@ -790,8 +790,8 @@ def test_phase2_analytics_contract_exposes_sanitized_transaction_rows(monkeypatc
     )
     monkeypatch.setattr(
         analytics_service,
-        "_load_accepted_rows",
-        lambda **kwargs: [
+        "_query_transactions",
+        lambda connection, business_id, account_id, start_date, end_date: [
             {
                 "transaction_date": "2026-08-01",
                 "amount_minor": 100,

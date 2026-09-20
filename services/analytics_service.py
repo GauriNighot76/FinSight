@@ -13,6 +13,77 @@ class AnalyticsError(ValueError):
     """Safe error raised for invalid analytics requests."""
 
 
+_SCOPE = """
+FROM ingested_transaction_identities i
+JOIN transaction_general_ledger t
+  ON t.transaction_id=i.transaction_id
+WHERE i.business_id=? AND i.account_id=?
+  AND i.transaction_date BETWEEN ? AND ?
+"""
+
+_KPI_SQL = f"""
+SELECT
+    COUNT(*) AS transaction_count,
+    COALESCE(SUM(CASE WHEN i.direction='income'
+                      THEN i.amount_minor ELSE 0 END), 0) AS total_income_minor,
+    COALESCE(SUM(CASE WHEN i.direction='expense'
+                      THEN i.amount_minor ELSE 0 END), 0) AS total_expense_minor,
+    MAX(CASE WHEN i.direction='income' THEN i.amount_minor END)
+        AS largest_income_minor,
+    MIN(CASE WHEN i.direction='income' THEN i.amount_minor END)
+        AS smallest_income_minor,
+    MAX(CASE WHEN i.direction='expense' THEN i.amount_minor END)
+        AS largest_expense_minor,
+    MIN(CASE WHEN i.direction='expense' THEN i.amount_minor END)
+        AS smallest_expense_minor,
+    COALESCE(SUM(CASE WHEN i.currency <> ? THEN 1 ELSE 0 END), 0)
+        AS currency_mismatch_count
+{_SCOPE}
+"""
+
+_DAILY_SQL = f"""
+SELECT
+    i.transaction_date AS period,
+    COALESCE(SUM(CASE WHEN i.direction='income'
+                      THEN i.amount_minor ELSE 0 END), 0) AS income_minor,
+    COALESCE(SUM(CASE WHEN i.direction='expense'
+                      THEN i.amount_minor ELSE 0 END), 0) AS expense_minor,
+    COUNT(*) AS transaction_count
+{_SCOPE}
+GROUP BY i.transaction_date
+ORDER BY i.transaction_date
+"""
+
+_CATEGORY_SQL = f"""
+SELECT
+    CASE WHEN t.category IS NULL OR t.category = ''
+         THEN 'Uncategorized' ELSE t.category END AS label,
+    i.direction AS direction,
+    SUM(i.amount_minor) AS total_minor,
+    COUNT(*) AS n
+{_SCOPE}
+GROUP BY label, i.direction
+"""
+
+_PAYMENT_MODE_SQL = f"""
+SELECT
+    CASE WHEN t.payment_mode IN ('Cash','UPI','Card','Bank')
+         THEN t.payment_mode ELSE 'Other' END AS label,
+    i.direction AS direction,
+    SUM(i.amount_minor) AS total_minor,
+    COUNT(*) AS n
+{_SCOPE}
+GROUP BY label, i.direction
+"""
+
+_TRANSACTIONS_SQL = f"""
+SELECT i.transaction_date, i.amount_minor, i.direction, i.currency,
+       i.identity_id, t.category, t.payment_mode
+{_SCOPE}
+ORDER BY i.transaction_date, i.identity_id
+"""
+
+
 def _percentage(numerator: int, denominator: int) -> Decimal | None:
     if denominator == 0:
         return None
@@ -112,6 +183,60 @@ def _load_accepted_rows(
         ).fetchall()
 
 
+def _query_kpis(
+    connection: Any,
+    business_id: str,
+    account_id: str,
+    start_date: str,
+    end_date: str,
+    currency: str,
+):
+    return connection.execute(
+        _KPI_SQL,
+        (currency, business_id, account_id, start_date, end_date),
+    ).fetchone()
+
+
+def _query_daily(
+    connection: Any,
+    business_id: str,
+    account_id: str,
+    start_date: str,
+    end_date: str,
+) -> list[Any]:
+    return connection.execute(
+        _DAILY_SQL,
+        (business_id, account_id, start_date, end_date),
+    ).fetchall()
+
+
+def _query_groups(
+    connection: Any,
+    sql: str,
+    business_id: str,
+    account_id: str,
+    start_date: str,
+    end_date: str,
+) -> list[Any]:
+    return connection.execute(
+        sql,
+        (business_id, account_id, start_date, end_date),
+    ).fetchall()
+
+
+def _query_transactions(
+    connection: Any,
+    business_id: str,
+    account_id: str,
+    start_date: str,
+    end_date: str,
+) -> list[Any]:
+    return connection.execute(
+        _TRANSACTIONS_SQL,
+        (business_id, account_id, start_date, end_date),
+    ).fetchall()
+
+
 def _empty_trends() -> dict[str, list[dict[str, Any]]]:
     return {"daily": [], "weekly": [], "monthly": []}
 
@@ -150,6 +275,73 @@ def _build_trends(rows: list[Any]) -> dict[str, list[dict[str, Any]]]:
         "monthly": [
             _trend_row(period, monthly_groups[period])
             for period in sorted(monthly_groups)
+        ],
+    }
+
+
+def _aggregate_trend_row(
+    period: str,
+    income_minor: int,
+    expense_minor: int,
+    transaction_count: int,
+) -> dict[str, Any]:
+    return {
+        "period": period,
+        "income_minor": income_minor,
+        "expense_minor": expense_minor,
+        "net_cash_flow_minor": income_minor - expense_minor,
+        "transaction_count": transaction_count,
+    }
+
+
+def _build_aggregate_trends(
+    daily_rows: list[Any],
+) -> dict[str, list[dict[str, Any]]]:
+    if not daily_rows:
+        return _empty_trends()
+
+    daily: list[dict[str, Any]] = []
+    weekly: dict[str, dict[str, int]] = {}
+    monthly: dict[str, dict[str, int]] = {}
+    for row in daily_rows:
+        period = row["period"]
+        income = row["income_minor"]
+        expense = row["expense_minor"]
+        count = row["transaction_count"]
+        daily.append(_aggregate_trend_row(period, income, expense, count))
+
+        transaction_date = date.fromisoformat(period)
+        iso_year, iso_week, _ = transaction_date.isocalendar()
+        week = f"{iso_year}-W{iso_week:02d}"
+        month = period[:7]
+        for groups, key in ((weekly, week), (monthly, month)):
+            group = groups.setdefault(
+                key,
+                {"income_minor": 0, "expense_minor": 0, "transaction_count": 0},
+            )
+            group["income_minor"] += income
+            group["expense_minor"] += expense
+            group["transaction_count"] += count
+
+    return {
+        "daily": daily,
+        "weekly": [
+            _aggregate_trend_row(
+                period,
+                group["income_minor"],
+                group["expense_minor"],
+                group["transaction_count"],
+            )
+            for period, group in weekly.items()
+        ],
+        "monthly": [
+            _aggregate_trend_row(
+                period,
+                group["income_minor"],
+                group["expense_minor"],
+                group["transaction_count"],
+            )
+            for period, group in monthly.items()
         ],
     }
 
@@ -218,6 +410,59 @@ def _build_payment_mode_summary(rows: list[Any]) -> list[dict[str, Any]]:
     return sorted(result, key=lambda item: _PAYMENT_MODE_ORDER[item["payment_mode"]])
 
 
+def _build_aggregate_summary(
+    rows: list[Any],
+    *,
+    key_name: str,
+    total_amount: int,
+) -> list[dict[str, Any]]:
+    groups: dict[str, dict[str, int]] = {}
+    for row in rows:
+        group = groups.setdefault(
+            row["label"],
+            {"income_minor": 0, "expense_minor": 0, "count": 0},
+        )
+        group["count"] += row["n"]
+        group[f"{row['direction']}_minor"] += row["total_minor"]
+
+    result = []
+    for label, group in groups.items():
+        amount = group["income_minor"] + group["expense_minor"]
+        result.append(
+            {
+                key_name: label,
+                "income_minor": group["income_minor"],
+                "expense_minor": group["expense_minor"],
+                "amount_minor": amount,
+                "count": group["count"],
+                "percentage": _percentage(amount, total_amount),
+            }
+        )
+    return result
+
+
+def _build_aggregate_categories(
+    rows: list[Any], total_amount: int
+) -> list[dict[str, Any]]:
+    result = _build_aggregate_summary(
+        rows,
+        key_name="category",
+        total_amount=total_amount,
+    )
+    return sorted(result, key=lambda item: (-item["amount_minor"], item["category"]))
+
+
+def _build_aggregate_payment_modes(
+    rows: list[Any], total_amount: int
+) -> list[dict[str, Any]]:
+    result = _build_aggregate_summary(
+        rows,
+        key_name="payment_mode",
+        total_amount=total_amount,
+    )
+    return sorted(result, key=lambda item: _PAYMENT_MODE_ORDER[item["payment_mode"]])
+
+
 def _build_account_summary(
     account_id: str, account: Any, rows: list[Any]
 ) -> list[dict[str, Any]]:
@@ -236,6 +481,31 @@ def _build_account_summary(
             "total_expense_minor": expense,
             "net_cash_flow_minor": net,
             "transaction_count": len(rows),
+        }
+    ]
+
+
+def _build_aggregate_account_summary(
+    account_id: str,
+    account: Any,
+    *,
+    total_income: int,
+    total_expense: int,
+    transaction_count: int,
+) -> list[dict[str, Any]]:
+    if not transaction_count:
+        return []
+    net = total_income - total_expense
+    opening = account["opening_balance_minor"]
+    return [
+        {
+            "account_id": account_id,
+            "opening_balance_minor": opening,
+            "closing_balance_minor": opening + net if opening is not None else None,
+            "total_income_minor": total_income,
+            "total_expense_minor": total_expense,
+            "net_cash_flow_minor": net,
+            "transaction_count": transaction_count,
         }
     ]
 
@@ -262,25 +532,63 @@ def get_financial_analytics(
     start_date: str,
     end_date: str,
     currency: str,
+    include_transactions: bool = True,
 ) -> dict[str, Any]:
     """Return KPI aggregates without modifying any FinSight data."""
     _require_authorized_session(session_token, business_id)
     start_date, end_date = _validate_date_range(start_date, end_date)
     account = _load_account(account_id, business_id, currency)
-    rows = _load_accepted_rows(
-        business_id=business_id,
-        account_id=account_id,
-        start_date=start_date,
-        end_date=end_date,
-    )
-    if any(row["currency"] != currency for row in rows):
-        raise AnalyticsError("The selected analytics currency is inconsistent.")
+    connection = queries.get_connection()
+    try:
+        connection.execute("BEGIN")
+        try:
+            kpi_row = _query_kpis(
+                connection,
+                business_id,
+                account_id,
+                start_date,
+                end_date,
+                currency,
+            )
+            if kpi_row["currency_mismatch_count"] > 0:
+                raise AnalyticsError(
+                    "The selected analytics currency is inconsistent."
+                )
+            daily_rows = _query_daily(
+                connection, business_id, account_id, start_date, end_date
+            )
+            category_rows = _query_groups(
+                connection,
+                _CATEGORY_SQL,
+                business_id,
+                account_id,
+                start_date,
+                end_date,
+            )
+            payment_mode_rows = _query_groups(
+                connection,
+                _PAYMENT_MODE_SQL,
+                business_id,
+                account_id,
+                start_date,
+                end_date,
+            )
+            transaction_rows = (
+                _query_transactions(
+                    connection, business_id, account_id, start_date, end_date
+                )
+                if include_transactions
+                else []
+            )
+        finally:
+            connection.rollback()
+    finally:
+        connection.close()
 
-    incomes = [row["amount_minor"] for row in rows if row["direction"] == "income"]
-    expenses = [row["amount_minor"] for row in rows if row["direction"] == "expense"]
-    total_income = sum(incomes)
-    total_expense = sum(expenses)
-    transaction_count = len(rows)
+    total_income = kpi_row["total_income_minor"]
+    total_expense = kpi_row["total_expense_minor"]
+    transaction_count = kpi_row["transaction_count"]
+    total_amount = total_income + total_expense
     opening_balance = account["opening_balance_minor"]
 
     return {
@@ -294,10 +602,10 @@ def get_financial_analytics(
                 if transaction_count
                 else Decimal("0")
             ),
-            "largest_income_minor": max(incomes) if incomes else None,
-            "smallest_income_minor": min(incomes) if incomes else None,
-            "largest_expense_minor": max(expenses) if expenses else None,
-            "smallest_expense_minor": min(expenses) if expenses else None,
+            "largest_income_minor": kpi_row["largest_income_minor"],
+            "smallest_income_minor": kpi_row["smallest_income_minor"],
+            "largest_expense_minor": kpi_row["largest_expense_minor"],
+            "smallest_expense_minor": kpi_row["smallest_expense_minor"],
             "opening_balance_minor": opening_balance,
             "closing_balance_minor": (
                 opening_balance + total_income - total_expense
@@ -311,11 +619,19 @@ def get_financial_analytics(
             ),
             "savings_rate": _percentage(total_income - total_expense, total_income),
         },
-        "trends": _build_trends(rows),
-        "categories": _build_category_summary(rows),
-        "payment_modes": _build_payment_mode_summary(rows),
-        "accounts": _build_account_summary(account_id, account, rows),
-        "transactions": _build_transaction_rows(rows),
+        "trends": _build_aggregate_trends(daily_rows),
+        "categories": _build_aggregate_categories(category_rows, total_amount),
+        "payment_modes": _build_aggregate_payment_modes(
+            payment_mode_rows, total_amount
+        ),
+        "accounts": _build_aggregate_account_summary(
+            account_id,
+            account,
+            total_income=total_income,
+            total_expense=total_expense,
+            transaction_count=transaction_count,
+        ),
+        "transactions": _build_transaction_rows(transaction_rows),
     }
 
 
