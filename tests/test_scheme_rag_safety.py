@@ -73,3 +73,16 @@ def test_selected_scheme_filter_and_api_failure_are_sanitized():
             llm=FailingLLM(),
         )
     assert "private upstream detail" not in str(captured.value)
+
+
+def test_root_dotenv_is_loaded_without_overriding_environment(tmp_path, monkeypatch):
+    from finsight_app import scheme_rag
+    env_file = tmp_path / '.env'
+    env_file.write_text('GROQ_API_KEY=synthetic-file-key\n')
+    monkeypatch.setattr(scheme_rag, 'ENV_PATH', env_file)
+    monkeypatch.delenv('GROQ_API_KEY', raising=False)
+    monkeypatch.setattr(scheme_rag, '_dependencies', lambda: (
+        None, None, lambda **kwargs: kwargs, None, None))
+    assert scheme_rag.get_llm()['api_key'] == 'synthetic-file-key'
+    monkeypatch.setenv('GROQ_API_KEY', 'synthetic-environment-key')
+    assert scheme_rag.get_llm()['api_key'] == 'synthetic-environment-key'

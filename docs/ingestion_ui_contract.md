@@ -1,3 +1,5 @@
+> Historical design record: normal onboarding approval requirements in this document are superseded by the automatic internal mapping design in [README](../README.md#automatic-onboarding-and-existing-databases).
+
 # FinSight Module 4 — Ingestion UI Contract
 
 **Document status:** RECONSTRUCTED DRAFT — PENDING PHASE 3 APPROVAL

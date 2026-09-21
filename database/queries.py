@@ -307,7 +307,7 @@ def create_business_with_owner(user_id: str, business_name: str,
                                legal_identifier: Optional[str] = None,
                                contact_email: Optional[str] = None,
                                contact_phone: Optional[str] = None) -> tuple[str, str]:
-    """Atomically create a Module 2 business and its owner membership."""
+    """Atomically create a business, owner, and internal ledger mapping."""
     business_id = generate_id("biz")
     membership_id = generate_id("mem")
     with get_connection() as connection:
@@ -323,7 +323,79 @@ def create_business_with_owner(user_id: str, business_name: str,
                VALUES (?,?,?,'owner')""",
             (membership_id, business_id, user_id),
         )
+        create_internal_registry_mapping(connection, business_id, user_id, business_name)
     return business_id, membership_id
+
+
+def create_internal_registry_mapping(connection, business_id, owner_user_id, business_name):
+    """Create a fresh compatibility identity on the caller's transaction.
+
+    Never match a legacy business by name. Internal names include the main ID
+    because the legacy schema requires names to be unique per owner.
+    Historical verifier fields record automatic activation, not human approval.
+    """
+    registry_id = generate_id("rbiz")
+    bridge_id = generate_id("brg")
+    connection.execute(
+        "INSERT INTO business_registry (business_id,user_id,business_name) VALUES (?,?,?)",
+        (registry_id, owner_user_id, f"{business_name} [{business_id}]"),
+    )
+    connection.execute(
+        """INSERT INTO business_registry_bridges
+           (bridge_id,business_id,registry_business_id,proposed_by_user_id,
+            verified_by_user_id,bridge_status,verified_at)
+           VALUES (?,?,?,?,?,'active',CURRENT_TIMESTAMP)""",
+        (bridge_id, business_id, registry_id, owner_user_id, owner_user_id),
+    )
+    return bridge_id
+
+
+def backfill_internal_registry_mappings(connection):
+    """Conservatively repair ordinary legacy onboarding; never override a block.
+
+    Ambiguous ownership/history is left unchanged for exceptional maintenance.
+    The caller owns the transaction, including rollback of the entire backfill.
+    """
+    businesses = connection.execute(
+        "SELECT business_id,business_name FROM businesses WHERE business_status='active'"
+    ).fetchall()
+    for business in businesses:
+        business_id = business["business_id"]
+        owners = connection.execute(
+            """SELECT m.user_id FROM business_memberships m JOIN users u ON u.user_id=m.user_id
+               WHERE m.business_id=? AND m.membership_role='owner'
+                 AND m.membership_status='active' AND u.account_status='active'""",
+            (business_id,),
+        ).fetchall()
+        if len(owners) != 1:
+            continue
+        owner_id = owners[0]["user_id"]
+        bridges = connection.execute(
+            "SELECT * FROM business_registry_bridges WHERE business_id=?", (business_id,)
+        ).fetchall()
+        if not bridges:
+            create_internal_registry_mapping(connection, business_id, owner_id, business["business_name"])
+            continue
+        if len(bridges) != 1 or bridges[0]["bridge_status"] != 'pending':
+            continue
+        bridge = bridges[0]
+        registry = connection.execute(
+            "SELECT user_id FROM business_registry WHERE business_id=?",
+            (bridge["registry_business_id"],),
+        ).fetchone()
+        other = connection.execute(
+            "SELECT 1 FROM business_registry_bridges WHERE registry_business_id=? AND bridge_id<>?",
+            (bridge["registry_business_id"], bridge["bridge_id"]),
+        ).fetchone()
+        if (registry is None or registry["user_id"] != owner_id
+                or bridge["proposed_by_user_id"] != owner_id or other is not None):
+            continue
+        connection.execute(
+            """UPDATE business_registry_bridges SET bridge_status='active',
+               verified_by_user_id=?,verified_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP
+               WHERE bridge_id=? AND bridge_status='pending'""",
+            (owner_id, bridge["bridge_id"]),
+        )
 
 
 def get_module2_business(business_id: str):

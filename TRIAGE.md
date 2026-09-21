@@ -1,3 +1,5 @@
+> Historical audit of the base revision. See [STABILIZATION.md](STABILIZATION.md) for the current self-service onboarding changes and validation.
+
 # FinSight stabilization triage
 
 Repository: `https://github.com/GauriNighot76/FinSight`

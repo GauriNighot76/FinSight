@@ -32,6 +32,8 @@ def initialize_database() -> None:
             if column not in existing:
                 connection.execute(statement)
         connection.execute("UPDATE users SET updated_at=COALESCE(updated_at, created_at, CURRENT_TIMESTAMP)")
+        from database.queries import backfill_internal_registry_mappings
+        backfill_internal_registry_mappings(connection)
 
 
 if __name__ == "__main__":

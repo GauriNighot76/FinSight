@@ -5,10 +5,12 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from datetime import date
 import io
+from xml.sax.saxutils import escape
+from decimal import Decimal
 
 
 def _money_minor(value, currency):
-    return f"{currency} {(value or 0) / 100:,.2f}"
+    return f"{currency} {Decimal(value or 0) / Decimal(100):,.2f}"
 
 
 def generate_authenticated_report(report):
@@ -27,7 +29,7 @@ def generate_authenticated_report(report):
         ["Total expense", _money_minor(summary.get("total_expense_minor"), currency)],
         ["Net cash flow", _money_minor(summary.get("net_cash_flow_minor"), currency)],
         ["Transactions", str(summary.get("transaction_count", 0))],
-        ["Savings rate", str(summary.get("savings_rate") or "Not available")],
+        ["Savings rate", str(summary["savings_rate"]) if summary.get("savings_rate") is not None else "Not available"],
     ]
     table = Table(rows, colWidths=[250, 150])
     table.setStyle(
@@ -42,7 +44,7 @@ def generate_authenticated_report(report):
     )
     story = [
         Paragraph("FinSight Financial Report", styles["Title"]),
-        Paragraph(business_name, styles["Heading2"]),
+        Paragraph(escape(business_name), styles["Heading2"]),
         Paragraph(
             f"Period: {date_range.get('start_date', '')} to {date_range.get('end_date', '')}",
             styles["Normal"],

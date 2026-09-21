@@ -27,8 +27,8 @@ _SAFE_ERROR_MESSAGES = {
     "INGESTION_FORBIDDEN": "The current business role cannot ingest data.",
     "ACCOUNT_NOT_AUTHORIZED": "The selected financial account is unavailable.",
     "BRIDGE_NOT_VERIFIED": (
-        "This business is awaiting registry verification. Use the seeded demo "
-        "business or ask an administrator to approve the relationship."
+        "The internal business mapping is unavailable. Restart FinSight to apply "
+        "compatibility updates; existing restrictions may require maintenance."
     ),
     "REGISTRY_BUSINESS_NOT_FOUND": "The linked registry business is unavailable.",
     "REGISTRY_OWNER_NOT_FOUND": "The linked registry owner is unavailable.",
@@ -210,7 +210,7 @@ def render_ingestion_page(st: Any, session_token: Any) -> bool:
         "Upload canonical JSON or CSV payload",
         type=["json", "csv"],
         accept_multiple_files=False,
-        key="ingestion_file",
+        key=f"ingestion_file_{selected_business["business_id"]}_{selected_account["account_id"]}",
     )
     if uploaded_file is None or not st.button(
         "Ingest transactions", key="ingestion_submit"

@@ -28,10 +28,10 @@ def _render_authentication():
             st.caption(f"Signed in as {session['user']['username']}")
             if st.button("Sign out"):
                 auth_service.logout(token)
-                st.session_state.pop("auth_token", None)
+                st.session_state.clear()
                 st.rerun()
             return token
-        st.session_state.pop("auth_token", None)
+        st.session_state.clear()
 
     sign_in_tab, register_tab = st.tabs(["Sign in", "Register"])
     with sign_in_tab:

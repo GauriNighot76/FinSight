@@ -1,7 +1,6 @@
 """Create the isolated synthetic examination demo using FinSight services."""
 
 import argparse
-import os
 import sys
 from pathlib import Path
 
@@ -14,7 +13,6 @@ from database import db, queries
 from services import (
     account_service,
     auth_service,
-    bridge_service,
     business_service,
     csv_normalizer,
     ingestion_service,
@@ -61,22 +59,10 @@ def seed(database_path: Path) -> dict[str, int]:
         if not result.get("success"):
             raise RuntimeError("Demo owner could not be created.")
 
-    os.environ["FINSIGHT_ALLOW_DEMO_SEED"] = "1"
-    try:
-        result = auth_service.provision_demo_administrator(
-            "Demo Administrator", ADMIN_EMAIL, "9999999992", DEMO_PASSWORD
-        )
-    finally:
-        os.environ.pop("FINSIGHT_ALLOW_DEMO_SEED", None)
-    if not result.get("success"):
-        raise RuntimeError("Demo administrator could not be created.")
-
     owner_login = auth_service.login(OWNER_EMAIL, DEMO_PASSWORD)
-    admin_login = auth_service.login(ADMIN_EMAIL, DEMO_PASSWORD)
-    if not owner_login.get("success") or not admin_login.get("success"):
+    if not owner_login.get("success"):
         raise RuntimeError("Demo sign-in could not be completed.")
     owner_token = owner_login["session"]["token"]
-    admin_token = admin_login["session"]["token"]
 
     businesses = business_service.list_user_businesses(owner_token).get("businesses", [])
     business = _select(businesses, "business_name", BUSINESS_NAME)
@@ -107,19 +93,6 @@ def seed(database_path: Path) -> dict[str, int]:
             raise RuntimeError("Demo financial account could not be created.")
         account = result["account"]
 
-    bridge = bridge_service.get_bridge_status(
-        owner_token, business["business_id"]
-    ).get("bridge")
-    if bridge is None:
-        result = bridge_service.propose_bridge(owner_token, business["business_id"])
-        if not result.get("success"):
-            raise RuntimeError("Demo registry verification could not be requested.")
-        bridge = result["bridge"]
-    if bridge["bridge_status"] == "pending":
-        result = bridge_service.approve_bridge(admin_token, bridge["bridge_id"])
-        if not result.get("success"):
-            raise RuntimeError("Demo registry verification could not be approved.")
-
     payload = csv_normalizer.normalize_csv(
         (PROJECT_ROOT / "sample_data" / "valid_transactions.csv").read_bytes()
     )
@@ -130,7 +103,6 @@ def seed(database_path: Path) -> dict[str, int]:
         payload=payload,
         record_failure=True,
     )
-    auth_service.logout(admin_token)
     auth_service.logout(owner_token)
     return {
         "records": ingestion.record_count,
