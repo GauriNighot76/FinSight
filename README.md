@@ -8,7 +8,7 @@ The application is an examination-ready MVP, not a production banking system.
 
 - Local registration, bcrypt password hashing, sign-in, sign-out, and revocable sessions.
 - Business memberships and active financial accounts with backend authorization.
-- Owner-proposed, independently administrator-approved registry relationships.
+- Automatic internal registry mappings for self-service business onboarding.
 - CSV and canonical JSON normalization, validation, atomic ingestion, and duplicate detection.
 - Account-scoped income, expense, cash-flow, trend, category, and payment-mode analytics.
 - Deterministic rule-based health metrics, anomalies, and recommendations.
@@ -20,9 +20,9 @@ The application is an examination-ready MVP, not a production banking system.
 
 - Windows 10 or 11
 - Git
-- Python **3.12** (verified in the final development environment)
+- Python **3.12** (clean core install and tests verified on Linux; verify Windows on the exam machine)
 
-Python 3.14 has **not** been verified. If `py --version` reports 3.14, install Python 3.12 and use `py -3.12` in the commands below. Do not assume optional FAISS, Torch, or sentence-transformers packages support an untested Python version.
+The pinned environment targets Python 3.12; Python 3.11 is not supported by this lockfile. Python 3.14 has **not** been verified. If `py --version` reports 3.14, install Python 3.12 and use `py -3.12` in the commands below. Do not assume optional FAISS, Torch, or sentence-transformers packages support an untested Python version.
 
 ## Windows installation
 
@@ -117,8 +117,7 @@ The important data flow is:
 
 ```text
 Registration → users and sessions
-Business → owner membership
-Registry request → independent administrator approval
+Business → active owner membership + active internal registry mapping (one transaction)
 Account → authorized business account
 CSV → normalization → validation → identity classification → atomic persistence
 Analytics/health/report → selected business + account + inclusive date range
@@ -143,7 +142,7 @@ Analytics/health/report → selected business + account + inclusive date range
 - Passwords are bcrypt hashes; plaintext passwords are not stored.
 - Session tokens are stored only as SHA-256 hashes.
 - Business and account access is checked in backend services.
-- Bridge approval requires an administrator different from the proposing owner.
+- Normal onboarding needs no administrator. An active internal mapping remains mandatory for ingestion; business/account authorization is unchanged.
 - Canonical transaction identity and analytics amounts use integer minor units.
 - SQL values are parameterized.
 - Expected UI errors are sanitized.
@@ -154,41 +153,40 @@ The legacy general-ledger compatibility table still contains a `REAL` amount mir
 
 ## Examination demonstration
 
-1. Run `python scripts\seed_demo.py`, then start Streamlit.
-   - Expected: seed reports 12 accepted records on the first run.
-   - Viva: “The seed uses synthetic data and the normal validation and ingestion services.”
-2. Sign in with the demo owner credentials.
-   - Expected: Setup, Transactions, and Analytics tabs appear.
-   - Viva: “Passwords are hashed and sessions are validated on the backend.”
-3. Open **Setup**.
-   - Expected: the synthetic business, verified registry relationship, and account appear.
-   - Viva: “Ingestion requires both membership authorization and independent registry approval.”
-4. Open **Transactions** and upload `sample_data\valid_transactions.csv`.
-   - Expected: 12 duplicates after seeding, proving deterministic duplicate protection.
-   - Viva: “A repeated upload is detected without duplicating financial records.”
-5. Upload `sample_data\invalid_transactions.csv`.
-   - Expected: a safe, specific validation message and no committed rows.
-   - Viva: “Invalid rows fail before financial persistence and errors do not expose internals.”
-6. Open **Analytics and reports** and choose `2026-03-01` through `2026-09-20`.
-   - Expected: authenticated totals, trends, categories, payment modes, and account summary.
-   - Viva: “Every value is scoped to the selected business, account, currency, and date range.”
-7. Click **Generate health, recommendations and report**.
-   - Expected: health score, deterministic recommendations, and PDF download.
-   - Viva: “Anomaly detection is rule-based; it is not presented as machine learning.”
-8. Download the selected-business PDF.
-   - Expected: its business, period, and totals match visible analytics.
-   - Viva: “The report reuses the authorized analytics and health services.”
-9. Review **Synthetic scheme-matching demonstration**.
-   - Expected: it is explicitly separated from authenticated analytics.
-   - Viva: “These assumed profile values and bundled CSVs are only an academic scheme demo.”
-10. Ask a scheme question, or demonstrate the friendly unavailable message without optional configuration.
-    - Viva: “RAG is optional, restricted to bundled scheme documents, and cannot crash the core application.”
+1. Complete the Python 3.12 installation above, then run `python -m streamlit run finsight_app\app.py`.
+2. Register a new user and sign in. No demo seed or administrator is required.
+3. In **Setup**, create **ABC Traders**. The business, active Owner membership, legacy registry row, and active internal mapping are created together.
+4. Create a bank account in INR with opening balance `10000.00`.
+5. In **Transactions**, select that business/account and upload `sample_data\valid_transactions.csv`, then click **Ingest transactions**. Expect 12 inserted rows.
+6. Submit the same file again (or `sample_data\duplicate_transactions.csv`). Expect 0 inserted and 12 duplicates.
+7. Upload `sample_data\invalid_transactions.csv`. Expect a readable validation error and no changes to saved transactions.
+8. In **Analytics and reports**, select the same business/account and dates **2026-03-01 through 2026-09-20**. Expect income **INR 371,000**, expenses **INR 125,000**, net cash flow **INR 246,000**, and **12 transactions**.
+9. Click **Generate health, recommendations and report**. Review the rule-based health score and recommendations, then download the selected-business PDF. Its financial totals must match the screen. The PDF is a financial summary; detailed recommendations are displayed in the app.
+10. Optionally review the clearly separate synthetic scheme demonstration. Missing RAG packages/key should produce a friendly message.
+11. Sign out. Sign in as a second registered user and confirm the first user's business is not listed.
+
+For an optional pre-populated demo, the seed command above follows the same self-service backend flow. It does not create an administrator. Repeat seeding detects duplicates.
+
+## Automatic onboarding and existing databases
+
+When a user creates a business, FinSight creates an active owner membership and automatically establishes the internal registry compatibility mapping required by the legacy ledger. Normal business onboarding does not require administrator approval. All four rows share one database transaction; a failure rolls them all back.
+
+Startup applies an idempotent compatibility backfill to active businesses with exactly one active owner whose user account is active:
+
+- No mapping history: create a new internal registry identity and active mapping.
+- Exactly one pending mapping: activate only if its proposer and legacy registry owner are that owner and the registry is not referenced by another bridge.
+- Active mappings: leave unchanged.
+- Rejected, disabled, conflicting, or ambiguous histories: leave unchanged for exceptional maintenance.
+
+No legacy business is matched by name, and no financial rows are rewritten. Back up an existing database before updating. Legacy registry names include the main business ID to satisfy their historical per-owner uniqueness constraint without merging same-name businesses.
+
+Historical `proposed_by_user_id`, `verified_by_user_id`, and `verified_at` columns are retained. For automatic activation the creator is recorded in both user fields. These fields now describe internal activation, not independent human approval. The administrator role and legacy maintenance APIs remain, but are absent from normal setup.
 
 ## Troubleshooting
 
 - `No module named ...`: activate `.venv` and run from the repository root with `python -m streamlit`.
 - Python 3.14 installation failure: use Python 3.12; 3.14 is not verified.
-- “Awaiting registry verification”: an administrator must approve the owner’s request, or use the seeded demo business.
+- Internal mapping unavailable: restart the updated app to apply safe compatibility backfills. Rejected/disabled or ambiguous legacy mappings remain restricted and require exceptional maintenance; ordinary new businesses are ready immediately.
 - Empty analytics: select the sample-data date range (`2026-03-01` to `2026-09-20`).
 - RAG unavailable: install `requirements-rag.txt` and configure `GROQ_API_KEY`; all non-RAG pages remain usable.
 - Seed refusal: do not overwrite an existing user database. Back it up and use a new database path.
