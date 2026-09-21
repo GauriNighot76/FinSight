@@ -255,6 +255,23 @@ def _build_transaction_rows(rows: list[Any]) -> list[dict[str, Any]]:
     ]
 
 
+
+def get_transaction_date_bounds(
+    *,
+    session_token: str,
+    business_id: str,
+    account_id: str,
+    currency: str,
+) -> dict[str, str | None]:
+    """Return the accepted transaction date bounds for one authorized account."""
+    _require_authorized_session(session_token, business_id)
+    _load_account(account_id, business_id, currency)
+    row = queries.get_ingested_transaction_date_bounds(business_id, account_id)
+    return {
+        "start_date": None if row is None else row["min_date"],
+        "end_date": None if row is None else row["max_date"],
+    }
+
 def get_financial_analytics(
     *,
     session_token: str,
@@ -320,4 +337,4 @@ def get_financial_analytics(
     }
 
 
-__all__ = ["AnalyticsError", "get_financial_analytics"]
+__all__ = ["AnalyticsError", "get_financial_analytics", "get_transaction_date_bounds"]
