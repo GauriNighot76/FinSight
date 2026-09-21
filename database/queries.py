@@ -306,16 +306,17 @@ def get_document_chunks(document_id: str, user_id: str):
 def create_business_with_owner(user_id: str, business_name: str,
                                legal_identifier: Optional[str] = None,
                                contact_email: Optional[str] = None,
-                               contact_phone: Optional[str] = None) -> tuple[str, str]:
+                               contact_phone: Optional[str] = None,
+                               business_type: Optional[str] = None) -> tuple[str, str]:
     """Atomically create a Module 2 business and its owner membership."""
     business_id = generate_id("biz")
     membership_id = generate_id("mem")
     with get_connection() as connection:
         connection.execute(
             """INSERT INTO businesses
-               (business_id,business_name,legal_identifier,contact_email,contact_phone)
-               VALUES (?,?,?,?,?)""",
-            (business_id, business_name, legal_identifier, contact_email, contact_phone),
+               (business_id,business_name,business_type,legal_identifier,contact_email,contact_phone)
+               VALUES (?,?,?,?,?,?)""",
+            (business_id, business_name, business_type, legal_identifier, contact_email, contact_phone),
         )
         connection.execute(
             """INSERT INTO business_memberships
@@ -360,7 +361,7 @@ def get_business_membership(business_id: str, user_id: str):
 def list_active_user_businesses(user_id: str):
     with get_connection() as connection:
         return connection.execute(
-            """SELECT b.business_id,b.business_name,b.legal_identifier,b.contact_email,
+            """SELECT b.business_id,b.business_name,b.business_type,b.legal_identifier,b.contact_email,
                       b.contact_phone,b.business_status,b.created_at,b.updated_at,
                       m.membership_id,m.user_id,m.membership_role,m.membership_status,
                       m.created_at AS membership_created_at,
