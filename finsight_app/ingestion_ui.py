@@ -136,7 +136,7 @@ def _render_result(st: Any, result: Any) -> bool:
     return False
 
 
-def render_ingestion_page(st: Any, session_token: Any) -> bool:
+def render_ingestion_page(st: Any, session_token: Any, preferred_business_id: Any = None) -> bool:
     """Render and submit the authenticated canonical JSON ingestion surface."""
     auth = auth_service.validate_session(session_token)
     if not isinstance(auth, dict) or auth.get("success") is not True:
@@ -151,7 +151,8 @@ def render_ingestion_page(st: Any, session_token: Any) -> bool:
 
     st.header("Transaction ingestion")
     business_labels = [business["business_name"] for business in businesses]
-    selected_business_label = st.selectbox("Business", business_labels)
+    preferred_index = next((i for i, b in enumerate(businesses) if b["business_id"] == preferred_business_id), 0)
+    selected_business_label = st.selectbox("Business", business_labels, index=preferred_index)
     try:
         business_index = business_labels.index(selected_business_label)
     except ValueError:
@@ -191,11 +192,11 @@ def render_ingestion_page(st: Any, session_token: Any) -> bool:
     selected_account = accounts[account_index]
 
     uploaded_file = st.file_uploader(
-        "Upload canonical JSON or CSV payload",
+        "Choose CSV File",
         type=["json", "csv"],
         accept_multiple_files=False,
     )
-    if uploaded_file is None or not st.button("Ingest transactions"):
+    if uploaded_file is None:
         return False
 
     try:
@@ -208,6 +209,18 @@ def render_ingestion_page(st: Any, session_token: Any) -> bool:
             st.error("The uploaded CSV could not be normalized.")
         else:
             st.error("The uploaded canonical JSON could not be read.")
+        return False
+
+    records = payload.get("records", []) if isinstance(payload, dict) else []
+    st.caption(f"Rows detected: {len(records)}")
+    if records:
+        preview = [{
+            "Date": r.get("transaction_date"), "Description": r.get("description"),
+            "Amount": (r.get("amount_minor", 0) / 100), "Direction": r.get("direction"),
+            "Category": r.get("category"), "Payment Mode": r.get("payment_method"),
+        } for r in records[:10]]
+        st.dataframe(preview, hide_index=True, use_container_width=True)
+    if not st.button("Validate & Upload Transactions", type="primary"):
         return False
 
     try:
