@@ -114,15 +114,21 @@ Git 2.51.1. Windows and Python 3.14 were not available and are not claimed.
 - Baseline suite: 498 collected/passed, 0 failed, 0 errors, 0 skipped.
 - Current targeted database/RAG tests: 11 passed.
 - Current unrelated-cwd AppTest: 1 passed, zero rendered exceptions.
-- Current full suite before the final path test was added: 508 passed; a final full
-  clean-room count is recorded in the final handoff.
+- Final working-tree suite: 512 passed, 0 failed, 0 errors, 0 skipped.
 - Seed in a fresh temporary DB: first run 12 inserted; second run 12 duplicates.
 - Independently summed sample totals: income 37,100,000 minor, expense 12,500,000
   minor, net 24,600,000 minor, 12 transactions. The analytics service returned the
   same totals, with opening 1,000,000 and closing 25,600,000 minor.
 - Compilation: `python -m compileall database services finsight_app scripts` → exit 0.
-- Headless Streamlit health and clean-clone verification are repeated after final
-  commits. Windows execution remains required on the student's machine using
+- A tracked clean clone installed from `requirements.txt`, passed the same 512 tests
+  and compilation, seeded 12 records then detected all 12 as duplicates, rendered
+  authenticated AppTest output and a selected-business PDF, and showed the friendly
+  missing-Groq-key state.
+- Fresh initialization executed twice against a missing nested database path;
+  18 tables were present and `PRAGMA foreign_keys` returned 1.
+- Headless Streamlit returned `200 ok` from both the repository root and an
+  unrelated cwd using the absolute entry point, with no Groq key.
+- Windows execution remains required on the student's machine using
   `scripts\verify_windows.ps1`.
 
 ## Known limitations
