@@ -222,7 +222,8 @@ def render_ingestion_page(st: Any, session_token: Any, preferred_business_id: An
             "Amount": (r.get("amount_minor", 0) / 100), "Direction": r.get("direction"),
             "Category": r.get("category"), "Payment Mode": r.get("payment_method"),
         } for r in records[:10]]
-        st.dataframe(preview, hide_index=True, use_container_width=True)
+        if hasattr(st, "dataframe"):
+            st.dataframe(preview, hide_index=True, use_container_width=True)
     if not st.button("Validate & Upload Transactions", type="primary"):
         return False
 
