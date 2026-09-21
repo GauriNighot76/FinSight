@@ -402,4 +402,4 @@ def test_ui_has_no_direct_database_access(monkeypatch):
 def test_app_entrypoint_wires_the_analytics_page():
     app_source = (Path(__file__).parents[1] / "finsight_app" / "app.py").read_text()
     assert "from finsight_app.analytics_ui import render_analytics_page" in app_source
-    assert "render_analytics_page(st, auth_token)" in app_source
+    assert "render_analytics_page(st, token, preferred_business_id=selected_id)" in app_source
