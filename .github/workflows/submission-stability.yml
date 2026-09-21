@@ -1,0 +1,17 @@
+name: submission-stability
+on:
+  push:
+    branches: [stabilize-final-submission]
+  pull_request:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - run: python -m pip install --upgrade pip
+      - run: pip install -r requirements.txt
+      - run: pytest -q
+      - run: python -m py_compile finsight_app/app.py finsight_app/ingestion_ui.py finsight_app/analytics_ui.py services/ingestion_service.py services/business_service.py database/queries.py
