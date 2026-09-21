@@ -323,6 +323,20 @@ def create_business_with_owner(user_id: str, business_name: str,
                VALUES (?,?,?,'owner')""",
             (membership_id, business_id, user_id),
         )
+        # A user-created business is immediately usable.  Reuse the same
+        # identifier in the legacy ledger boundary so no human bridge approval
+        # is required for the owner's own business.
+        connection.execute(
+            """INSERT INTO business_registry
+               (business_id,user_id,business_name) VALUES (?,?,?)""",
+            (business_id, user_id, business_name),
+        )
+        connection.execute(
+            """INSERT INTO financial_accounts
+               (account_id,business_id,account_name,account_type,currency,opening_balance_minor)
+               VALUES (?,?,?,'bank','INR',0)""",
+            (generate_id("acc"), business_id, "Default Business Account"),
+        )
     return business_id, membership_id
 
 
