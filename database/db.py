@@ -31,6 +31,9 @@ def initialize_database() -> None:
             if column not in existing:
                 connection.execute(statement)
         connection.execute("UPDATE users SET updated_at=COALESCE(updated_at, created_at, CURRENT_TIMESTAMP)")
+        business_columns = {row[1] for row in connection.execute("PRAGMA table_info(businesses)")}
+        if "business_type" not in business_columns:
+            connection.execute("ALTER TABLE businesses ADD COLUMN business_type TEXT")
 
 
 if __name__ == "__main__":
