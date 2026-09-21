@@ -118,6 +118,7 @@ def render_create_business(st: Any, token: str, *, first_business: bool = False)
             return False
         st.session_state["selected_business_id"] = business_id
         st.session_state["app_page"] = "Upload Transactions"
+        st.session_state["nav_choice"] = "Upload Transactions"
         _clear_business_draft(st)
         st.success("Business created successfully.")
         st.rerun()
@@ -153,5 +154,6 @@ def render_manage_businesses(
             ):
                 st.session_state["selected_business_id"] = business["business_id"]
                 st.session_state["app_page"] = "Overview"
+                st.session_state["nav_choice"] = "Overview"
                 st.rerun()
     return True
