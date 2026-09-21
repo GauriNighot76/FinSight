@@ -10,7 +10,10 @@ if str(PROJECT_ROOT) not in sys.path:
 from database import db
 from finsight_app.analytics_ui import render_analytics_page
 from finsight_app.ingestion_ui import render_ingestion_page
-from services import auth_service, business_service
+from services import (
+    account_service, auth_service, business_health_service, business_service,
+    decision_support_service, report_service,
+)
 
 db.initialize_database()
 
@@ -127,7 +130,7 @@ with st.sidebar:
         for key in list(st.session_state.keys()):
             if key.startswith(("analysis_", "upload_", "report_")):
                 del st.session_state[key]
-    page = st.radio("Navigation", ["Overview", "Upload Transactions", "Financial Analytics", "Government Schemes"])
+    page = st.radio("Navigation", ["Overview", "Upload Transactions", "Financial Analytics", "Business Health", "Anomalies", "Recommendations", "Reports", "Government Schemes"])
     st.divider()
     st.caption(f"Signed in as {session['user']['username']}")
     if st.button("Logout", use_container_width=True):
@@ -149,6 +152,71 @@ elif page == "Upload Transactions":
     render_ingestion_page(st, token, preferred_business_id=selected_id)
 elif page == "Financial Analytics":
     render_analytics_page(st, token, preferred_business_id=selected_id)
+elif page in {"Business Health", "Anomalies", "Recommendations", "Reports"}:
+    accounts_result = account_service.list_business_accounts(token, selected_id)
+    accounts = accounts_result.get("accounts", []) if accounts_result.get("success") else []
+    if not accounts:
+        st.info("Upload transaction data to begin analysis.")
+    else:
+        account = accounts[0]
+        service_args = {
+            "session_token": token, "business_id": selected_id,
+            "account_id": account["account_id"], "start_date": "2000-01-01",
+            "end_date": "2099-12-31", "currency": account["currency"],
+        }
+        try:
+            health = business_health_service.get_business_health(**service_args)
+            count = int(health.get("metrics", {}).get("transaction_count", 0))
+            if count == 0:
+                st.info("This analysis will become available after transaction data is uploaded.")
+            elif page == "Business Health":
+                metrics = health["metrics"]
+                st.subheader("Business Health")
+                a, b, c1 = st.columns(3)
+                a.metric("Health Score", metrics.get("health_score", "N/A"))
+                b.metric("Health Level", metrics.get("health_level", "N/A"))
+                c1.metric("Savings Rate", f"{metrics.get('savings_rate', 0)}%")
+                st.write("Expense-to-Income Ratio:", metrics.get("expense_to_income_ratio", "N/A"))
+                st.write("Cash Flow Stability:", metrics.get("cash_flow_stability", "N/A"))
+                st.write("Category Concentration:", metrics.get("category_concentration", "N/A"))
+                st.write("Recurring Expense Burden:", metrics.get("recurring_expense_burden", "N/A"))
+            elif page == "Anomalies":
+                st.subheader("Anomalies")
+                anomalies = health.get("anomalies", [])
+                if not anomalies:
+                    st.success("No deterministic anomalies were detected for the available transactions.")
+                for item in anomalies:
+                    with st.container(border=True):
+                        st.markdown(f"**{str(item.get('type', 'Anomaly')).replace('_', ' ').title()}**")
+                        st.write(item.get("explanation") or item.get("reason") or "Review this transaction pattern.")
+                        st.caption(f"Severity: {item.get('severity', 'N/A')}")
+            elif page == "Recommendations":
+                st.subheader("Recommendations")
+                support = decision_support_service.get_decision_support(**service_args)
+                recommendations = support.get("recommendations", [])
+                if not recommendations:
+                    st.info("No recommendations are available for the current transaction data.")
+                for item in recommendations:
+                    with st.container(border=True):
+                        st.markdown(f"**{item.get('title', 'Recommendation')}**")
+                        st.write(item.get("explanation") or item.get("reason", ""))
+                        st.caption(f"Priority: {item.get('priority', 'N/A')}")
+                        if item.get("recommended_action"):
+                            st.write("Suggested action:", item["recommended_action"])
+            else:
+                st.subheader("Reports")
+                report = report_service.build_report(**service_args)
+                rows = report_service.report_to_csv_rows(report)
+                import csv
+                import io
+                output = io.StringIO()
+                if rows:
+                    writer = csv.DictWriter(output, fieldnames=sorted({k for row in rows for k in row}))
+                    writer.writeheader()
+                    writer.writerows(rows)
+                st.download_button("Download Executive Report (CSV)", output.getvalue(), "finsight_report.csv", "text/csv")
+        except Exception:
+            st.error("This section could not be loaded. Please verify your transaction data and try again.")
 else:
     st.subheader("Government Schemes")
     st.info("Scheme matching is kept separate from financial analytics. Additional business information may be required to determine eligibility.")
