@@ -253,14 +253,22 @@ selected_business = next(
     item for item in businesses if item["business_id"] == selected_id
 )
 
+pending_page = st.session_state.pop("pending_page", None)
+if pending_page is not None:
+    st.session_state["app_page"] = pending_page
+    if pending_page in NAVIGATION:
+        st.session_state["nav_choice"] = pending_page
+
 if "app_page" not in st.session_state:
     st.session_state["app_page"] = "Overview"
-if "nav_choice" not in st.session_state:
-    st.session_state["nav_choice"] = (
-        st.session_state["app_page"]
-        if st.session_state["app_page"] in NAVIGATION
-        else "Overview"
-    )
+
+# Keep the navigation widget aligned with the actual navigable page.  This
+# runs before the widget is instantiated, which is the only safe time to
+# programmatically change a widget-backed session key.
+if st.session_state["app_page"] in NAVIGATION:
+    st.session_state["nav_choice"] = st.session_state["app_page"]
+elif "nav_choice" not in st.session_state:
+    st.session_state["nav_choice"] = "Overview"
 
 with st.sidebar:
     st.title("FinSight")
@@ -286,10 +294,10 @@ with st.sidebar:
 
     c1, c2 = st.columns(2)
     if c1.button("+ Create", use_container_width=True):
-        st.session_state["app_page"] = "Create Business"
+        st.session_state["pending_page"] = "Create Business"
         st.rerun()
     if c2.button("Manage", use_container_width=True):
-        st.session_state["app_page"] = "Manage Businesses"
+        st.session_state["pending_page"] = "Manage Businesses"
         st.rerun()
 
     st.divider()
@@ -340,6 +348,5 @@ elif page == "Government Schemes":
 elif page == "Reports":
     render_reports(st, token, selected_business)
 else:
-    st.session_state["app_page"] = "Overview"
-    st.session_state["nav_choice"] = "Overview"
+    st.session_state["pending_page"] = "Overview"
     st.rerun()
