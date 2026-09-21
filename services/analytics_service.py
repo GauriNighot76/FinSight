@@ -101,7 +101,7 @@ def _load_accepted_rows(
     with queries.get_connection() as connection:
         return connection.execute(
             """SELECT i.transaction_date, i.amount_minor, i.direction, i.currency,
-                      i.identity_id, t.category, t.payment_mode
+                      i.identity_id, t.category, t.payment_mode, t.description
                FROM ingested_transaction_identities i
                JOIN transaction_general_ledger t
                  ON t.transaction_id=i.transaction_id
@@ -247,6 +247,7 @@ def _build_transaction_rows(rows: list[Any]) -> list[dict[str, Any]]:
             "transaction_date": row["transaction_date"],
             "amount_minor": row["amount_minor"],
             "direction": row["direction"],
+            "description": row["description"],
             "category": row["category"],
             "payment_mode": row["payment_mode"],
         }
