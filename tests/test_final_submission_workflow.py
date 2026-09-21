@@ -161,6 +161,21 @@ def test_final_controlled_workflow_multi_business_isolation_duplicates_and_pdf()
     assert persisted["kpis"]["net_cash_flow_minor"] == 1_000_000
 
 
+
+def test_duplicate_business_display_names_keep_distinct_scopes():
+    _user_row, token = _user()
+    first, first_account = _business(token, "Same Name")
+    second, second_account = _business(token, "Same Name")
+    assert first["business_id"] != second["business_id"]
+    listed = business_service.list_user_businesses(token)["businesses"]
+    assert len([row for row in listed if row["business_name"] == "Same Name"]) == 2
+    assert first_account != second_account
+    first_result = _analytics(token, first["business_id"], first_account)
+    second_result = _analytics(token, second["business_id"], second_account)
+    assert first_result["kpis"]["transaction_count"] == 0
+    assert second_result["kpis"]["transaction_count"] == 0
+
+
 def test_existing_business_is_repaired_idempotently_without_admin_bridge(
     isolated_test_database,
 ):
