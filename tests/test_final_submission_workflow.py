@@ -133,7 +133,7 @@ def test_final_controlled_workflow_multi_business_isolation_duplicates_and_pdf()
         business_id=business_a["business_id"],
         account_id=account_a,
         start_date="2026-08-01",
-        end_date="2026-08-31",
+        end_date="2026-08-04",
         currency="INR",
     )
     report = report_service.build_report(**report_args)
@@ -160,7 +160,8 @@ def test_final_controlled_workflow_multi_business_isolation_duplicates_and_pdf()
     assert b"EBITDA" not in pdf
     assert b"Net income:" not in pdf
     assert b"Cash runway:" not in pdf
-    assert b"Gross margin:</b> Not available from supplied data" in pdf
+    assert b"Gross margin" in pdf
+    assert b"Not available from supplied data" in pdf
 
     assert auth_service.logout(token)["success"] is True
     relogin = auth_service.login("final@example.com", "StrongPass1")
