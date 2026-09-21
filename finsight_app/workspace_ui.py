@@ -124,7 +124,7 @@ def render_overview(st: Any, token: str, business: dict[str, Any]) -> bool:
             for row in monthly
         ]).set_index("Month")
         st.subheader("Income, Expenses & Cash Flow")
-        st.line_chart(chart, use_container_width=True)
+        st.line_chart(chart, width="stretch")
 
     categories = analysis.get("categories", [])
     if categories:
@@ -138,7 +138,7 @@ def render_overview(st: Any, token: str, business: dict[str, Any]) -> bool:
         ])
         if not expense.empty:
             st.subheader("Expenses by Category")
-            st.bar_chart(expense.set_index("Category"), use_container_width=True)
+            st.bar_chart(expense.set_index("Category"), width="stretch")
 
     payment_modes = analysis.get("payment_modes", [])
     if payment_modes:
@@ -151,7 +151,7 @@ def render_overview(st: Any, token: str, business: dict[str, Any]) -> bool:
         ])
         if not modes.empty:
             st.subheader("Payment Mode Distribution")
-            st.bar_chart(modes.set_index("Payment Mode"), use_container_width=True)
+            st.bar_chart(modes.set_index("Payment Mode"), width="stretch")
     return True
 
 
@@ -201,7 +201,7 @@ def render_transactions(st: Any, token: str, business: dict[str, Any]) -> bool:
     st.dataframe(
         filtered,
         hide_index=True,
-        use_container_width=True,
+        width="stretch",
         column_config={"Amount": st.column_config.NumberColumn("Amount (₹)", format="₹ %.2f")},
     )
     return True
