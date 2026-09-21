@@ -117,8 +117,7 @@ def render_create_business(st: Any, token: str, *, first_business: bool = False)
             )
             return False
         st.session_state["selected_business_id"] = business_id
-        st.session_state["app_page"] = "Upload Transactions"
-        st.session_state["nav_choice"] = "Upload Transactions"
+        st.session_state["pending_page"] = "Upload Transactions"
         _clear_business_draft(st)
         st.success("Business created successfully.")
         st.rerun()
@@ -134,7 +133,7 @@ def render_manage_businesses(
     st.subheader("Manage Businesses")
     st.caption("Switch between businesses or create another independent workspace.")
     if st.button("+ Create Business", type="primary"):
-        st.session_state["app_page"] = "Create Business"
+        st.session_state["pending_page"] = "Create Business"
         _clear_business_draft(st)
         st.rerun()
 
@@ -153,7 +152,6 @@ def render_manage_businesses(
                 key=f"use_business_{business['business_id']}",
             ):
                 st.session_state["selected_business_id"] = business["business_id"]
-                st.session_state["app_page"] = "Overview"
-                st.session_state["nav_choice"] = "Overview"
+                st.session_state["pending_page"] = "Overview"
                 st.rerun()
     return True
