@@ -870,6 +870,21 @@ def find_identity_by_source(
         ).fetchone()
 
 
+
+def get_ingested_transaction_date_bounds(
+    business_id: str,
+    account_id: str,
+    connection: Optional[Any] = None,
+):
+    with _module4_connection(connection) as active_connection:
+        return active_connection.execute(
+            """SELECT MIN(transaction_date) AS min_date,
+                      MAX(transaction_date) AS max_date
+               FROM ingested_transaction_identities
+               WHERE business_id=? AND account_id=?""",
+            (business_id, account_id),
+        ).fetchone()
+
 def insert_ledger_transaction(
     *,
     registry_business_id: str,
