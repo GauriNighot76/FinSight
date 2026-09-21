@@ -5,6 +5,7 @@ from pathlib import Path
 
 
 MODULE_DIR = Path(__file__).resolve().parent
+ENV_PATH = MODULE_DIR.parent / ".env"
 SCHEME_DOCS_FOLDER = MODULE_DIR / "scheme_docs"
 
 # maps the scheme_name shown in the UI to its source file, so retrieval
@@ -59,6 +60,8 @@ def load_index():
 
 
 def get_llm():
+    from dotenv import load_dotenv
+    load_dotenv(ENV_PATH, override=False)
     key = os.environ.get("GROQ_API_KEY")
     if not key:
         raise RAGUnavailableError("Set GROQ_API_KEY to enable optional scheme questions.")

@@ -9,11 +9,16 @@ if (Test-Path $verificationEnvironment) {
 }
 
 py -3.12 -m venv $verificationEnvironment
+if ($LASTEXITCODE -ne 0) { throw "Verification command failed (exit $LASTEXITCODE)." }
 $python = Join-Path $verificationEnvironment "Scripts\python.exe"
 & $python -m pip install --upgrade pip
+if ($LASTEXITCODE -ne 0) { throw "Verification command failed (exit $LASTEXITCODE)." }
 & $python -m pip install -r requirements.txt
+if ($LASTEXITCODE -ne 0) { throw "Verification command failed (exit $LASTEXITCODE)." }
 & $python -m pytest -q
+if ($LASTEXITCODE -ne 0) { throw "Verification command failed (exit $LASTEXITCODE)." }
 & $python -m compileall database services finsight_app scripts
+if ($LASTEXITCODE -ne 0) { throw "Verification command failed (exit $LASTEXITCODE)." }
 
 $verificationDatabase = Join-Path $env:TEMP "finsight-windows-verification-$PID.db"
 if (Test-Path $verificationDatabase) {
@@ -21,6 +26,7 @@ if (Test-Path $verificationDatabase) {
 }
 $env:FINSIGHT_DATABASE_PATH = $verificationDatabase
 & $python scripts\seed_demo.py --database $verificationDatabase
+if ($LASTEXITCODE -ne 0) { throw "Verification command failed (exit $LASTEXITCODE)." }
 
 $streamlit = Start-Process -FilePath $python -ArgumentList @(
     "-m", "streamlit", "run", "finsight_app\app.py",

@@ -250,7 +250,7 @@ def test_bridge_must_be_active_and_verified(ingestion_repository, status):
         assert_no_module4_writes(connection)
 
 
-def test_bridge_verification_must_be_independent(ingestion_repository):
+def test_active_bridge_allows_automatic_activation(ingestion_repository):
     with ingestion_repository() as connection:
         connection.execute(
             "UPDATE business_registry_bridges "
@@ -258,9 +258,7 @@ def test_bridge_verification_must_be_independent(ingestion_repository):
             "WHERE bridge_id='bridge_active'"
         )
 
-    with pytest.raises(ingestion_service.IngestionServiceError) as exc_info:
-        ingestion_service.prepare_ingestion(**prepare_args())
-    assert exc_info.value.code == "BRIDGE_NOT_VERIFIED"
+    assert ingestion_service.prepare_ingestion(**prepare_args()).record_count > 0
 
 
 def test_missing_registry_business_fails_closed(ingestion_repository, monkeypatch):

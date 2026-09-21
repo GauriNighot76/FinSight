@@ -185,10 +185,7 @@ def _resolve_verified_context(
         _raise("ACCOUNT_NOT_AUTHORIZED")
 
     bridge = queries.get_active_bridge(business_id, connection=connection)
-    if (
-        bridge is None
-        or bridge["proposed_by_user_id"] == bridge["verified_by_user_id"]
-    ):
+    if bridge is None:
         _raise("BRIDGE_NOT_VERIFIED")
     registry_business_id = bridge["registry_business_id"]
 

@@ -1,4 +1,8 @@
-"""Owner proposal and independent administrator verification for ingestion bridges."""
+"""Bridge status and legacy exceptional-maintenance APIs.
+
+Normal business creation establishes its mapping atomically; these proposal and
+approval APIs are not part of onboarding. Existing blocked mappings are preserved.
+"""
 
 from typing import Any
 
@@ -36,10 +40,10 @@ def propose_bridge(token: str, business_id: str) -> dict[str, Any]:
     if not access.get("success"):
         return access
     existing = queries.get_business_bridge(business_id)
-    if existing is not None and existing["bridge_status"] in {"pending", "active"}:
+    if existing is not None:
         return _error(
             "BRIDGE_ALREADY_EXISTS",
-            "This business already has a pending or active registry relationship.",
+            "This business already has a registry relationship; maintenance is required to change it.",
         )
     try:
         bridge_id = queries.create_registry_bridge_proposal(
