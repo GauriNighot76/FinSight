@@ -34,6 +34,8 @@ def initialize_database() -> None:
         business_columns = {row[1] for row in connection.execute("PRAGMA table_info(businesses)")}
         if "business_type" not in business_columns:
             connection.execute("ALTER TABLE businesses ADD COLUMN business_type TEXT")
+        if "ledger_registry_business_id" not in business_columns:
+            connection.execute("ALTER TABLE businesses ADD COLUMN ledger_registry_business_id TEXT")
 
 
 if __name__ == "__main__":
