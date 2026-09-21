@@ -146,3 +146,31 @@ def test_viewer_cannot_manage_memberships():
     business_service.add_member(owner_token, business, viewer["email"], "viewer")
     assert business_service.add_member(viewer_token, business, "target@example.com", "member")["error"] == "FORBIDDEN"
     assert business_service.list_members(viewer_token, business)["error"] == "FORBIDDEN"
+
+
+def test_new_owner_business_is_immediately_ledger_ready_with_default_account(isolated_test_database):
+    _, token = account("Immediate Owner", "immediate@example.com", "9000000099")
+    created = business_service.create_business(token, {
+        "business_name": "Immediate Retail",
+        "business_type": "Retail",
+    })
+    assert created["success"] is True
+    business_id = created["business"]["business_id"]
+    assert created["business"]["business_type"] == "Retail"
+    with isolated_test_database() as connection:
+        registry = connection.execute(
+            "SELECT * FROM business_registry WHERE business_id=?", (business_id,)
+        ).fetchone()
+        default_account = connection.execute(
+            "SELECT * FROM financial_accounts WHERE business_id=?", (business_id,)
+        ).fetchone()
+        bridge_count = connection.execute(
+            "SELECT COUNT(*) FROM business_registry_bridges WHERE business_id=?", (business_id,)
+        ).fetchone()[0]
+    assert registry is not None
+    assert registry["user_id"] == created["membership"]["user_id"]
+    assert default_account is not None
+    assert default_account["account_name"] == "Default Business Account"
+    assert default_account["currency"] == "INR"
+    assert default_account["opening_balance_minor"] == 0
+    assert bridge_count == 0
