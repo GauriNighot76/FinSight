@@ -83,7 +83,8 @@ def _format_minor(value: Any, currency: str) -> str:
         return "—"
     try:
         formatted = Decimal(value) / Decimal(100)
-        return f"{currency} {formatted:,.2f}"
+        symbol = "₹" if currency == "INR" else currency
+        return f"{symbol}{formatted:,.2f}"
     except (ArithmeticError, TypeError, ValueError):
         return "—"
 
@@ -223,7 +224,7 @@ def render_analytics_page(st: Any, session_token: Any, preferred_business_id: An
     selected_account = accounts[account_index]
 
     today = date.today()
-    start_value = st.date_input("Start date", today.replace(day=1))
+    start_value = st.date_input("Start date", date(2000, 1, 1))
     end_value = st.date_input("End date", today)
     st.button("Refresh analytics")
     start_date = _date_value(start_value)
