@@ -662,6 +662,20 @@ def get_active_business_membership(
         ).fetchone()
 
 
+
+def get_active_business_owner_user_id(
+    business_id: str, connection: Optional[Any] = None
+) -> Optional[str]:
+    with _module4_connection(connection) as active_connection:
+        row = active_connection.execute(
+            """SELECT user_id FROM business_memberships
+               WHERE business_id=? AND membership_role='owner'
+                 AND membership_status='active'
+               ORDER BY created_at,membership_id LIMIT 1""",
+            (business_id,),
+        ).fetchone()
+    return None if row is None else row["user_id"]
+
 def get_active_financial_account(
     account_id: str, business_id: str, connection: Optional[Any] = None
 ):
