@@ -99,6 +99,7 @@ CREATE TABLE IF NOT EXISTS businesses (
     business_id TEXT PRIMARY KEY,
     business_name TEXT NOT NULL,
     business_type TEXT,
+    ledger_registry_business_id TEXT,
     legal_identifier TEXT,
     contact_email TEXT,
     contact_phone TEXT,
