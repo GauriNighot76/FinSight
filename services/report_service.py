@@ -151,6 +151,8 @@ def _financial_summary(kpis: dict[str, Any]) -> dict[str, Any]:
         "net_cash_flow_minor",
         "transaction_count",
         "average_transaction_minor",
+        "largest_income_minor",
+        "largest_expense_minor",
         "income_expense_ratio",
         "savings_rate",
         "opening_balance_minor",
