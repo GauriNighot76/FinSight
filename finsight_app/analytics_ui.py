@@ -149,12 +149,13 @@ def _render_analytics(st: Any, result: dict[str, Any], currency: str) -> None:
         st.info("No transactions found for the selected period.")
 
     trends = result.get("trends") if isinstance(result.get("trends"), dict) else {}
-    st.subheader("Daily trend")
-    st.line_chart(trends.get("daily", []))
-    st.subheader("Weekly trend")
-    st.line_chart(trends.get("weekly", []))
-    st.subheader("Monthly trend")
-    st.line_chart(trends.get("monthly", []))
+    if kpis.get("transaction_count", 0) > 0:
+        st.subheader("Daily trend")
+        st.line_chart(trends.get("daily", []))
+        st.subheader("Weekly trend")
+        st.line_chart(trends.get("weekly", []))
+        st.subheader("Monthly trend")
+        st.line_chart(trends.get("monthly", []))
 
     st.subheader("Category summary")
     st.dataframe(_safe_table_rows(result.get("categories", [])), hide_index=True)
@@ -164,7 +165,7 @@ def _render_analytics(st: Any, result: dict[str, Any], currency: str) -> None:
     st.dataframe(_safe_table_rows(result.get("accounts", [])), hide_index=True)
 
 
-def render_analytics_page(st: Any, session_token: Any) -> bool:
+def render_analytics_page(st: Any, session_token: Any, preferred_business_id: Any = None) -> bool:
     """Render analytics for an authenticated owner or manager."""
     try:
         auth = auth_service.validate_session(session_token)
@@ -188,7 +189,8 @@ def render_analytics_page(st: Any, session_token: Any) -> bool:
 
     st.header("Financial analytics")
     business_labels = [business["business_name"] for business in businesses]
-    selected_business_label = st.selectbox("Business", business_labels)
+    preferred_index = next((i for i, b in enumerate(businesses) if b["business_id"] == preferred_business_id), 0)
+    selected_business_label = st.selectbox("Business", business_labels, index=preferred_index)
     try:
         business_index = business_labels.index(selected_business_label)
     except ValueError:
