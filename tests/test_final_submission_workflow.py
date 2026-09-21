@@ -177,6 +177,35 @@ def test_final_controlled_workflow_multi_business_isolation_duplicates_and_pdf()
 
 
 
+def test_realistic_large_csv_over_old_limit_ingests_all_rows():
+    _user_row, token = _user()
+    business, account_id = _business(token, "Large Import Retail")
+    record_count = 1200
+    rows = ["Date,Description,Amount,Direction,Category,Payment Mode"] + [
+        f"2026-08-01,Sale {index},{index}.00,income,Sales,UPI"
+        for index in range(1, record_count + 1)
+    ]
+    payload = csv_normalizer.normalize_csv("\n".join(rows).encode("utf-8"))
+
+    assert len(payload["records"]) == record_count
+
+    result = ingestion_service.ingest(
+        session_token=token,
+        business_id=business["business_id"],
+        account_id=account_id,
+        payload=payload,
+    )
+
+    assert result.record_count == record_count
+    assert result.inserted_count == record_count
+    assert result.duplicate_count == 0
+    analytics = _analytics(token, business["business_id"], account_id)
+    assert analytics["kpis"]["transaction_count"] == record_count
+    assert analytics["kpis"]["total_income_minor"] == sum(
+        index * 100 for index in range(1, record_count + 1)
+    )
+
+
 def test_duplicate_business_display_names_keep_distinct_scopes():
     _user_row, token = _user()
     first, first_account = _business(token, "Same Name")
