@@ -267,7 +267,10 @@ if "app_page" not in st.session_state:
 # programmatically change a widget-backed session key.
 if st.session_state["app_page"] in NAVIGATION:
     st.session_state["nav_choice"] = st.session_state["app_page"]
-elif "nav_choice" not in st.session_state:
+else:
+    # Create/Manage are workspace actions rather than sidebar destinations.
+    # Use Overview as the neutral navigation selection so a previous page
+    # such as Reports is never shown as active while a transient view is open.
     st.session_state["nav_choice"] = "Overview"
 
 with st.sidebar:
