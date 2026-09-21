@@ -268,6 +268,31 @@ def test_more_than_canonical_batch_limit_is_rejected_without_truncation():
         normalize("\n".join(rows))
 
 
+def test_preview_validation_returns_controlled_over_limit_error():
+    from services import csv_normalizer, ingestion_validation
+
+    rows = [
+        {
+            "Date": "2026-08-01",
+            "Description": f"Sale {index}",
+            "Amount": f"{index + 1}.00",
+            "Direction": "income",
+            "Category": "Sales",
+            "Payment Mode": "UPI",
+            "Reference": "",
+        }
+        for index in range(ingestion_validation.MAX_RECORD_COUNT + 1)
+    ]
+
+    result = csv_normalizer.validate_preview_rows(rows)
+
+    assert result["valid"] is False
+    assert result["payload"] is None
+    assert result["error_code"] == "RECORD_COUNT_OUT_OF_RANGE"
+    assert str(ingestion_validation.MAX_RECORD_COUNT + 1) in result["error_message"]
+    assert str(ingestion_validation.MAX_RECORD_COUNT) in result["error_message"]
+
+
 def test_output_is_deterministic_and_json_serializable():
     import json
 
