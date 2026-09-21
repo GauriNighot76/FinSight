@@ -17,10 +17,22 @@ from services import (
     business_service,
     csv_normalizer,
     ingestion_service,
+    ingestion_validation,
 )
 
 
 AUTHORIZED_MEMBERSHIP_ROLES = frozenset({"owner", "manager"})
+MAX_EDITABLE_PREVIEW_ROWS = 500
+
+
+def _record_limit_message(record_count: int) -> str:
+    return (
+        f"This file contains {record_count} transactions. "
+        f"FinSight currently supports up to "
+        f"{ingestion_validation.MAX_RECORD_COUNT} transactions per import. "
+        "Split the file into smaller batches and try again."
+    )
+
 
 _SAFE_ERROR_MESSAGES = {
     "AUTHENTICATION_FAILED": "Authentication is required for ingestion.",
@@ -299,13 +311,17 @@ def _render_csv_wizard(
         except csv_normalizer.CSVNormalizationError as error:
             st.error(str(error))
             return False
-        st.caption(f"Rows detected: {inspection['row_count']}")
+        row_count = int(inspection["row_count"])
+        st.caption(f"Rows detected: {row_count}")
         if hasattr(st, "dataframe"):
             st.dataframe(
                 inspection["rows"][:8],
                 hide_index=True,
                 width="stretch",
             )
+        if row_count > ingestion_validation.MAX_RECORD_COUNT:
+            st.error(_record_limit_message(row_count))
+            return False
         if st.button("Next: Map Columns", type="primary"):
             st.session_state[keys["bytes"]] = raw
             st.session_state[keys["name"]] = getattr(uploaded_file, "name", "transactions.csv")
@@ -382,7 +398,15 @@ def _render_csv_wizard(
             "only this pending import."
         )
         preview = st.session_state.get(keys["preview"], [])
-        frame = pd.DataFrame(preview)
+        preview_count = len(preview) if isinstance(preview, list) else 0
+        editable_rows = preview[:MAX_EDITABLE_PREVIEW_ROWS]
+        if preview_count > MAX_EDITABLE_PREVIEW_ROWS:
+            st.info(
+                f"Showing the first {MAX_EDITABLE_PREVIEW_ROWS} of "
+                f"{preview_count} transactions for editing. "
+                "All transactions in the file will still be validated and imported."
+            )
+        frame = pd.DataFrame(editable_rows)
         edited = st.data_editor(
             frame,
             hide_index=True,
@@ -396,8 +420,9 @@ def _render_csv_wizard(
             st.rerun()
         if validate_clicked:
             edited_rows = edited.to_dict(orient="records")
-            validation = csv_normalizer.validate_preview_rows(edited_rows)
-            st.session_state[keys["preview"]] = edited_rows
+            all_rows = edited_rows + preview[len(edited_rows):]
+            validation = csv_normalizer.validate_preview_rows(all_rows)
+            st.session_state[keys["preview"]] = all_rows
             st.session_state[keys["validation"]] = validation
             st.session_state[keys["step"]] = 4
             st.rerun()
@@ -420,9 +445,18 @@ def _render_csv_wizard(
 
         errors = validation.get("errors", [])
         if errors:
-            st.error("Fix invalid rows before importing.")
-            for item in errors[:20]:
-                st.write(f"Row {item.get('row', '—')} — {item.get('message', 'Invalid row')}")
+            if validation.get("error_code") == "RECORD_COUNT_OUT_OF_RANGE":
+                st.error(
+                    validation.get("error_message")
+                    or _record_limit_message(total_rows)
+                )
+            else:
+                st.error("Fix invalid rows before importing.")
+                for item in errors[:20]:
+                    st.write(
+                        f"Row {item.get('row', '—')} — "
+                        f"{item.get('message', 'Invalid row')}"
+                    )
             if st.button("Back to Preview"):
                 st.session_state[keys["step"]] = 3
                 st.rerun()
@@ -525,7 +559,18 @@ def render_ingestion_page(
     if business is None:
         st.error("The selected business is unavailable.")
         return False
-    return _render_csv_wizard(st, session_token, business)
+    try:
+        return _render_csv_wizard(st, session_token, business)
+    except ingestion_validation.ValidationError as error:
+        if error.code == "RECORD_COUNT_OUT_OF_RANGE":
+            st.error(
+                "This transaction file exceeds FinSight's supported import size. "
+                f"The current maximum is {ingestion_validation.MAX_RECORD_COUNT} "
+                "transactions per import."
+            )
+        else:
+            st.error("The transaction data could not be validated.")
+        return False
 
 
 __all__ = ["AUTHORIZED_MEMBERSHIP_ROLES", "render_ingestion_page"]
