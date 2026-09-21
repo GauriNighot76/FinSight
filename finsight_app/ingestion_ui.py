@@ -481,10 +481,12 @@ def _render_csv_wizard(
     left, middle, right = st.columns(3)
     if left.button("Go to Overview"):
         st.session_state["app_page"] = "Overview"
+        st.session_state["nav_choice"] = "Overview"
         _reset_wizard(st, keys)
         st.rerun()
     if middle.button("View Analytics"):
         st.session_state["app_page"] = "Financial Analytics"
+        st.session_state["nav_choice"] = "Financial Analytics"
         _reset_wizard(st, keys)
         st.rerun()
     if right.button("Upload Another File"):
