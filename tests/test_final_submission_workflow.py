@@ -1,4 +1,5 @@
 from decimal import Decimal
+import re
 
 from database import queries
 from finsight_app.business_ui import BUSINESS_TYPES
@@ -60,7 +61,7 @@ def _analytics(token, business_id, account_id):
         business_id=business_id,
         account_id=account_id,
         start_date="2026-08-01",
-        end_date="2026-08-31",
+        end_date="2026-08-04",
         currency="INR",
     )
 
@@ -147,6 +148,19 @@ def test_final_controlled_workflow_multi_business_isolation_duplicates_and_pdf()
     assert len(pdf) > 1000
     assert b"FinSight" in pdf
     assert b"Business A" in pdf
+    assert b"2026-08-01 to 2026-08-04" in pdf
+    assert b"INR 15,000.00" in pdf
+    assert b"INR 5,000.00" in pdf
+    assert b"INR 10,000.00" in pdf
+    assert b"Sales" in pdf
+    assert b"Rent" in pdf
+    assert b"Utilities" in pdf
+    page_count = len(re.findall(rb"/Type\s*/Page\b", pdf))
+    assert 3 <= page_count <= 6
+    assert b"EBITDA" not in pdf
+    assert b"Net income:" not in pdf
+    assert b"Cash runway:" not in pdf
+    assert b"Gross margin:</b> Not available from supplied data" in pdf
 
     assert auth_service.logout(token)["success"] is True
     relogin = auth_service.login("final@example.com", "StrongPass1")
