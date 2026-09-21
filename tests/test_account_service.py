@@ -147,7 +147,12 @@ def test_list_is_business_scoped_and_excludes_disabled_accounts():
     account(owner, second, account_identifier="OTHER")
     assert account_service.disable_account(owner, disabled["account_id"])["success"]
     rows = account_service.list_business_accounts(owner, first)["accounts"]
-    assert [row["account_id"] for row in rows] == [active["account_id"]]
+    ids = {row["account_id"] for row in rows}
+    assert active["account_id"] in ids
+    assert disabled["account_id"] not in ids
+    assert len(rows) == 2
+    assert all(row["business_id"] == first for row in rows)
+    assert any(row["account_name"] == "Default Business Account" for row in rows)
     assert account_service.get_account(owner, disabled["account_id"])["error"] == "ACCOUNT_DISABLED"
 
 
