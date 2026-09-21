@@ -184,24 +184,34 @@ def _resolve_verified_context(
     if account is None:
         _raise("ACCOUNT_NOT_AUTHORIZED")
 
-    bridge = queries.get_active_bridge(business_id, connection=connection)
-    if (
-        bridge is None
-        or bridge["proposed_by_user_id"] == bridge["verified_by_user_id"]
-    ):
-        _raise("BRIDGE_NOT_VERIFIED")
-    registry_business_id = bridge["registry_business_id"]
-
+    # New FinSight businesses provision a same-ID legacy ledger row owned by
+    # their creator.  That direct relationship is authoritative for normal
+    # owner ingestion and removes the impractical manual-admin bridge gate.
+    # Older/migrated businesses can still use a verified bridge.
     registry_business = queries.get_registry_business(
-        registry_business_id, connection=connection
+        business_id, connection=connection
     )
-    if registry_business is None:
-        _raise("REGISTRY_BUSINESS_NOT_FOUND")
-    legacy_owner_user_id = queries.get_registry_owner(
-        registry_business_id, connection=connection
-    )
-    if legacy_owner_user_id is None:
-        _raise("REGISTRY_OWNER_NOT_FOUND")
+    if registry_business is not None and registry_business["user_id"] == uploader_user_id:
+        registry_business_id = business_id
+        legacy_owner_user_id = uploader_user_id
+    else:
+        bridge = queries.get_active_bridge(business_id, connection=connection)
+        if (
+            bridge is None
+            or bridge["proposed_by_user_id"] == bridge["verified_by_user_id"]
+        ):
+            _raise("BRIDGE_NOT_VERIFIED")
+        registry_business_id = bridge["registry_business_id"]
+        registry_business = queries.get_registry_business(
+            registry_business_id, connection=connection
+        )
+        if registry_business is None:
+            _raise("REGISTRY_BUSINESS_NOT_FOUND")
+        legacy_owner_user_id = queries.get_registry_owner(
+            registry_business_id, connection=connection
+        )
+        if legacy_owner_user_id is None:
+            _raise("REGISTRY_OWNER_NOT_FOUND")
 
     return _VerifiedContext(
         uploader_user_id=uploader_user_id,
@@ -458,6 +468,9 @@ def _persist_ingestion(
             amount=_legacy_amount(record["amount_minor"]),
             transaction_type=record["direction"],
             transaction_hash=classification.canonical_identity_hash,
+            category=record.get("category"),
+            payment_mode=record.get("payment_method"),
+            description=record.get("description"),
             connection=connection,
         )
         queries.insert_transaction_identity(
