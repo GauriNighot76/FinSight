@@ -190,17 +190,23 @@ def render_analytics_page(st: Any, session_token: Any, preferred_business_id: An
 
     st.header("Financial analytics")
     business_labels = [business["business_name"] for business in businesses]
-    preferred_index = next((i for i, b in enumerate(businesses) if b["business_id"] == preferred_business_id), 0)
     if preferred_business_id is None:
         selected_business_label = st.selectbox("Business", business_labels)
+        try:
+            business_index = business_labels.index(selected_business_label)
+        except ValueError:
+            st.error("The selected business is unavailable.")
+            return False
+        selected_business = businesses[business_index]
     else:
-        selected_business_label = st.selectbox("Business", business_labels, index=preferred_index)
-    try:
-        business_index = business_labels.index(selected_business_label)
-    except ValueError:
-        st.error("The selected business is unavailable.")
-        return False
-    selected_business = businesses[business_index]
+        selected_business = next(
+            (business for business in businesses
+             if business["business_id"] == preferred_business_id),
+            None,
+        )
+        if selected_business is None:
+            st.error("The selected business is unavailable.")
+            return False
 
     try:
         accounts = _active_accounts(
@@ -218,17 +224,49 @@ def render_analytics_page(st: Any, session_token: Any, preferred_business_id: An
     account_labels = [
         f"{account['account_name']} ({account['currency']})" for account in accounts
     ]
-    selected_account_label = st.selectbox("Account", account_labels)
-    try:
-        account_index = account_labels.index(selected_account_label)
-    except ValueError:
-        st.error("The selected financial account is unavailable.")
-        return False
-    selected_account = accounts[account_index]
+    if preferred_business_id is None:
+        selected_account_label = st.selectbox("Account", account_labels)
+        try:
+            account_index = account_labels.index(selected_account_label)
+        except ValueError:
+            st.error("The selected financial account is unavailable.")
+            return False
+        selected_account = accounts[account_index]
+        default_start = date(2000, 1, 1)
+        default_end = date.today()
+    else:
+        ready = business_service.ensure_business_ready(
+            session_token, selected_business["business_id"]
+        )
+        if not isinstance(ready, dict) or ready.get("success") is not True:
+            st.error("The business could not be prepared for analytics.")
+            return False
+        selected_account = next(
+            (account for account in accounts
+             if account["account_id"] == ready.get("account_id")),
+            accounts[0],
+        )
+        try:
+            bounds = analytics_service.get_transaction_date_bounds(
+                session_token=session_token,
+                business_id=selected_business["business_id"],
+                account_id=selected_account["account_id"],
+                currency=selected_account["currency"],
+            )
+        except Exception:
+            bounds = {"start_date": None, "end_date": None}
+        today = date.today()
+        default_start = (
+            date.fromisoformat(bounds["start_date"])
+            if bounds.get("start_date") else today
+        )
+        default_end = (
+            date.fromisoformat(bounds["end_date"])
+            if bounds.get("end_date") else today
+        )
 
-    today = date.today()
-    start_value = st.date_input("Start date", date(2000, 1, 1))
-    end_value = st.date_input("End date", today)
+    start_value = st.date_input("Start date", default_start)
+    end_value = st.date_input("End date", default_end)
     st.button("Refresh analytics")
     start_date = _date_value(start_value)
     end_date = _date_value(end_value)
