@@ -490,3 +490,34 @@ def test_csv_counts_and_warnings_are_displayed_without_internal_values(monkeypat
     assert "Duplicates" in rendered
     assert "Rows rejected" in rendered
     assert "internal-csv-attempt" not in rendered
+
+
+def test_expected_wizard_validation_error_is_rendered_without_escape(monkeypatch):
+    from finsight_app import ingestion_ui
+    from services import ingestion_validation
+
+    ingestion_ui = _authorized_context(monkeypatch, "owner")
+
+    def fail_wizard(*args, **kwargs):
+        raise ingestion_validation.ValidationError(
+            "RECORD_COUNT_OUT_OF_RANGE",
+            "The ingestion record count is outside the supported range.",
+            field="records",
+        )
+
+    monkeypatch.setattr(ingestion_ui, "_render_csv_wizard", fail_wizard)
+    ui = FakeStreamlit()
+
+    assert (
+        ingestion_ui.render_ingestion_page(
+            ui,
+            "session-token",
+            preferred_business_id="business-1",
+        )
+        is False
+    )
+    rendered = _events_text(ui)
+    assert "current maximum is" in rendered
+    assert str(ingestion_validation.MAX_RECORD_COUNT) in rendered
+    assert "Traceback" not in rendered
+    assert "RECORD_COUNT_OUT_OF_RANGE" not in rendered
