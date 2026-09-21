@@ -304,6 +304,7 @@ def test_empty_analytics_shows_safe_empty_state(monkeypatch):
     rendered = _events_text(ui)
     assert "No transactions" in rendered
     assert "Traceback" not in rendered
+    assert sum(event[0] == "line_chart" for event in ui.events) == 0
     assert sum(event[0] == "dataframe" for event in ui.events) == 3
 
 
