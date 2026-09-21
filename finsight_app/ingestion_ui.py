@@ -359,15 +359,17 @@ def _render_csv_wizard(
             if duplicate_fields:
                 return False
             try:
-                payload = csv_normalizer.normalize_csv_with_mapping(raw, chosen_mapping)
+                preview = csv_normalizer.preview_csv_with_mapping(raw, chosen_mapping)
             except csv_normalizer.CSVNormalizationError as error:
                 st.error(
                     f"Column mapping is not ready: {error} "
-                    "Check Date, Amount and Direction (or Debit/Credit) mappings."
+                    "Map a Date column and Amount (or Debit/Credit). "
+                    "Direction can come from a mapped direction column, debit/credit columns, "
+                    "or a signed amount file."
                 )
                 return False
             st.session_state[keys["mapping"]] = chosen_mapping
-            st.session_state[keys["preview"]] = csv_normalizer.preview_rows_from_payload(payload)
+            st.session_state[keys["preview"]] = preview
             st.session_state[keys["validation"]] = None
             st.session_state[keys["step"]] = 3
             st.rerun()
