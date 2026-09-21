@@ -4,7 +4,16 @@ from datetime import date
 from decimal import Decimal
 from typing import Any, Optional
 
-from services import account_service, analytics_service, auth_service, business_service
+from finsight_app.pdf_generator import generate_authenticated_report
+from services import (
+    account_service,
+    analytics_service,
+    auth_service,
+    business_health_service,
+    business_service,
+    decision_support_service,
+    report_service,
+)
 
 
 AUTHORIZED_MEMBERSHIP_ROLES = frozenset({"owner", "manager"})
@@ -17,6 +26,14 @@ def _membership_role(business: dict[str, Any]) -> Optional[str]:
         return role if type(role) is str else None
     role = business.get("membership_role")
     return role if type(role) is str else None
+
+
+def _selection_labels(items: list[dict[str, Any]], name_key: str, id_key: str) -> list[str]:
+    names = [item[name_key] for item in items]
+    return [
+        f"{name} · {item[id_key][-8:]}" if names.count(name) > 1 else name
+        for item, name in zip(items, names)
+    ]
 
 
 def _authorized_businesses(result: Any) -> list[dict[str, Any]]:
@@ -187,8 +204,10 @@ def render_analytics_page(st: Any, session_token: Any) -> bool:
         return False
 
     st.header("Financial analytics")
-    business_labels = [business["business_name"] for business in businesses]
-    selected_business_label = st.selectbox("Business", business_labels)
+    business_labels = _selection_labels(businesses, "business_name", "business_id")
+    selected_business_label = st.selectbox(
+        "Business", business_labels, key="analytics_business"
+    )
     try:
         business_index = business_labels.index(selected_business_label)
     except ValueError:
@@ -209,10 +228,14 @@ def render_analytics_page(st: Any, session_token: Any) -> bool:
         st.error("No active financial account is available for analytics.")
         return False
 
-    account_labels = [
-        f"{account['account_name']} ({account['currency']})" for account in accounts
+    accounts_for_labels = [
+        {**account, "display_name": f"{account['account_name']} ({account['currency']})"}
+        for account in accounts
     ]
-    selected_account_label = st.selectbox("Account", account_labels)
+    account_labels = _selection_labels(accounts_for_labels, "display_name", "account_id")
+    selected_account_label = st.selectbox(
+        "Account", account_labels, key="analytics_account"
+    )
     try:
         account_index = account_labels.index(selected_account_label)
     except ValueError:
@@ -221,9 +244,11 @@ def render_analytics_page(st: Any, session_token: Any) -> bool:
     selected_account = accounts[account_index]
 
     today = date.today()
-    start_value = st.date_input("Start date", today.replace(day=1))
-    end_value = st.date_input("End date", today)
-    st.button("Refresh analytics")
+    start_value = st.date_input(
+        "Start date", today.replace(day=1), key="analytics_start_date"
+    )
+    end_value = st.date_input("End date", today, key="analytics_end_date")
+    st.button("Refresh analytics", key="analytics_refresh")
     start_date = _date_value(start_value)
     end_date = _date_value(end_value)
     if start_date is None or end_date is None:
@@ -247,6 +272,42 @@ def render_analytics_page(st: Any, session_token: Any) -> bool:
         return False
 
     _render_analytics(st, result, selected_account["currency"])
+    if st.button("Generate health, recommendations and report", key="analytics_insights"):
+        service_args = {
+            "session_token": session_token,
+            "business_id": selected_business["business_id"],
+            "account_id": selected_account["account_id"],
+            "start_date": start_date,
+            "end_date": end_date,
+            "currency": selected_account["currency"],
+        }
+        try:
+            health = business_health_service.get_business_health(**service_args)
+            recommendations = decision_support_service.get_decision_support(**service_args)
+            report = report_service.build_report(**service_args)
+            metrics = health.get("metrics", {})
+            st.subheader("Business health")
+            st.metric("Health score", metrics.get("overall_financial_health_score", "—"))
+            st.caption("Anomalies and recommendations are deterministic rule-based results, not machine learning.")
+            st.subheader("Recommendations")
+            rows = recommendations.get("recommendations", [])
+            if rows:
+                for item in rows:
+                    st.write(f"**{item['priority']} — {item['title']}**")
+                    st.caption(item["recommended_action"])
+            else:
+                st.info("No rule-based recommendations were generated for this period.")
+            pdf = generate_authenticated_report(report)
+            st.download_button(
+                "Download selected-business PDF",
+                data=pdf,
+                file_name="finsight_authenticated_report.pdf",
+                mime="application/pdf",
+                key="analytics_report_download",
+            )
+        except Exception:
+            st.error("Health, recommendations, or the report could not be generated.")
+            return False
     return True
 
 

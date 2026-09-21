@@ -57,6 +57,44 @@ def signup(username: str, email: str, contact_number: str, password: str) -> dic
         return _result_error("SIGNUP_FAILED", "Account creation failed. Please try again.")
 
 
+def provision_demo_administrator(
+    username: str, email: str, contact_number: str, password: str
+) -> dict:
+    """Create the fixed local demo administrator only during explicit demo seeding."""
+    if os.getenv("FINSIGHT_ALLOW_DEMO_SEED") != "1":
+        return _result_error("DEMO_SEED_DISABLED", "Demo administrator provisioning is disabled.")
+    email = (email or "").strip().lower()
+    if email != "admin@demo.finsight.local":
+        return _result_error("INVALID_EMAIL", "The demo administrator identity is invalid.")
+    existing = queries.get_user_by_email(email)
+    if existing is not None:
+        if existing["role"] != "administrator":
+            return _result_error("DEMO_ADMIN_CONFLICT", "The demo administrator identity is unavailable.")
+        return {"success": True, "user": _safe_user(existing), "message": "Demo administrator already exists."}
+    username = (username or "").strip()
+    contact_number = (contact_number or "").strip()
+    if not 2 <= len(username) <= 80 or not CONTACT_RE.fullmatch(contact_number):
+        return _result_error("INVALID_INPUT", "The demo administrator details are invalid.")
+    password_error = _validate_password(password)
+    if password_error:
+        return _result_error("WEAK_PASSWORD", password_error)
+    try:
+        user_id = queries.create_user(
+            email,
+            contact_number,
+            hash_password(password),
+            username=username,
+            role="administrator",
+        )
+        return {
+            "success": True,
+            "user": _safe_user(queries.get_user_by_id(user_id)),
+            "message": "Demo administrator created.",
+        }
+    except Exception:
+        return _result_error("DEMO_ADMIN_FAILED", "Demo administrator provisioning failed.")
+
+
 def _hash_token(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
 

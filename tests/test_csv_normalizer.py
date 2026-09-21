@@ -105,6 +105,32 @@ def test_direction_values_are_normalized_without_using_category_as_authority():
     assert payload["records"][1]["category"] == "Medical"
 
 
+def test_medical_is_never_invented_or_leaked_between_uploads():
+    explicit = normalize(
+        "date,description,amount,direction,category\n"
+        "2026-08-01,medicine sale,100,income,Medical\n"
+        "2026-08-02,medicine purchase,25,expense,Office supplies\n"
+    )["records"]
+    assert [row["category"] for row in explicit] == ["Medical", "Office supplies"]
+    assert [row["direction"] for row in explicit] == ["income", "expense"]
+
+    missing = normalize(
+        "date,description,amount,direction\n"
+        "2026-08-03,medicine,10,expense\n"
+    )["records"][0]
+    empty = normalize(
+        "date,description,amount,direction,category\n"
+        "2026-08-04,medicine,10,expense,\n"
+    )["records"][0]
+    second_upload = normalize(
+        "date,description,amount,direction,category\n"
+        "2026-08-05,ordinary rent,10,expense,Rent\n"
+    )["records"][0]
+    assert "category" not in missing
+    assert "category" not in empty
+    assert second_upload["category"] == "Rent"
+
+
 def test_optional_columns_can_be_missing_and_extra_columns_are_ignored():
     payload = normalize(
         "Date,Amount,Source Ref,Unused Column\n"

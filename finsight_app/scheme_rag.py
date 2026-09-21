@@ -1,12 +1,11 @@
-import os
-from langchain_community.document_loaders import TextLoader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_community.vectorstores import FAISS
-from langchain_groq import ChatGroq
+"""Optional, safely degraded RAG for the bundled scheme documents."""
 
-SCHEME_DOCS_FOLDER = "scheme_docs"
-FAISS_INDEX_PATH = "faiss_scheme_index"
+import os
+from pathlib import Path
+
+
+MODULE_DIR = Path(__file__).resolve().parent
+SCHEME_DOCS_FOLDER = MODULE_DIR / "scheme_docs"
 
 # maps the scheme_name shown in the UI to its source file, so retrieval
 # only searches the ONE scheme the user clicked -- not all schemes mixed together
@@ -17,40 +16,61 @@ SCHEME_FILE_MAP = {
 }
 
 
-def get_embeddings():
-    return HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+class RAGUnavailableError(RuntimeError):
+    """Safe error for missing optional dependencies, documents, or configuration."""
+
+
+def _dependencies():
+    try:
+        from langchain_community.document_loaders import TextLoader
+        from langchain_community.vectorstores import FAISS
+        from langchain_groq import ChatGroq
+        from langchain_huggingface import HuggingFaceEmbeddings
+        from langchain_text_splitters import RecursiveCharacterTextSplitter
+    except ImportError as error:
+        raise RAGUnavailableError(
+            "Optional RAG packages are not installed. Core FinSight features remain available."
+        ) from error
+    return TextLoader, FAISS, ChatGroq, HuggingFaceEmbeddings, RecursiveCharacterTextSplitter
 
 
 def build_index():
-    embeddings = get_embeddings()
+    """Build in memory from trusted local text; never deserialize a pickle index."""
+    TextLoader, FAISS, _chat, HuggingFaceEmbeddings, RecursiveCharacterTextSplitter = _dependencies()
+    missing = [name for name in SCHEME_FILE_MAP.values() if not (SCHEME_DOCS_FOLDER / name).is_file()]
+    if missing:
+        raise RAGUnavailableError("Bundled scheme documents are unavailable.")
+    embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
     all_chunks = []
     splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
 
     for scheme_name, filename in SCHEME_FILE_MAP.items():
-        loader = TextLoader(f"{SCHEME_DOCS_FOLDER}/{filename}")
+        loader = TextLoader(str(SCHEME_DOCS_FOLDER / filename), encoding="utf-8")
         doc = loader.load()[0]
         doc.metadata["scheme_name"] = scheme_name  # tags every chunk with its scheme
         chunks = splitter.split_documents([doc])
         all_chunks.extend(chunks)
 
-    vectorstore = FAISS.from_documents(all_chunks, embeddings)
-    vectorstore.save_local(FAISS_INDEX_PATH)
-    print(f"[RAG] Indexed {len(all_chunks)} chunks from {len(SCHEME_FILE_MAP)} schemes")
-    return vectorstore
+    return FAISS.from_documents(all_chunks, embeddings)
 
 
 def load_index():
-    if not os.path.exists(FAISS_INDEX_PATH):
-        return build_index()
-    embeddings = get_embeddings()
-    return FAISS.load_local(FAISS_INDEX_PATH, embeddings, allow_dangerous_deserialization=True)
+    return build_index()
 
 
 def get_llm():
-    return ChatGroq(model="llama-3.1-8b-instant", api_key=os.environ.get("GROQ_API_KEY"), temperature=0.2)
+    key = os.environ.get("GROQ_API_KEY")
+    if not key:
+        raise RAGUnavailableError("Set GROQ_API_KEY to enable optional scheme questions.")
+    _loader, _faiss, ChatGroq, _embeddings, _splitter = _dependencies()
+    return ChatGroq(model="llama-3.1-8b-instant", api_key=key, temperature=0.2)
 
 
-def ask_scheme_question(scheme_name, question, vectorstore):
+def ask_scheme_question(scheme_name, question, vectorstore, llm=None):
+    if scheme_name not in SCHEME_FILE_MAP:
+        return "I don't have enough information to answer that about this scheme."
+    if not isinstance(question, str) or not question.strip():
+        return "Enter a question about the selected scheme."
     # metadata filter -- only retrieve chunks belonging to THIS scheme,
     # so a question about PMEGP can't accidentally pull CGTMSE text
     retriever = vectorstore.as_retriever(
@@ -69,6 +89,13 @@ Context:
 
 Question: {question}
 """
-    llm = get_llm()
-    response = llm.invoke(prompt)
+    llm = llm or get_llm()
+    try:
+        response = llm.invoke(prompt)
+    except RAGUnavailableError:
+        raise
+    except Exception as error:
+        raise RAGUnavailableError(
+            "The scheme question service is temporarily unavailable."
+        ) from error
     return response.content

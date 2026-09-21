@@ -1,14 +1,15 @@
+import os
 import sqlite3
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = BASE_DIR / "data"
-DATABASE_PATH = DATA_DIR / "finsight.db"
+DATABASE_PATH = Path(os.getenv("FINSIGHT_DATABASE_PATH", DATA_DIR / "finsight.db")).resolve()
 SCHEMA_PATH = BASE_DIR / "database" / "schema.sql"
 
 
 def get_connection() -> sqlite3.Connection:
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    DATABASE_PATH.parent.mkdir(parents=True, exist_ok=True)
     connection = sqlite3.connect(str(DATABASE_PATH), timeout=30)
     connection.row_factory = sqlite3.Row
     connection.execute("PRAGMA foreign_keys = ON")

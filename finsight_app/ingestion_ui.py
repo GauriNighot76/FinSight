@@ -26,7 +26,10 @@ _SAFE_ERROR_MESSAGES = {
     "MEMBERSHIP_REQUIRED": "An active business membership is required.",
     "INGESTION_FORBIDDEN": "The current business role cannot ingest data.",
     "ACCOUNT_NOT_AUTHORIZED": "The selected financial account is unavailable.",
-    "BRIDGE_NOT_VERIFIED": "The business registry relationship is unavailable.",
+    "BRIDGE_NOT_VERIFIED": (
+        "This business is awaiting registry verification. Use the seeded demo "
+        "business or ask an administrator to approve the relationship."
+    ),
     "REGISTRY_BUSINESS_NOT_FOUND": "The linked registry business is unavailable.",
     "REGISTRY_OWNER_NOT_FOUND": "The linked registry owner is unavailable.",
     "VALIDATION_FAILED": "The ingestion payload is invalid.",
@@ -46,6 +49,14 @@ def _membership_role(business: dict[str, Any]) -> Optional[str]:
         return role if type(role) is str else None
     role = business.get("membership_role")
     return role if type(role) is str else None
+
+
+def _selection_labels(items: list[dict[str, Any]], name_key: str, id_key: str) -> list[str]:
+    names = [item[name_key] for item in items]
+    return [
+        f"{name} · {item[id_key][-8:]}" if names.count(name) > 1 else name
+        for item, name in zip(items, names)
+    ]
 
 
 def _authorized_businesses(result: Any) -> list[dict[str, Any]]:
@@ -150,8 +161,10 @@ def render_ingestion_page(st: Any, session_token: Any) -> bool:
         return False
 
     st.header("Transaction ingestion")
-    business_labels = [business["business_name"] for business in businesses]
-    selected_business_label = st.selectbox("Business", business_labels)
+    business_labels = _selection_labels(businesses, "business_name", "business_id")
+    selected_business_label = st.selectbox(
+        "Business", business_labels, key="ingestion_business"
+    )
     try:
         business_index = business_labels.index(selected_business_label)
     except ValueError:
@@ -178,11 +191,14 @@ def render_ingestion_page(st: Any, session_token: Any) -> bool:
         st.error("No active financial account is available for ingestion.")
         return False
 
-    account_labels = [
-        f"{account['account_name']} ({account['currency']})"
+    accounts_for_labels = [
+        {**account, "display_name": f"{account['account_name']} ({account['currency']})"}
         for account in accounts
     ]
-    selected_account_label = st.selectbox("Account", account_labels)
+    account_labels = _selection_labels(accounts_for_labels, "display_name", "account_id")
+    selected_account_label = st.selectbox(
+        "Account", account_labels, key="ingestion_account"
+    )
     try:
         account_index = account_labels.index(selected_account_label)
     except ValueError:
@@ -194,14 +210,17 @@ def render_ingestion_page(st: Any, session_token: Any) -> bool:
         "Upload canonical JSON or CSV payload",
         type=["json", "csv"],
         accept_multiple_files=False,
+        key="ingestion_file",
     )
-    if uploaded_file is None or not st.button("Ingest transactions"):
+    if uploaded_file is None or not st.button(
+        "Ingest transactions", key="ingestion_submit"
+    ):
         return False
 
     try:
         payload = _read_uploaded_payload(uploaded_file)
-    except csv_normalizer.CSVNormalizationError:
-        st.error("The uploaded CSV could not be normalized.")
+    except csv_normalizer.CSVNormalizationError as error:
+        st.error(str(error))
         return False
     except (UnicodeDecodeError, ValueError, TypeError, json.JSONDecodeError):
         if _is_csv_upload(uploaded_file):

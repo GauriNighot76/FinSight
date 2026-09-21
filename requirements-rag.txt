@@ -1,0 +1,8 @@
+# Optional scheme-question dependencies. Install only after the core app works.
+langchain
+langchain-community
+langchain-groq
+langchain-huggingface
+langchain-text-splitters
+sentence-transformers
+faiss-cpu

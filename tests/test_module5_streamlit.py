@@ -227,6 +227,20 @@ def test_business_and_account_selectors_are_used(monkeypatch):
     assert any(event[:2] == ("selectbox", "Account") for event in ui.events)
 
 
+def test_duplicate_analytics_labels_are_disambiguated():
+    from finsight_app.analytics_ui import _selection_labels
+
+    labels = _selection_labels(
+        [
+            {"account_name": "Cash", "account_id": "account-11111111"},
+            {"account_name": "Cash", "account_id": "account-22222222"},
+        ],
+        "account_name",
+        "account_id",
+    )
+    assert labels == ["Cash · 11111111", "Cash · 22222222"]
+
+
 def test_date_filter_is_passed_to_backend_without_ui_calculation(monkeypatch):
     analytics_ui = _authorized_context(monkeypatch)
     calls = []

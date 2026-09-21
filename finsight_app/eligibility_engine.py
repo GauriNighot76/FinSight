@@ -1,7 +1,13 @@
+from pathlib import Path
+
 import pandas as pd
 
 
-def check_eligibility(business, data_folder="data"):
+DATA_FOLDER = Path(__file__).resolve().parent / "data"
+
+
+def check_eligibility(business, data_folder=DATA_FOLDER):
+    data_folder = Path(data_folder)
     schemes = pd.read_csv(f"{data_folder}/schemes.csv")
     results = []
 

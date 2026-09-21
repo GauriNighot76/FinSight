@@ -55,7 +55,7 @@ class FakeStreamlit:
     def metric(self, label, value):
         self._event("metric", label, value)
 
-    def selectbox(self, label, options, format_func=None):
+    def selectbox(self, label, options, format_func=None, **_kwargs):
         self._event("selectbox", label, tuple(options))
         return options[0] if options else None
 
@@ -181,6 +181,20 @@ def test_owner_can_select_business_account_and_submit_canonical_json(monkeypatch
     assert "session-token" not in rendered
     assert "1234" not in rendered
     assert any(event[:2] == ("metric", "Inserted") for event in ui.events)
+
+
+def test_duplicate_display_names_are_disambiguated_by_identifier():
+    from finsight_app.ingestion_ui import _selection_labels
+
+    labels = _selection_labels(
+        [
+            {"business_name": "Same Name", "business_id": "business-11111111"},
+            {"business_name": "Same Name", "business_id": "business-22222222"},
+        ],
+        "business_name",
+        "business_id",
+    )
+    assert labels == ["Same Name · 11111111", "Same Name · 22222222"]
 
 
 def test_manager_can_use_the_same_ingestion_surface(monkeypatch):
@@ -457,7 +471,7 @@ def test_malformed_csv_has_a_sanitized_error_and_no_ingestion(monkeypatch):
     assert ingestion_ui.render_ingestion_page(ui, "session-token") is False
     rendered = _events_text(ui)
     assert "CSV" in rendered
-    assert "could not be normalized" in rendered
+    assert "malformed" in rendered
     assert "unterminated" not in rendered
     assert ingestion_calls == []
 

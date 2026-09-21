@@ -458,6 +458,9 @@ def _persist_ingestion(
             amount=_legacy_amount(record["amount_minor"]),
             transaction_type=record["direction"],
             transaction_hash=classification.canonical_identity_hash,
+            category=record.get("category"),
+            payment_mode=record.get("payment_method"),
+            description=record.get("description"),
             connection=connection,
         )
         queries.insert_transaction_identity(

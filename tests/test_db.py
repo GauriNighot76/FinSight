@@ -20,6 +20,21 @@ def test_foreign_keys_enabled(isolated_test_database):
         assert connection.execute("PRAGMA foreign_keys").fetchone()[0] == 1
 
 
+def test_configured_database_parent_is_created(tmp_path, monkeypatch):
+    database_path = tmp_path / "nested" / "database" / "finsight.db"
+    monkeypatch.setattr(db, "DATABASE_PATH", database_path)
+
+    db.initialize_database()
+    db.initialize_database()
+
+    assert database_path.is_file()
+    with db.get_connection() as connection:
+        assert connection.execute("PRAGMA foreign_keys").fetchone()[0] == 1
+        assert connection.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='users'"
+        ).fetchone()[0] == "users"
+
+
 def test_existing_module0_users_table_is_migrated(tmp_path, monkeypatch):
     legacy_path = tmp_path / "legacy.db"
     with sqlite3.connect(legacy_path) as connection:

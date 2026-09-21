@@ -61,6 +61,38 @@ def test_single_controlled_demo_ingestion_persists_complete_flow(ingestion_repos
     assert identity["currency"] == "INR"
 
 
+def test_ingestion_persists_uploaded_dimensions_without_category_invention(
+    ingestion_repository,
+):
+    result = ingestion_service.ingest(
+        **prepare_args(
+            payload=make_payload(
+                [
+                    make_record(
+                        source_transaction_id="E2E-DIMENSIONS",
+                        category="Office supplies",
+                        payment_method="UPI",
+                        description="Synthetic stationery purchase",
+                        direction="expense",
+                    )
+                ]
+            )
+        )
+    )
+    assert result.inserted_count == 1
+    with ingestion_repository() as connection:
+        row = connection.execute(
+            """SELECT category,payment_mode,description,transaction_type
+               FROM transaction_general_ledger"""
+        ).fetchone()
+    assert dict(row) == {
+        "category": "Office supplies",
+        "payment_mode": "UPI",
+        "description": "Synthetic stationery purchase",
+        "transaction_type": "expense",
+    }
+
+
 def test_multiple_record_batch_preserves_order_and_aggregates_counts(ingestion_repository):
     records = [
         make_record(source_transaction_id="E2E-INCOME", amount_minor=1200),
