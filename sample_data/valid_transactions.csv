@@ -1,0 +1,13 @@
+source_transaction_id,date,description,amount,direction,category,payment_mode
+DEMO-001,2026-03-01,Synthetic customer receipts,50000.00,income,Sales,UPI
+DEMO-002,2026-03-05,Synthetic shop rent,12000.00,expense,Rent,Bank
+DEMO-003,2026-04-02,Synthetic customer receipts,56000.00,income,Sales,Card
+DEMO-004,2026-04-12,Synthetic inventory purchase,18000.00,expense,Inventory,Bank
+DEMO-005,2026-05-01,Synthetic customer receipts,61000.00,income,Sales,UPI
+DEMO-006,2026-05-18,Synthetic utilities,4500.00,expense,Utilities,UPI
+DEMO-007,2026-07-03,Synthetic customer receipts,64000.00,income,Sales,Cash
+DEMO-008,2026-07-20,Synthetic marketing expense,7000.00,expense,Marketing,Card
+DEMO-009,2026-08-02,Synthetic customer receipts,68000.00,income,Sales,UPI
+DEMO-010,2026-08-16,Synthetic equipment purchase,80000.00,expense,Equipment,Bank
+DEMO-011,2026-09-01,Synthetic customer receipts,72000.00,income,Sales,Card
+DEMO-012,2026-09-20,Synthetic office supplies,3500.00,expense,Office supplies,UPI

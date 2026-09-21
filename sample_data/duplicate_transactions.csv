@@ -1,0 +1,4 @@
+source_transaction_id,date,description,amount,direction,category,payment_mode
+DEMO-001,2026-03-01,Synthetic customer receipts,50000.00,income,Sales,UPI
+DEMO-001,2026-03-01,Synthetic customer receipts,50000.00,income,Sales,UPI
+DEMO-012,2026-09-20,Synthetic office supplies,3500.00,expense,Office supplies,UPI
