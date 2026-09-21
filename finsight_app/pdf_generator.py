@@ -1,4 +1,4 @@
-"""Professional FinSight PDF rendering for sanitized backend report data."""
+"""Concise FinSight executive financial and MSME advisory PDF."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ import io
 import re
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import Any, Iterable
+from typing import Any
 
 from reportlab.graphics.charts.barcharts import VerticalBarChart
 from reportlab.graphics.shapes import Drawing, String
@@ -25,6 +25,9 @@ from reportlab.platypus import (
     TableStyle,
 )
 
+from services import report_service
+
+
 NAVY = colors.HexColor("#173B57")
 BABY_BLUE = colors.HexColor("#DFF3FF")
 ACCENT = colors.HexColor("#4EA5D9")
@@ -32,7 +35,6 @@ BORDER = colors.HexColor("#D7E9F4")
 MUTED = colors.HexColor("#66788A")
 POSITIVE = colors.HexColor("#2F9E72")
 WARNING = colors.HexColor("#E5A93D")
-CRITICAL = colors.HexColor("#D95C5C")
 WHITE = colors.white
 
 DEFAULT_SECTIONS = {
@@ -74,99 +76,64 @@ def _text(value: Any, default: str = "N/A") -> str:
     return str(value)
 
 
+def _percent(value: Any) -> str:
+    if value is None:
+        return "N/A"
+    return f"{value}%"
+
+
 def _styles():
     styles = getSampleStyleSheet()
-    styles.add(
-        ParagraphStyle(
-            "FS_CoverTitle",
-            parent=styles["Title"],
-            fontName="Helvetica-Bold",
-            fontSize=25,
-            leading=30,
-            textColor=NAVY,
-            alignment=TA_CENTER,
-            spaceAfter=8,
-        )
-    )
-    styles.add(
-        ParagraphStyle(
-            "FS_CoverSubtitle",
-            parent=styles["Normal"],
-            fontName="Helvetica",
-            fontSize=12,
-            leading=17,
-            textColor=MUTED,
-            alignment=TA_CENTER,
-        )
-    )
-    styles.add(
-        ParagraphStyle(
-            "FS_H1",
-            parent=styles["Heading1"],
-            fontName="Helvetica-Bold",
-            fontSize=17,
-            leading=21,
-            textColor=NAVY,
-            spaceBefore=8,
-            spaceAfter=10,
-        )
-    )
-    styles.add(
-        ParagraphStyle(
-            "FS_H2",
-            parent=styles["Heading2"],
-            fontName="Helvetica-Bold",
-            fontSize=12,
-            leading=15,
-            textColor=NAVY,
-            spaceBefore=7,
-            spaceAfter=6,
-        )
-    )
-    styles.add(
-        ParagraphStyle(
-            "FS_Body",
-            parent=styles["BodyText"],
-            fontName="Helvetica",
-            fontSize=9.5,
-            leading=14,
-            textColor=colors.HexColor("#263B4D"),
-            spaceAfter=6,
-        )
-    )
-    styles.add(
-        ParagraphStyle(
-            "FS_Small",
-            parent=styles["BodyText"],
-            fontName="Helvetica",
-            fontSize=8,
-            leading=11,
-            textColor=MUTED,
-        )
-    )
-    styles.add(
-        ParagraphStyle(
-            "FS_Metric",
-            parent=styles["BodyText"],
-            fontName="Helvetica-Bold",
-            fontSize=12,
-            leading=15,
-            textColor=NAVY,
-        )
-    )
+    styles.add(ParagraphStyle(
+        "FS_CoverBrand", parent=styles["Title"], fontName="Helvetica-Bold",
+        fontSize=29, leading=33, textColor=NAVY, alignment=TA_CENTER, spaceAfter=8,
+    ))
+    styles.add(ParagraphStyle(
+        "FS_CoverTitle", parent=styles["Normal"], fontName="Helvetica-Bold",
+        fontSize=15, leading=20, textColor=ACCENT, alignment=TA_CENTER, spaceAfter=8,
+    ))
+    styles.add(ParagraphStyle(
+        "FS_H1", parent=styles["Heading1"], fontName="Helvetica-Bold",
+        fontSize=16, leading=20, textColor=NAVY, spaceBefore=4, spaceAfter=8,
+    ))
+    styles.add(ParagraphStyle(
+        "FS_H2", parent=styles["Heading2"], fontName="Helvetica-Bold",
+        fontSize=10.5, leading=14, textColor=NAVY, spaceBefore=5, spaceAfter=4,
+    ))
+    styles.add(ParagraphStyle(
+        "FS_Body", parent=styles["BodyText"], fontName="Helvetica",
+        fontSize=9.1, leading=13, textColor=colors.HexColor("#263B4D"), spaceAfter=5,
+    ))
+    styles.add(ParagraphStyle(
+        "FS_Small", parent=styles["BodyText"], fontName="Helvetica",
+        fontSize=7.8, leading=10.5, textColor=MUTED, spaceAfter=3,
+    ))
+    styles.add(ParagraphStyle(
+        "FS_MetricLabel", parent=styles["BodyText"], fontName="Helvetica-Bold",
+        fontSize=7.5, leading=9, textColor=MUTED, alignment=TA_CENTER,
+    ))
+    styles.add(ParagraphStyle(
+        "FS_MetricValue", parent=styles["BodyText"], fontName="Helvetica-Bold",
+        fontSize=13.5, leading=17, textColor=NAVY, alignment=TA_CENTER,
+    ))
+    styles.add(ParagraphStyle(
+        "FS_CalloutTitle", parent=styles["BodyText"], fontName="Helvetica-Bold",
+        fontSize=8.5, leading=11, textColor=NAVY, spaceAfter=2,
+    ))
     return styles
 
 
-def _header_footer(canvas, doc):
+def _footer(canvas, doc, *, business_name: str, period: str):
     canvas.saveState()
-    width, height = A4
+    width, _height = A4
     canvas.setStrokeColor(BORDER)
     canvas.setLineWidth(0.5)
-    canvas.line(18 * mm, 14 * mm, width - 18 * mm, 14 * mm)
-    canvas.setFont("Helvetica", 7.5)
+    canvas.line(17 * mm, 14 * mm, width - 17 * mm, 14 * mm)
+    canvas.setFont("Helvetica", 7)
     canvas.setFillColor(MUTED)
-    canvas.drawString(18 * mm, 9 * mm, "FinSight — Financial Analytics for MSMEs")
-    canvas.drawRightString(width - 18 * mm, 9 * mm, f"Page {doc.page}")
+    canvas.drawString(17 * mm, 9 * mm, f"FinSight · {business_name}")
+    canvas.drawCentredString(width / 2, 9 * mm, period)
+    canvas.drawRightString(width - 17 * mm, 9 * mm, f"Page {doc.page}")
     canvas.restoreState()
 
 
@@ -174,135 +141,128 @@ def _section_title(number: int, title: str, styles) -> Paragraph:
     return Paragraph(f"{number}. {title}", styles["FS_H1"])
 
 
-def _metric_table(rows: Iterable[tuple[str, str]], styles) -> Table:
+def _metric_cards(metrics: list[tuple[str, str]], styles) -> Table:
     data = []
-    for label, value in rows:
-        data.append(
-            [
-                Paragraph(label, styles["FS_Small"]),
-                Paragraph(value, styles["FS_Metric"]),
-            ]
-        )
-    table = Table(data, colWidths=[70 * mm, 85 * mm], hAlign="LEFT")
-    table.setStyle(
-        TableStyle(
-            [
+    for label, value in metrics:
+        data.append([
+            Paragraph(label, styles["FS_MetricLabel"]),
+            Paragraph(value, styles["FS_MetricValue"]),
+        ])
+    cards = [
+        Table(
+            [[label], [value]],
+            colWidths=[39 * mm],
+            rowHeights=[9 * mm, 13 * mm],
+            style=TableStyle([
                 ("BACKGROUND", (0, 0), (-1, -1), WHITE),
-                ("BOX", (0, 0), (-1, -1), 0.5, BORDER),
-                ("INNERGRID", (0, 0), (-1, -1), 0.35, BORDER),
+                ("BOX", (0, 0), (-1, -1), 0.6, BORDER),
                 ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                ("LEFTPADDING", (0, 0), (-1, -1), 8),
-                ("RIGHTPADDING", (0, 0), (-1, -1), 8),
-                ("TOPPADDING", (0, 0), (-1, -1), 7),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
-            ]
+                ("LEFTPADDING", (0, 0), (-1, -1), 4),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+                ("TOPPADDING", (0, 0), (-1, -1), 3),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+            ]),
         )
+        for label, value in data
+    ]
+    return Table([cards], colWidths=[40 * mm] * len(cards), hAlign="CENTER")
+
+
+def _callout(title: str, body: str, styles, *, shade=WHITE) -> Table:
+    return Table(
+        [[Paragraph(title, styles["FS_CalloutTitle"])],
+         [Paragraph(body, styles["FS_Body"])]],
+        colWidths=[160 * mm],
+        style=TableStyle([
+            ("BACKGROUND", (0, 0), (-1, -1), shade),
+            ("BOX", (0, 0), (-1, -1), 0.6, BORDER),
+            ("LEFTPADDING", (0, 0), (-1, -1), 7),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 7),
+            ("TOPPADDING", (0, 0), (-1, -1), 5),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+        ]),
     )
+
+
+def _table(headers: list[str], rows: list[list[Any]], widths) -> Table:
+    table = Table(
+        [headers] + [[_text(v, "") for v in row] for row in rows],
+        colWidths=widths,
+        repeatRows=1,
+        hAlign="LEFT",
+    )
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), NAVY),
+        ("TEXTCOLOR", (0, 0), (-1, 0), WHITE),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
+        ("FONTSIZE", (0, 0), (-1, -1), 7.3),
+        ("LEADING", (0, 0), (-1, -1), 9.5),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [WHITE, BABY_BLUE]),
+        ("GRID", (0, 0), (-1, -1), 0.35, BORDER),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 4),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+    ]))
     return table
 
 
-def _data_table(headers: list[str], rows: list[list[Any]], widths=None) -> Table:
-    data = [headers] + [[_text(value, "") for value in row] for row in rows]
-    table = Table(data, colWidths=widths, repeatRows=1, hAlign="LEFT")
-    table.setStyle(
-        TableStyle(
-            [
-                ("BACKGROUND", (0, 0), (-1, 0), NAVY),
-                ("TEXTCOLOR", (0, 0), (-1, 0), WHITE),
-                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-                ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
-                ("FONTSIZE", (0, 0), (-1, -1), 8),
-                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [WHITE, BABY_BLUE]),
-                ("GRID", (0, 0), (-1, -1), 0.35, BORDER),
-                ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                ("LEFTPADDING", (0, 0), (-1, -1), 5),
-                ("RIGHTPADDING", (0, 0), (-1, -1), 5),
-                ("TOPPADDING", (0, 0), (-1, -1), 5),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
-            ]
-        )
-    )
-    return table
-
-
-def _bar_chart(
-    title: str,
-    categories: list[str],
-    series: list[list[float]],
-    legends: list[str],
-) -> Drawing | None:
-    if not categories or not series or not any(any(v != 0 for v in s) for s in series):
+def _bar_chart(title: str, categories: list[str], values: list[float]) -> Drawing | None:
+    if not categories or not values or not any(value != 0 for value in values):
         return None
-    categories = categories[-8:]
-    series = [values[-8:] for values in series]
-    drawing = Drawing(470, 220)
-    drawing.add(String(10, 202, title, fontName="Helvetica-Bold", fontSize=10, fillColor=NAVY))
+    categories = categories[:6]
+    values = values[:6]
+    drawing = Drawing(465, 175)
+    drawing.add(String(8, 160, title, fontName="Helvetica-Bold", fontSize=9, fillColor=NAVY))
     chart = VerticalBarChart()
-    chart.x = 45
-    chart.y = 40
-    chart.height = 140
-    chart.width = 395
-    chart.data = series
+    chart.x = 42
+    chart.y = 35
+    chart.height = 105
+    chart.width = 390
+    chart.data = [values]
     chart.categoryAxis.categoryNames = categories
-    chart.categoryAxis.labels.fontName = "Helvetica"
     chart.categoryAxis.labels.fontSize = 6.5
     chart.categoryAxis.labels.angle = 20
-    chart.valueAxis.labels.fontSize = 7
+    chart.valueAxis.labels.fontSize = 6.5
     chart.valueAxis.valueMin = 0
-    chart.barWidth = 8
-    chart.groupSpacing = 5
-    palette = [ACCENT, WARNING, POSITIVE]
-    for index in range(min(len(series), len(palette))):
-        chart.bars[index].fillColor = palette[index]
+    chart.bars[0].fillColor = ACCENT
+    chart.barWidth = 12
     drawing.add(chart)
-    x = 48
-    for index, legend in enumerate(legends):
-        drawing.add(
-            String(
-                x,
-                18,
-                legend,
-                fontName="Helvetica",
-                fontSize=7,
-                fillColor=palette[index % len(palette)],
-            )
-        )
-        x += 95
     return drawing
 
 
-def _executive_summary(
-    summary: dict[str, Any],
-    anomalies: list[dict[str, Any]],
-    recommendations: list[dict[str, Any]],
-    currency: str,
-) -> list[str]:
-    count = int(summary.get("transaction_count", 0) or 0)
-    if count == 0:
-        return [
-            "No accepted transactions were available for the selected reporting period. "
-            "Financial conclusions are therefore limited until transaction data is imported."
-        ]
-    income = summary.get("total_income_minor", 0) or 0
-    expense = summary.get("total_expense_minor", 0) or 0
-    net = summary.get("net_cash_flow_minor", 0) or 0
-    direction = "positive" if Decimal(str(net)) >= 0 else "negative"
-    lines = [
-        f"FinSight analyzed {count} accepted transactions. Recorded income was "
-        f"{_money(income, currency)}, recorded expenses were {_money(expense, currency)}, "
-        f"and net cash flow was {_money(net, currency)} ({direction})."
+def _income_expense_chart(monthly: list[dict[str, Any]]) -> Drawing | None:
+    if len(monthly) < 2:
+        return None
+    data = monthly[-6:]
+    drawing = Drawing(465, 180)
+    drawing.add(String(
+        8, 164, "Income vs Expense Trend",
+        fontName="Helvetica-Bold", fontSize=9, fillColor=NAVY,
+    ))
+    chart = VerticalBarChart()
+    chart.x = 42
+    chart.y = 38
+    chart.height = 105
+    chart.width = 390
+    chart.data = [
+        [float(Decimal(str(row.get("income_minor", 0))) / 100) for row in data],
+        [float(Decimal(str(row.get("expense_minor", 0))) / 100) for row in data],
     ]
-    if anomalies:
-        lines.append(
-            f"The deterministic health engine identified {len(anomalies)} anomaly "
-            "observation(s) that warrant review; these observations are not findings of fraud."
-        )
-    if recommendations:
-        lines.append(
-            f"The decision-support engine generated {len(recommendations)} data-backed "
-            "recommendation(s) for management consideration."
-        )
-    return lines
+    chart.categoryAxis.categoryNames = [str(row.get("period")) for row in data]
+    chart.categoryAxis.labels.fontSize = 6.5
+    chart.valueAxis.labels.fontSize = 6.5
+    chart.valueAxis.valueMin = 0
+    chart.bars[0].fillColor = ACCENT
+    chart.bars[1].fillColor = WARNING
+    chart.barWidth = 8
+    chart.groupSpacing = 5
+    drawing.add(chart)
+    drawing.add(String(48, 15, "Income", fontSize=7, fillColor=ACCENT))
+    drawing.add(String(105, 15, "Expenses", fontSize=7, fillColor=WARNING))
+    return drawing
 
 
 def safe_report_filename(business_name: str, report_date: str) -> str:
@@ -311,48 +271,75 @@ def safe_report_filename(business_name: str, report_date: str) -> str:
     return f"FinSight_{base}_{report_date}.pdf"
 
 
+def _snapshot_text(advisory: dict[str, Any], currency: str) -> str:
+    snapshot = advisory["performance_snapshot"]
+    count = int(snapshot.get("transaction_count", 0) or 0)
+    if count == 0:
+        return (
+            "No accepted transactions were available in the selected period. "
+            "Financial interpretation is therefore limited until transaction data is imported."
+        )
+    net = snapshot.get("net_cash_flow_minor", 0)
+    direction = "positive" if Decimal(str(net)) >= 0 else "negative"
+    return (
+        f"FinSight reviewed {count} accepted transaction(s). Recorded income was "
+        f"{_money(snapshot.get('total_income_minor', 0), currency)}, recorded expenses were "
+        f"{_money(snapshot.get('total_expense_minor', 0), currency)}, and net cash flow was "
+        f"{_money(net, currency)} ({direction}). The analysis reflects transaction-level "
+        "management records rather than audited accrual financial statements."
+    )
+
+
 def generate_business_report(
     *,
     business: dict[str, Any],
     report: dict[str, Any],
     decision_support: dict[str, Any] | None = None,
     scheme_results: list[dict[str, Any]] | None = None,
-    report_title: str = "Financial Performance & Business Intelligence Report",
+    report_title: str = "Executive Financial & MSME Advisory Report",
     included_sections: set[str] | None = None,
     labels: dict[str, str] | None = None,
 ) -> io.BytesIO:
-    """Render a consulting-style PDF from sanitized FinSight service outputs."""
+    """Render a concise executive advisory report from service-layer outputs."""
     included = set(included_sections or DEFAULT_SECTIONS)
     display_labels = {**DEFAULT_LABELS, **(labels or {})}
-    sections = report.get("sections", {}) if isinstance(report, dict) else {}
-    summary = sections.get("financial_summary", {}) if isinstance(sections, dict) else {}
-    cash_flow = sections.get("cash_flow_summary", {}) if isinstance(sections, dict) else {}
-    categories = sections.get("category_report", []) if isinstance(sections, dict) else []
-    payment_modes = sections.get("payment_mode_report", []) if isinstance(sections, dict) else []
-    health = sections.get("business_health_report", {}) if isinstance(sections, dict) else {}
-    anomalies = sections.get("anomaly_report", []) if isinstance(sections, dict) else []
     recommendations = (
         decision_support.get("recommendations", [])
         if isinstance(decision_support, dict)
         else []
     )
+    advisory = report_service.build_advisory_model(report, recommendations)
+
+    sections = report.get("sections", {}) if isinstance(report, dict) else {}
+    summary = sections.get("financial_summary", {}) if isinstance(sections, dict) else {}
+    categories = sections.get("category_report", []) if isinstance(sections, dict) else []
+    payment_modes = sections.get("payment_mode_report", []) if isinstance(sections, dict) else []
+    health = advisory.get("health", {})
     schemes = scheme_results if isinstance(scheme_results, list) else []
 
     currency = _text(report.get("currency"), "INR")
     date_range = report.get("date_range", {}) if isinstance(report, dict) else {}
-    generated = _text(report.get("generated_at"), datetime.now(timezone.utc).isoformat())
-    generated_date = generated[:10]
-    business_name = _text(business.get("business_name"), _text(report.get("business", {}).get("name"), "Business"))
+    start_date = _text(date_range.get("start_date"))
+    end_date = _text(date_range.get("end_date"))
+    period = f"{start_date} to {end_date}"
+    generated = _text(
+        report.get("generated_at"),
+        datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
+    )
+    business_name = _text(
+        business.get("business_name"),
+        _text(report.get("business", {}).get("name"), "Business"),
+    )
     business_type = _text(business.get("business_type"), "Not specified")
 
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(
         buffer,
         pagesize=A4,
-        rightMargin=18 * mm,
-        leftMargin=18 * mm,
-        topMargin=18 * mm,
-        bottomMargin=20 * mm,
+        rightMargin=17 * mm,
+        leftMargin=17 * mm,
+        topMargin=16 * mm,
+        bottomMargin=19 * mm,
         title=f"FinSight — {business_name}",
         author="FinSight",
         pageCompression=0,
@@ -360,244 +347,291 @@ def generate_business_report(
     styles = _styles()
     story = []
 
-    # Cover
-    story.extend(
-        [
-            Spacer(1, 38 * mm),
-            Paragraph("FinSight", styles["FS_CoverTitle"]),
-            Paragraph(report_title, styles["FS_CoverSubtitle"]),
-            Spacer(1, 14 * mm),
-            Table(
-                [["Business", business_name], ["Business Type", business_type],
-                 ["Reporting Period", f"{_text(date_range.get('start_date'))} to {_text(date_range.get('end_date'))}"],
-                 ["Generated Date", generated_date]],
-                colWidths=[45 * mm, 105 * mm],
-                style=TableStyle([
-                    ("BACKGROUND", (0, 0), (0, -1), BABY_BLUE),
-                    ("TEXTCOLOR", (0, 0), (-1, -1), NAVY),
-                    ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
-                    ("FONTNAME", (1, 0), (1, -1), "Helvetica"),
-                    ("GRID", (0, 0), (-1, -1), 0.5, BORDER),
-                    ("LEFTPADDING", (0, 0), (-1, -1), 8),
-                    ("RIGHTPADDING", (0, 0), (-1, -1), 8),
-                    ("TOPPADDING", (0, 0), (-1, -1), 8),
-                    ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
-                ]),
-            ),
-            Spacer(1, 22 * mm),
-            Paragraph("Prepared by FinSight", styles["FS_CoverSubtitle"]),
-            PageBreak(),
-        ]
-    )
-
-    section_no = 1
-
-    if "executive_summary" in included:
-        story.append(_section_title(section_no, "Executive Summary", styles)); section_no += 1
-        for line in _executive_summary(summary, anomalies, recommendations, currency):
-            story.append(Paragraph(line, styles["FS_Body"]))
-        story.append(Spacer(1, 4 * mm))
-
-    if "business_profile" in included:
-        story.append(_section_title(section_no, "Business Profile", styles)); section_no += 1
-        profile_rows = [
-            ["Business Name", business_name],
-            ["Business Type", business_type],
-            ["Reporting Period", f"{_text(date_range.get('start_date'))} to {_text(date_range.get('end_date'))}"],
-        ]
-        if business.get("legal_identifier"):
-            profile_rows.append(["Registration Identifier", business["legal_identifier"]])
-        if business.get("contact_email"):
-            profile_rows.append(["Contact Email", business["contact_email"]])
-        if business.get("contact_phone"):
-            profile_rows.append(["Contact Phone", business["contact_phone"]])
-        story.append(_data_table(["Field", "Value"], profile_rows, [55 * mm, 100 * mm]))
-        story.append(Spacer(1, 4 * mm))
-
-    if "financial_performance" in included:
-        story.append(_section_title(section_no, "Financial Performance", styles)); section_no += 1
-        story.append(_metric_table([
+    # COVER / CONTEXT & METRICS PROFILE
+    story.extend([
+        Spacer(1, 25 * mm),
+        Paragraph("FinSight", styles["FS_CoverBrand"]),
+        Paragraph(report_title, styles["FS_CoverTitle"]),
+        Spacer(1, 9 * mm),
+        _table(
+            ["Report Context", "Details"],
+            [
+                ["Company Name", business_name],
+                ["Reporting Period", period],
+                ["Industry / Vertical", business_type],
+                ["Accounting / Data Basis",
+                 "Transaction-level cash-flow analysis based on imported management records."],
+                ["Generated Date", generated[:10]],
+            ],
+            [48 * mm, 112 * mm],
+        ),
+        Spacer(1, 10 * mm),
+        _metric_cards([
             (display_labels["total_income"], _money(summary.get("total_income_minor", 0), currency)),
             (display_labels["total_expenses"], _money(summary.get("total_expense_minor", 0), currency)),
             (display_labels["net_cash_flow"], _money(summary.get("net_cash_flow_minor", 0), currency)),
-            ("Transaction Count", _text(summary.get("transaction_count"), "0")),
-            ("Average Transaction", _money(summary.get("average_transaction_minor"), currency)),
-            ("Largest Income", _money(summary.get("largest_income_minor"), currency)),
-            ("Largest Expense", _money(summary.get("largest_expense_minor"), currency)),
-            ("Savings Rate", "N/A" if summary.get("savings_rate") is None else f"{summary.get('savings_rate')}%"),
-            ("Income / Expense Ratio", _text(summary.get("income_expense_ratio"))),
-        ], styles))
+            ("Transactions", str(summary.get("transaction_count", 0) or 0)),
+        ], styles),
+        Spacer(1, 18 * mm),
+        Paragraph(
+            "Prepared by FinSight · Management decision-support report",
+            styles["FS_CoverTitle"],
+        ),
+        PageBreak(),
+    ])
+
+    # SECTION 1 — EXECUTIVE BRIEFING
+    if "executive_summary" in included:
+        story.append(_section_title(1, "Executive Briefing", styles))
+        story.append(Paragraph("<b>Performance Snapshot</b>", styles["FS_H2"]))
+        story.append(Paragraph(_snapshot_text(advisory, currency), styles["FS_Body"]))
+
+        positives = advisory.get("positives", [])
+        story.append(Paragraph("<b>Top Financial Positives</b>", styles["FS_H2"]))
+        if positives:
+            for item in positives[:2]:
+                story.append(Paragraph(f"• {item}", styles["FS_Body"]))
+        else:
+            story.append(Paragraph(
+                "No material positive conclusion is stated because the supplied data is insufficient.",
+                styles["FS_Body"],
+            ))
+
+        risk = advisory.get("primary_risk", {})
+        story.append(Spacer(1, 2 * mm))
+        story.append(_callout(
+            "Primary Risk / Bottleneck",
+            f"{_text(risk.get('title'))}: {_text(risk.get('detail'))}",
+            styles,
+            shade=colors.HexColor("#FFF8E8"),
+        ))
         story.append(Spacer(1, 4 * mm))
 
-    if "cash_flow" in included:
-        story.append(_section_title(section_no, "Cash Flow Analysis", styles)); section_no += 1
-        trends = cash_flow.get("trends", {}) if isinstance(cash_flow, dict) else {}
-        monthly = trends.get("monthly", []) if isinstance(trends, dict) else []
-        chart = _bar_chart(
-            "Monthly Income vs Expenses",
-            [str(row.get("period")) for row in monthly],
-            [
-                [float(Decimal(str(row.get("income_minor", 0))) / 100) for row in monthly],
-                [float(Decimal(str(row.get("expense_minor", 0))) / 100) for row in monthly],
-            ],
-            ["Income", "Expenses"],
-        )
-        if chart:
-            story.append(chart)
-        else:
-            story.append(Paragraph("No monthly cash-flow chart is available for this period.", styles["FS_Body"]))
-        story.append(Paragraph(
-            f"Net cash flow for the reporting period was {_money(summary.get('net_cash_flow_minor', 0), currency)}.",
-            styles["FS_Body"],
+        priority = advisory.get("management_priority", {})
+        story.append(_callout(
+            "Management Priority",
+            f"{_text(priority.get('title'))}: {_text(priority.get('action'))}",
+            styles,
+            shade=BABY_BLUE,
         ))
 
-    if "income_analysis" in included:
-        story.append(_section_title(section_no, "Income Analysis", styles)); section_no += 1
-        income_rows = [
-            [row.get("category"), _money(row.get("income_minor", 0), currency), row.get("count", 0)]
-            for row in categories if row.get("income_minor", 0)
-        ]
-        if income_rows:
-            story.append(_data_table(["Category", "Income", "Transactions"], income_rows))
+        health_score = health.get("health_score") or health.get("overall_financial_health_score")
+        if health_score is not None:
+            story.append(Spacer(1, 5 * mm))
+            story.append(Paragraph(
+                f"<b>FinSight health context:</b> score {_text(health_score)}; "
+                f"level {_text(health.get('health_level'))}. "
+                "This is a deterministic management indicator, not a credit rating.",
+                styles["FS_Small"],
+            ))
+    else:
+        story.append(_section_title(1, "Executive Briefing", styles))
+        story.append(Paragraph("Executive briefing excluded by report configuration.", styles["FS_Body"]))
+
+    story.append(PageBreak())
+
+    # SECTION 2 — ADVISORY PERFORMANCE DEEP-DIVE
+    story.append(_section_title(2, "Advisory Performance Deep-Dive", styles))
+
+    if "income_analysis" in included or "financial_performance" in included:
+        story.append(Paragraph("2.1 Top-Line Growth & Margin Engineering", styles["FS_H2"]))
+        income_categories = advisory.get("income_categories", [])
+        if income_categories:
+            income_rows = [
+                [
+                    row.get("category") or "Uncategorized",
+                    _money(row.get("income_minor", 0), currency),
+                    row.get("count", 0),
+                ]
+                for row in income_categories[:5]
+            ]
+            story.append(_table(
+                ["Income Category", "Recorded Income", "Transactions"],
+                income_rows,
+                [72 * mm, 52 * mm, 36 * mm],
+            ))
         else:
             story.append(Paragraph("No categorized income was available.", styles["FS_Body"]))
 
-    if "expense_analysis" in included:
-        story.append(_section_title(section_no, "Expense Analysis", styles)); section_no += 1
-        expense_rows = [
-            [row.get("category"), _money(row.get("expense_minor", 0), currency), row.get("count", 0)]
-            for row in categories if row.get("expense_minor", 0)
-        ]
-        if expense_rows:
-            story.append(_data_table(["Category", "Expenses", "Transactions"], expense_rows))
+        monthly = advisory.get("monthly_trends", [])
+        if len(monthly) >= 2:
+            story.append(Paragraph(
+                "Multiple monthly periods are available, so the trend chart below can be interpreted directionally.",
+                styles["FS_Small"],
+            ))
+            chart = _income_expense_chart(monthly)
+            if chart:
+                story.append(chart)
+        else:
+            story.append(Paragraph(
+                "Growth rate is not stated because the supplied data does not contain enough comparable monthly periods.",
+                styles["FS_Small"],
+            ))
+        story.append(Paragraph(
+            "<b>Gross margin:</b> Not available from supplied data. Gross margin cannot be "
+            "reliably calculated without sufficient cost-of-goods / direct-cost information.",
+            styles["FS_Small"],
+        ))
+
+    if "expense_analysis" in included or "financial_performance" in included:
+        story.append(Paragraph("2.2 Bottom-Line Efficiency & Earnings Quality", styles["FS_H2"]))
+        expense_categories = advisory.get("expense_categories", [])
+        if expense_categories:
+            expense_rows = [
+                [
+                    row.get("category") or "Uncategorized",
+                    _money(row.get("expense_minor", 0), currency),
+                    row.get("count", 0),
+                ]
+                for row in expense_categories[:5]
+            ]
+            story.append(_table(
+                ["Expense Category", "Recorded Expense", "Transactions"],
+                expense_rows,
+                [72 * mm, 52 * mm, 36 * mm],
+            ))
             chart = _bar_chart(
                 "Largest Expense Categories",
-                [str(row[0]) for row in expense_rows[:8]],
-                [[float(str(row[1]).replace(currency, "").replace(",", "").strip()) if row[1] != "N/A" else 0 for row in expense_rows[:8]]],
-                ["Expenses"],
+                [str(row.get("category") or "Uncategorized") for row in expense_categories],
+                [float(Decimal(str(row.get("expense_minor", 0))) / 100) for row in expense_categories],
             )
             if chart:
                 story.append(chart)
         else:
             story.append(Paragraph("No categorized expenses were available.", styles["FS_Body"]))
 
-    if "payment_mode" in included:
-        story.append(_section_title(section_no, "Payment Mode Analysis", styles)); section_no += 1
-        mode_rows = [
-            [row.get("payment_mode"), _money(row.get("amount_minor", 0), currency), row.get("count", 0)]
-            for row in payment_modes
-        ]
-        if mode_rows:
-            story.append(_data_table(["Payment Mode", "Recorded Amount", "Transactions"], mode_rows))
-        else:
-            story.append(Paragraph("No payment-mode data was available.", styles["FS_Body"]))
-
-    if "business_health" in included:
-        story.append(_section_title(section_no, "Business Health", styles)); section_no += 1
-        health_rows = [
-            ["Health Score", health.get("health_score")],
-            ["Health Level", health.get("health_level")],
-            ["Savings Rate", health.get("savings_rate")],
-            ["Expense-to-Income Ratio", health.get("expense_to_income_ratio")],
-            ["Cash Flow Stability", health.get("cash_flow_stability")],
-            ["Category Concentration", health.get("category_concentration")],
-            ["Recurring Expense Burden", health.get("recurring_expense_burden")],
-        ]
-        story.append(_data_table(["Indicator", "Value"], health_rows, [80 * mm, 75 * mm]))
         story.append(Paragraph(
-            "Health indicators are deterministic summaries of the uploaded transaction dataset. "
-            "They should be interpreted together with the underlying records and business context.",
+            f"Expense-to-income ratio: {_text(health.get('expense_to_income_ratio'))}. "
+            f"Savings rate: {_percent(summary.get('savings_rate'))}. "
+            f"Recurring expense burden: {_percent(health.get('recurring_expense_burden'))}. "
+            "These figures are transaction-based cash-flow indicators; net cash flow is not presented as net profit.",
             styles["FS_Body"],
         ))
 
-    if "anomalies" in included:
-        story.append(_section_title(section_no, "Anomaly / Risk Observations", styles)); section_no += 1
-        if not anomalies:
-            story.append(Paragraph("No significant deterministic anomalies were detected.", styles["FS_Body"]))
-        else:
-            for anomaly in anomalies:
-                story.append(KeepTogether([
-                    Paragraph(
-                        f"<b>{_text(anomaly.get('type')).replace('_', ' ').title()}</b> "
-                        f"— Severity: {_text(anomaly.get('severity'))}",
-                        styles["FS_Body"],
-                    ),
-                    Paragraph(
-                        _text(anomaly.get("explanation") or anomaly.get("reason"), "This pattern requires review.")
-                        + " This is an analytical risk indicator, not a finding of fraud.",
-                        styles["FS_Small"],
-                    ),
-                    Spacer(1, 2 * mm),
-                ]))
+    if "cash_flow" in included or "payment_mode" in included:
+        story.append(Paragraph("2.3 Liquidity, Working Capital & Capital Preservation", styles["FS_H2"]))
+        story.append(Paragraph(
+            f"Observed net cash flow is {_money(summary.get('net_cash_flow_minor', 0), currency)}. "
+            f"Cash-flow stability score: {_text(health.get('cash_flow_stability'))}. "
+            f"Income/expense ratio: {_text(summary.get('income_expense_ratio'))}.",
+            styles["FS_Body"],
+        ))
+        if "payment_mode" in included and payment_modes:
+            mode_rows = [
+                [
+                    row.get("payment_mode") or "Other",
+                    _money(row.get("amount_minor", 0), currency),
+                    _percent(row.get("percentage")),
+                ]
+                for row in payment_modes[:5]
+            ]
+            story.append(_table(
+                ["Payment Mode", "Observed Value", "Share of Transaction Value"],
+                mode_rows,
+                [58 * mm, 52 * mm, 50 * mm],
+            ))
+        story.append(Paragraph(
+            "<b>Working capital, receivable days, payable days, inventory turnover and cash runway:</b> "
+            "Not available from supplied data. FinSight does not estimate these metrics without the required source fields.",
+            styles["FS_Small"],
+        ))
 
-    if "recommendations" in included:
-        story.append(_section_title(section_no, "Recommendations", styles)); section_no += 1
-        if not recommendations:
-            story.append(Paragraph("No specific recommendations were generated for this period.", styles["FS_Body"]))
-        else:
-            for item in recommendations:
-                story.append(KeepTogether([
-                    Paragraph(
-                        f"<b>{_text(item.get('title'), 'Recommendation')}</b> "
-                        f"— Priority: {_text(item.get('priority'))}",
-                        styles["FS_Body"],
-                    ),
-                    Paragraph(_text(item.get("explanation") or item.get("reason"), ""), styles["FS_Small"]),
-                    Paragraph(
-                        f"<b>Suggested action:</b> {_text(item.get('recommended_action'), 'Review the underlying financial records.')}",
-                        styles["FS_Small"],
-                    ),
-                    Spacer(1, 2 * mm),
-                ]))
+    story.append(PageBreak())
 
-    if "government_schemes" in included:
-        story.append(_section_title(section_no, "Government Scheme Opportunities", styles)); section_no += 1
-        if not schemes:
+    # SECTION 3 — MSME DUAL-LENS FRAMEWORK
+    story.append(_section_title(3, "MSME Dual-Lens Framework", styles))
+    story.append(Paragraph("Internal Management View — Operational Action Plan", styles["FS_H2"]))
+    actions = advisory.get("internal_actions", [])
+    if actions:
+        for item in actions[:5]:
             story.append(Paragraph(
-                "No scheme results were included. Scheme relevance depends on business-profile information supplied by the user.",
+                f"• <b>{_text(item.get('action'))}</b> {_text(item.get('why'), '')}",
                 styles["FS_Body"],
             ))
-        else:
-            scheme_rows = []
-            for item in schemes:
-                scheme_rows.append([
-                    item.get("scheme_name"),
-                    item.get("relevance", "Potentially relevant"),
-                    item.get("benefit_summary", ""),
-                    item.get("information_required", ""),
-                ])
-            story.append(_data_table(
-                ["Scheme", "Relevance", "Potential Benefit", "Information Still Required"],
-                scheme_rows,
-                [37 * mm, 30 * mm, 48 * mm, 45 * mm],
-            ))
-
-    if "methodology" in included:
-        story.append(_section_title(section_no, "Data Quality & Methodology", styles)); section_no += 1
+    else:
         story.append(Paragraph(
-            f"This report analyzes {summary.get('transaction_count', 0) or 0} accepted transaction(s) "
-            f"for the period {_text(date_range.get('start_date'))} to {_text(date_range.get('end_date'))}. "
-            "Financial values originate from transaction data uploaded for the selected authenticated business. "
-            "Duplicate identities are excluded by FinSight's ingestion rules. Missing category, payment-mode or "
-            "business-profile fields can limit the corresponding analysis.",
+            "No specific operational action was generated from the available transaction evidence.",
             styles["FS_Body"],
         ))
 
-    if "disclaimer" in included:
-        story.append(_section_title(section_no, "Disclaimer", styles)); section_no += 1
+    story.append(Spacer(1, 3 * mm))
+    story.append(Paragraph("External Partner / Lender View — Investor / Credit Readiness", styles["FS_H2"]))
+    for observation in advisory.get("lender_observations", [])[:5]:
+        story.append(Paragraph(f"• {observation}", styles["FS_Body"]))
+    story.append(Paragraph(
+        "FinSight does not state that the business is loan-approved, investor-ready or creditworthy. "
+        "Those conclusions require additional evidence and an appropriate underwriting framework.",
+        styles["FS_Small"],
+    ))
+
+    # SECTION 4 — PRIORITY ACTIONS
+    story.append(Spacer(1, 4 * mm))
+    story.append(_section_title(4, "Priority Actions", styles))
+    priority_rows = [
+        [
+            item.get("priority"),
+            item.get("action"),
+            item.get("rationale"),
+            item.get("time_horizon"),
+        ]
+        for item in advisory.get("priority_actions", [])[:5]
+    ]
+    if priority_rows:
+        story.append(_table(
+            ["Priority", "Action", "Financial Rationale", "Time Horizon"],
+            priority_rows,
+            [23 * mm, 50 * mm, 62 * mm, 25 * mm],
+        ))
+    else:
         story.append(Paragraph(
-            "FinSight provides analytical decision support for educational and business-review purposes. "
-            "It does not replace professional accounting, tax, audit, legal, lending, investment or regulatory advice. "
-            "Government scheme criteria and availability should be verified against the current official source before applying.",
+            "No priority action was generated from the selected-period evidence.",
             styles["FS_Body"],
         ))
 
-    doc.build(story, onFirstPage=_header_footer, onLaterPages=_header_footer)
+    if "government_schemes" in included and schemes:
+        story.append(Spacer(1, 5 * mm))
+        story.append(Paragraph("Government Scheme Opportunities", styles["FS_H2"]))
+        scheme_rows = [
+            [
+                item.get("scheme_name"),
+                item.get("relevance", "Potentially relevant"),
+                item.get("information_required", ""),
+            ]
+            for item in schemes[:4]
+        ]
+        story.append(_table(
+            ["Scheme", "Screening Status", "Information Still Required"],
+            scheme_rows,
+            [58 * mm, 48 * mm, 54 * mm],
+        ))
+        story.append(Paragraph(
+            "Scheme screening is indicative only. Official eligibility and current scheme rules must be verified before applying.",
+            styles["FS_Small"],
+        ))
+
+    # SECTION 5 — METHODOLOGY & LIMITATIONS
+    if "methodology" in included or "disclaimer" in included:
+        story.append(Spacer(1, 5 * mm))
+        story.append(_section_title(5, "Methodology & Limitations", styles))
+        story.append(Paragraph(
+            f"Analysis is based on {summary.get('transaction_count', 0) or 0} accepted transaction(s) "
+            f"for {period}. Duplicate detection is applied during ingestion. Figures reflect imported "
+            "management transaction records and are not audited financial statements. Unsupported accounting, "
+            "working-capital, unit-economics and valuation metrics are not estimated. FinSight provides management "
+            "decision support and does not replace professional accounting, tax, audit, legal, lending or investment advice.",
+            styles["FS_Body"],
+        ))
+
+    footer = lambda canvas, document: _footer(
+        canvas, document, business_name=business_name, period=period
+    )
+    doc.build(story, onFirstPage=footer, onLaterPages=footer)
     buffer.seek(0)
     return buffer
 
 
 generate_report = generate_business_report
+
 
 __all__ = [
     "DEFAULT_LABELS",
