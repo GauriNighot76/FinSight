@@ -61,6 +61,42 @@ div[data-testid="stVerticalBlockBorderWrapper"] {
 }
 h1, h2, h3 { color: #173B57; }
 [data-testid="stDataFrame"] { border: 1px solid #D7E9F4; border-radius: 10px; }
+
+/* Keep form controls readable even when the browser/OS is using dark mode. */
+div[data-baseweb="input"] {
+    background: #FFFFFF !important;
+    border: 1px solid #C8DFEC !important;
+}
+div[data-baseweb="input"] input {
+    color: #173B57 !important;
+    -webkit-text-fill-color: #173B57 !important;
+    caret-color: #173B57 !important;
+}
+div[data-baseweb="input"] input::placeholder {
+    color: #7A8E9E !important;
+    opacity: 1 !important;
+}
+div[data-baseweb="select"] > div {
+    background: #FFFFFF !important;
+    color: #173B57 !important;
+    border-color: #C8DFEC !important;
+}
+div[data-baseweb="select"] span,
+div[data-baseweb="select"] svg {
+    color: #173B57 !important;
+    fill: #173B57 !important;
+}
+label[data-testid="stWidgetLabel"] p,
+[data-testid="stTextInput"] label p,
+[data-testid="stSelectbox"] label p {
+    color: #173B57 !important;
+    opacity: 1 !important;
+}
+[data-testid="stTextInput"] button,
+[data-testid="stTextInput"] svg {
+    color: #526B7C !important;
+}
+
 </style>
 """,
     unsafe_allow_html=True,
