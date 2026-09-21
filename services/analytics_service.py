@@ -242,21 +242,22 @@ def _build_account_summary(
 
 def _build_transaction_rows(rows: list[Any]) -> list[dict[str, Any]]:
     """Expose only non-sensitive accepted fields for downstream read-only analysis."""
-    return [
-        {
+    result = []
+    for row in rows:
+        item = {
             "transaction_date": row["transaction_date"],
             "amount_minor": row["amount_minor"],
             "direction": row["direction"],
-            "description": (
-                row["description"]
-                if "description" in row.keys()
-                else None
-            ),
             "category": row["category"],
             "payment_mode": row["payment_mode"],
         }
-        for row in rows
-    ]
+        # Description was added for the final-submission UI, but older callers/tests
+        # may provide rows that predate that optional field. Preserve the legacy
+        # response shape unless the source row actually exposes description.
+        if "description" in row.keys():
+            item["description"] = row["description"]
+        result.append(item)
+    return result
 
 
 
