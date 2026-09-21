@@ -159,7 +159,7 @@ def _render_authentication() -> None:
                     type="password",
                     key="login_password",
                 )
-                if st.button("Sign In", use_container_width=True):
+                if st.button("Sign In", width="stretch"):
                     result = auth_service.login(email, password)
                     if result.get("success"):
                         token = result["session"]["token"]
@@ -179,7 +179,7 @@ def _render_authentication() -> None:
                     type="password",
                     key="register_password",
                 )
-                if st.button("Register", use_container_width=True):
+                if st.button("Register", width="stretch"):
                     result = auth_service.signup(username, email, phone, password)
                     if not result.get("success"):
                         st.error(result.get("message", "Registration failed."))
@@ -296,10 +296,10 @@ with st.sidebar:
         st.rerun()
 
     c1, c2 = st.columns(2)
-    if c1.button("+ Create", use_container_width=True):
+    if c1.button("+ Create", width="stretch"):
         st.session_state["pending_page"] = "Create Business"
         st.rerun()
-    if c2.button("Manage", use_container_width=True):
+    if c2.button("Manage", width="stretch"):
         st.session_state["pending_page"] = "Manage Businesses"
         st.rerun()
 
@@ -316,7 +316,7 @@ with st.sidebar:
     st.divider()
     st.markdown("#### Account")
     st.caption(f"Signed in as {session['user']['username']}")
-    if st.button("Logout", use_container_width=True):
+    if st.button("Logout", width="stretch"):
         auth_service.logout(token)
         _clear_user_state()
         st.rerun()
