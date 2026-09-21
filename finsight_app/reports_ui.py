@@ -75,7 +75,7 @@ def render_reports(st: Any, token: str, business: dict[str, Any]) -> bool:
     )
     report_title = st.text_input(
         "Report Title",
-        value="Financial Performance & Business Intelligence Report",
+        value="Executive Financial & MSME Advisory Report",
         key=f"report_title_{business_id}",
     )
     start_date, end_date = st.date_input(
@@ -140,7 +140,7 @@ def render_reports(st: Any, token: str, business: dict[str, Any]) -> bool:
                 report=report,
                 decision_support=decision_support,
                 scheme_results=schemes,
-                report_title=report_title.strip() or "Financial Performance & Business Intelligence Report",
+                report_title=report_title.strip() or "Executive Financial & MSME Advisory Report",
                 included_sections=included,
                 labels={
                     "total_income": income_label.strip() or "Total Income",
