@@ -4,6 +4,8 @@ from datetime import date
 from decimal import Decimal
 from typing import Any, Optional
 
+import pandas as pd
+
 from services import account_service, analytics_service, auth_service, business_service
 
 
@@ -124,6 +126,70 @@ def _safe_table_rows(rows: Any) -> list[dict[str, Any]]:
     return safe_rows
 
 
+def _trend_chart_frame(rows: Any, *, period_kind: str) -> pd.DataFrame:
+    """Return explicit chart columns from the analytics trend contract."""
+    columns = ["Period", "Income", "Expenses", "Net Cash Flow"]
+    if not isinstance(rows, list):
+        return pd.DataFrame(columns=columns)
+
+    normalized = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        period = row.get("period")
+        if period is None or str(period).strip() == "":
+            continue
+        normalized.append(
+            {
+                "Period": period,
+                "Income": row.get("income_minor", 0),
+                "Expenses": row.get("expense_minor", 0),
+                "Net Cash Flow": row.get("net_cash_flow_minor", 0),
+            }
+        )
+
+    frame = pd.DataFrame(normalized, columns=columns)
+    if frame.empty:
+        return frame
+
+    for column in ("Income", "Expenses", "Net Cash Flow"):
+        frame[column] = (
+            pd.to_numeric(frame[column], errors="coerce")
+            .fillna(0)
+            .astype(float)
+            / 100.0
+        )
+
+    if period_kind == "daily":
+        frame["Period"] = pd.to_datetime(frame["Period"], errors="coerce")
+        frame = frame.dropna(subset=["Period"]).sort_values("Period")
+    else:
+        frame["Period"] = frame["Period"].astype(str)
+        frame = frame.sort_values("Period")
+
+    return frame.reset_index(drop=True)
+
+
+def _render_trend_chart(
+    st: Any,
+    title: str,
+    rows: Any,
+    *,
+    period_kind: str,
+) -> None:
+    frame = _trend_chart_frame(rows, period_kind=period_kind)
+    st.subheader(title)
+    if frame.empty:
+        st.caption("No trend data is available for this period.")
+        return
+    st.line_chart(
+        frame,
+        x="Period",
+        y=["Income", "Expenses", "Net Cash Flow"],
+        width="stretch",
+    )
+
+
 def _render_kpis(st: Any, result: dict[str, Any], currency: str) -> None:
     kpis = result.get("kpis") if isinstance(result.get("kpis"), dict) else {}
     fields = (
@@ -151,12 +217,24 @@ def _render_analytics(st: Any, result: dict[str, Any], currency: str) -> None:
 
     trends = result.get("trends") if isinstance(result.get("trends"), dict) else {}
     if kpis.get("transaction_count", 0) > 0:
-        st.subheader("Daily trend")
-        st.line_chart(trends.get("daily", []))
-        st.subheader("Weekly trend")
-        st.line_chart(trends.get("weekly", []))
-        st.subheader("Monthly trend")
-        st.line_chart(trends.get("monthly", []))
+        _render_trend_chart(
+            st,
+            "Daily trend",
+            trends.get("daily", []),
+            period_kind="daily",
+        )
+        _render_trend_chart(
+            st,
+            "Weekly trend",
+            trends.get("weekly", []),
+            period_kind="weekly",
+        )
+        _render_trend_chart(
+            st,
+            "Monthly trend",
+            trends.get("monthly", []),
+            period_kind="monthly",
+        )
 
     st.subheader("Category summary")
     st.dataframe(_safe_table_rows(result.get("categories", [])), hide_index=True)
@@ -294,4 +372,8 @@ def render_analytics_page(st: Any, session_token: Any, preferred_business_id: An
     return True
 
 
-__all__ = ["AUTHORIZED_MEMBERSHIP_ROLES", "render_analytics_page"]
+__all__ = [
+    "AUTHORIZED_MEMBERSHIP_ROLES",
+    "_trend_chart_frame",
+    "render_analytics_page",
+]
