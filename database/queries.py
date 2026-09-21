@@ -327,10 +327,18 @@ def create_business_with_owner(user_id: str, business_name: str,
         # A user-created business is immediately usable.  Reuse the same
         # identifier in the legacy ledger boundary so no human bridge approval
         # is required for the owner's own business.
+        registry_name = business_name
+        registry_name_exists = connection.execute(
+            """SELECT 1 FROM business_registry
+               WHERE user_id=? AND business_name=?""",
+            (user_id, registry_name),
+        ).fetchone()
+        if registry_name_exists is not None:
+            registry_name = f"{business_name} [{business_id[-8:]}]"
         connection.execute(
             """INSERT INTO business_registry
                (business_id,user_id,business_name,business_type) VALUES (?,?,?,?)""",
-            (business_id, user_id, business_name, business_type),
+            (business_id, user_id, registry_name, business_type),
         )
         connection.execute(
             """UPDATE businesses
@@ -402,7 +410,25 @@ def ensure_business_runtime_resources(business_id: str) -> dict[str, str]:
                        WHERE user_id=? AND business_name=?""",
                     (owner_user_id, business["business_name"]),
                 ).fetchone()
+                if registry is not None:
+                    linked_elsewhere = connection.execute(
+                        """SELECT 1 FROM businesses
+                           WHERE ledger_registry_business_id=?
+                             AND business_id<>?""",
+                        (registry["business_id"], business_id),
+                    ).fetchone()
+                    if linked_elsewhere is not None:
+                        registry = None
+
                 if registry is None:
+                    registry_name = business["business_name"]
+                    name_conflict = connection.execute(
+                        """SELECT 1 FROM business_registry
+                           WHERE user_id=? AND business_name=?""",
+                        (owner_user_id, registry_name),
+                    ).fetchone()
+                    if name_conflict is not None:
+                        registry_name = f"{business['business_name']} [{business_id[-8:]}]"
                     connection.execute(
                         """INSERT INTO business_registry
                            (business_id,user_id,business_name,business_type)
@@ -410,7 +436,7 @@ def ensure_business_runtime_resources(business_id: str) -> dict[str, str]:
                         (
                             business_id,
                             owner_user_id,
-                            business["business_name"],
+                            registry_name,
                             business["business_type"],
                         ),
                     )
