@@ -733,6 +733,8 @@ def normalize_csv_with_mapping(
             raise CSVNormalizationError("INVALID_AMOUNT") from error
         if error.field == "direction":
             raise CSVNormalizationError("INVALID_DIRECTION") from error
+        if error.code == "RECORD_COUNT_OUT_OF_RANGE":
+            raise CSVNormalizationError("TOO_MANY_RECORDS") from error
         raise CSVNormalizationError("INVALID_CANONICAL") from error
 
 
@@ -919,18 +921,36 @@ def validate_preview_rows(rows: Any) -> dict[str, Any]:
             errors.append({"row": index, "message": str(error)})
 
     payload = None
+    error_code = None
+    error_message = None
     if not errors and canonical_records:
-        payload = ingestion_validation.validate_ingestion_payload({
-            "contract_version": ingestion_validation.CONTRACT_VERSION,
-            "source_system": ingestion_validation.SOURCE_SYSTEM,
-            "records": canonical_records,
-        })
+        try:
+            payload = ingestion_validation.validate_ingestion_payload({
+                "contract_version": ingestion_validation.CONTRACT_VERSION,
+                "source_system": ingestion_validation.SOURCE_SYSTEM,
+                "records": canonical_records,
+            })
+        except ingestion_validation.ValidationError as error:
+            error_code = error.code
+            if error.code == "RECORD_COUNT_OUT_OF_RANGE":
+                error_message = (
+                    f"This file contains {len(canonical_records)} transactions. "
+                    f"FinSight currently supports up to "
+                    f"{ingestion_validation.MAX_RECORD_COUNT} transactions per import. "
+                    "Split the file into smaller batches and try again."
+                )
+            else:
+                error_message = "The transaction data could not be validated."
+            errors.append({"row": None, "message": error_message})
+
     return {
         "valid": not errors and bool(canonical_records),
         "valid_count": len(canonical_records),
         "invalid_count": len(errors),
         "errors": errors,
         "payload": payload,
+        "error_code": error_code,
+        "error_message": error_message,
     }
 
 def normalize_csv(source: Any) -> dict[str, Any]:
