@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import io
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any, Iterable
 
@@ -340,7 +340,7 @@ def generate_business_report(
 
     currency = _text(report.get("currency"), "INR")
     date_range = report.get("date_range", {}) if isinstance(report, dict) else {}
-    generated = _text(report.get("generated_at"), datetime.utcnow().isoformat())
+    generated = _text(report.get("generated_at"), datetime.now(timezone.utc).isoformat())
     generated_date = generated[:10]
     business_name = _text(business.get("business_name"), _text(report.get("business", {}).get("name"), "Business"))
     business_type = _text(business.get("business_type"), "Not specified")
