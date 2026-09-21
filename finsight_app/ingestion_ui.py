@@ -31,9 +31,9 @@ _SAFE_ERROR_MESSAGES = {
     "BRIDGE_NOT_VERIFIED": "The business could not be prepared for transaction ingestion.",
     "REGISTRY_BUSINESS_NOT_FOUND": "The business could not be prepared for transaction ingestion.",
     "REGISTRY_OWNER_NOT_FOUND": "The business could not be prepared for transaction ingestion.",
-    "VALIDATION_FAILED": "The transaction data is invalid.",
-    "IDENTITY_CONFLICT": "A transaction reference conflicts with previously imported data.",
-    "STORAGE_FAILED": "The transactions could not be saved.",
+    "VALIDATION_FAILED": "The ingestion payload is invalid.",
+    "IDENTITY_CONFLICT": "The ingestion contains a conflicting transaction identity.",
+    "STORAGE_FAILED": "The ingestion could not be completed.",
 }
 
 _FIELD_LABELS = {
