@@ -355,6 +355,7 @@ def generate_business_report(
         bottomMargin=20 * mm,
         title=f"FinSight — {business_name}",
         author="FinSight",
+        pageCompression=0,
     )
     styles = _styles()
     story = []
