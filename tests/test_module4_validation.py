@@ -99,14 +99,24 @@ def test_records_must_be_a_list_not_a_generator():
 
 def test_record_count_boundaries_are_inclusive():
     one = make_payload([make_record()])
-    thousand = make_payload([make_record() for _ in range(1000)])
+    maximum = make_payload([
+        make_record(amount_minor=index + 1)
+        for index in range(ingestion_validation.MAX_RECORD_COUNT)
+    ])
 
     assert len(ingestion_validation.validate_ingestion_payload(one)["records"]) == 1
-    assert len(ingestion_validation.validate_ingestion_payload(thousand)["records"]) == 1000
+    assert (
+        len(ingestion_validation.validate_ingestion_payload(maximum)["records"])
+        == ingestion_validation.MAX_RECORD_COUNT
+    )
 
 
 def test_more_than_maximum_records_is_rejected_without_truncation():
-    payload = make_payload([make_record() for _ in range(1001)])
+    payload = make_payload([
+        make_record(amount_minor=index + 1)
+        for index in range(ingestion_validation.MAX_RECORD_COUNT + 1)
+    ])
+    assert len(payload["records"]) == ingestion_validation.MAX_RECORD_COUNT + 1
     assert_validation_error(
         lambda: ingestion_validation.validate_ingestion_payload(payload),
         "RECORD_COUNT_OUT_OF_RANGE",
