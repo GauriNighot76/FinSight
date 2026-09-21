@@ -329,8 +329,13 @@ def create_business_with_owner(user_id: str, business_name: str,
         # is required for the owner's own business.
         connection.execute(
             """INSERT INTO business_registry
-               (business_id,user_id,business_name) VALUES (?,?,?)""",
-            (business_id, user_id, business_name),
+               (business_id,user_id,business_name,business_type) VALUES (?,?,?,?)""",
+            (business_id, user_id, business_name, business_type),
+        )
+        connection.execute(
+            """UPDATE businesses
+               SET ledger_registry_business_id=? WHERE business_id=?""",
+            (business_id, business_id),
         )
         connection.execute(
             """INSERT INTO financial_accounts
@@ -340,6 +345,112 @@ def create_business_with_owner(user_id: str, business_name: str,
         )
     return business_id, membership_id
 
+
+
+def ensure_business_runtime_resources(business_id: str) -> dict[str, str]:
+    """Idempotently provision the hidden ledger link and default account.
+
+    The mapping is derived from the authoritative active owner membership.  It
+    never grants access and never changes ownership.  Existing verified bridge
+    mappings remain available as a legacy fallback in the ingestion service.
+    """
+    with get_connection() as connection:
+        business = connection.execute(
+            """SELECT * FROM businesses
+               WHERE business_id=? AND business_status='active'""",
+            (business_id,),
+        ).fetchone()
+        if business is None:
+            raise ValueError("Business is unavailable.")
+
+        owner = connection.execute(
+            """SELECT user_id FROM business_memberships
+               WHERE business_id=? AND membership_role='owner'
+                 AND membership_status='active'
+               ORDER BY created_at, membership_id LIMIT 1""",
+            (business_id,),
+        ).fetchone()
+        if owner is None:
+            raise ValueError("Business has no active owner.")
+        owner_user_id = owner["user_id"]
+
+        registry_business_id = business["ledger_registry_business_id"]
+        registry = None
+        if registry_business_id:
+            registry = connection.execute(
+                "SELECT * FROM business_registry WHERE business_id=?",
+                (registry_business_id,),
+            ).fetchone()
+            if registry is None or registry["user_id"] != owner_user_id:
+                raise ValueError("Business ledger relationship is invalid.")
+
+        if registry is None:
+            registry = connection.execute(
+                "SELECT * FROM business_registry WHERE business_id=?",
+                (business_id,),
+            ).fetchone()
+            if registry is not None and registry["user_id"] != owner_user_id:
+                raise ValueError("Business ledger relationship is unavailable.")
+
+            if registry is None:
+                # Older FinSight versions could create a Module 2 business
+                # without its hidden ledger row.  Reuse a unique legacy row
+                # only when BOTH authoritative owner and exact business name
+                # match; otherwise create the safe same-ID row.
+                registry = connection.execute(
+                    """SELECT * FROM business_registry
+                       WHERE user_id=? AND business_name=?""",
+                    (owner_user_id, business["business_name"]),
+                ).fetchone()
+                if registry is None:
+                    connection.execute(
+                        """INSERT INTO business_registry
+                           (business_id,user_id,business_name,business_type)
+                           VALUES (?,?,?,?)""",
+                        (
+                            business_id,
+                            owner_user_id,
+                            business["business_name"],
+                            business["business_type"],
+                        ),
+                    )
+                    registry_business_id = business_id
+                else:
+                    registry_business_id = registry["business_id"]
+            else:
+                registry_business_id = business_id
+
+            connection.execute(
+                """UPDATE businesses
+                   SET ledger_registry_business_id=?,updated_at=CURRENT_TIMESTAMP
+                   WHERE business_id=?""",
+                (registry_business_id, business_id),
+            )
+
+        account = connection.execute(
+            """SELECT account_id FROM financial_accounts
+               WHERE business_id=? AND account_status='active'
+               ORDER BY CASE WHEN account_name='Default Business Account' THEN 0 ELSE 1 END,
+                        created_at,account_id
+               LIMIT 1""",
+            (business_id,),
+        ).fetchone()
+        if account is None:
+            account_id = generate_id("acc")
+            connection.execute(
+                """INSERT INTO financial_accounts
+                   (account_id,business_id,account_name,account_type,currency,opening_balance_minor)
+                   VALUES (?,?,?,'bank','INR',0)""",
+                (account_id, business_id, "Default Business Account"),
+            )
+        else:
+            account_id = account["account_id"]
+
+    return {
+        "registry_business_id": registry_business_id,
+        "account_id": account_id,
+        "owner_user_id": owner_user_id,
+    }
 
 def get_module2_business(business_id: str):
     with get_connection() as connection:
