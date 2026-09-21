@@ -97,8 +97,7 @@ def render_overview(st: Any, token: str, business: dict[str, Any]) -> bool:
             "No transaction data available. Upload transactions to begin financial analysis."
         )
         if st.button("Upload Transactions", type="primary"):
-            st.session_state["app_page"] = "Upload Transactions"
-            st.session_state["nav_choice"] = "Upload Transactions"
+            st.session_state["pending_page"] = "Upload Transactions"
             st.rerun()
         return True
 
