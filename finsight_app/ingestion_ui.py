@@ -152,7 +152,10 @@ def render_ingestion_page(st: Any, session_token: Any, preferred_business_id: An
     st.header("Transaction ingestion")
     business_labels = [business["business_name"] for business in businesses]
     preferred_index = next((i for i, b in enumerate(businesses) if b["business_id"] == preferred_business_id), 0)
-    selected_business_label = st.selectbox("Business", business_labels, index=preferred_index)
+    if preferred_business_id is None:
+        selected_business_label = st.selectbox("Business", business_labels)
+    else:
+        selected_business_label = st.selectbox("Business", business_labels, index=preferred_index)
     try:
         business_index = business_labels.index(selected_business_label)
     except ValueError:
