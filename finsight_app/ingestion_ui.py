@@ -304,7 +304,7 @@ def _render_csv_wizard(
             st.dataframe(
                 inspection["rows"][:8],
                 hide_index=True,
-                use_container_width=True,
+                width="stretch",
             )
         if st.button("Next: Map Columns", type="primary"):
             st.session_state[keys["bytes"]] = raw
@@ -386,7 +386,7 @@ def _render_csv_wizard(
         edited = st.data_editor(
             frame,
             hide_index=True,
-            use_container_width=True,
+            width="stretch",
             num_rows="fixed",
             key=f"{business_id}_transaction_editor",
         )
