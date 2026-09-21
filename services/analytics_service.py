@@ -247,7 +247,11 @@ def _build_transaction_rows(rows: list[Any]) -> list[dict[str, Any]]:
             "transaction_date": row["transaction_date"],
             "amount_minor": row["amount_minor"],
             "direction": row["direction"],
-            "description": row["description"],
+            "description": (
+                row["description"]
+                if "description" in row.keys()
+                else None
+            ),
             "category": row["category"],
             "payment_mode": row["payment_mode"],
         }
