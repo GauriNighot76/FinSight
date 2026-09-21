@@ -80,6 +80,32 @@ def require_business_access(token: str, business_id: str,
             "membership": _membership(membership)}
 
 
+
+def ensure_business_ready(token: str, business_id: str) -> dict:
+    """Ensure an authorized business has its hidden ingestion resources."""
+    access = require_business_access(token, business_id, {"owner", "manager"})
+    if not access["success"]:
+        return access
+    try:
+        resources = queries.ensure_business_runtime_resources(business_id)
+        return {
+            "success": True,
+            "business": access["business"],
+            "membership": access["membership"],
+            "account_id": resources["account_id"],
+            "message": "Business is ready for transaction ingestion.",
+        }
+    except (sqlite3.IntegrityError, ValueError):
+        return _error(
+            "BUSINESS_RUNTIME_SETUP_FAILED",
+            "The business could not be prepared for transaction ingestion.",
+        )
+    except Exception:
+        return _error(
+            "BUSINESS_RUNTIME_SETUP_FAILED",
+            "The business could not be prepared for transaction ingestion.",
+        )
+
 def get_business(token: str, business_id: str) -> dict:
     access = require_business_access(token, business_id)
     if not access["success"]:
