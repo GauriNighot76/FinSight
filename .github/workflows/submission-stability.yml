@@ -12,6 +12,48 @@ jobs:
         with:
           python-version: '3.14'
       - run: python -m pip install --upgrade pip
-      - run: pip install -r requirements.txt
-      - run: pytest -q
-      - run: python -m py_compile finsight_app/app.py finsight_app/ingestion_ui.py finsight_app/analytics_ui.py services/ingestion_service.py services/business_service.py database/queries.py
+      - run: python -m pip install -r requirements.txt
+      - name: Run full regression suite
+        run: python -m pytest -q
+      - name: Compile production modules
+        run: >-
+          python -m py_compile
+          finsight_app/app.py
+          finsight_app/business_ui.py
+          finsight_app/ingestion_ui.py
+          finsight_app/analytics_ui.py
+          finsight_app/workspace_ui.py
+          finsight_app/schemes_ui.py
+          finsight_app/reports_ui.py
+          finsight_app/eligibility_engine.py
+          finsight_app/scheme_rag.py
+          finsight_app/pdf_generator.py
+          services/ingestion_service.py
+          services/csv_normalizer.py
+          services/analytics_service.py
+          services/business_health_service.py
+          services/decision_support_service.py
+          services/report_service.py
+          services/business_service.py
+          database/db.py
+          database/queries.py
+      - name: Verify Streamlit starts
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m streamlit run finsight_app/app.py             --server.headless true             --server.port 8501             --browser.gatherUsageStats false             > /tmp/finsight-streamlit.log 2>&1 &
+          pid=$!
+          healthy=0
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8501/_stcore/health >/dev/null; then
+              healthy=1
+              break
+            fi
+            sleep 1
+          done
+          if [ "$healthy" -ne 1 ]; then
+            cat /tmp/finsight-streamlit.log
+            kill "$pid" || true
+            exit 1
+          fi
+          kill "$pid" || true
