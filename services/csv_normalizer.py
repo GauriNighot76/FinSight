@@ -736,6 +736,129 @@ def normalize_csv_with_mapping(
         raise CSVNormalizationError("INVALID_CANONICAL") from error
 
 
+
+def preview_csv_with_mapping(
+    source: Any,
+    mapping: dict[str, str],
+) -> list[dict[str, Any]]:
+    """Map raw CSV values into an editable preview before row validation.
+
+    This intentionally does not parse dates or amounts.  Users can therefore
+    correct malformed row values in the preview instead of being blocked
+    before the editor appears.
+    """
+    if not isinstance(mapping, dict):
+        _fail("INVALID_INPUT")
+    text = _read_text(source)
+    rows = _csv_rows(text)
+    headers, records = _header_map(rows)
+    raw_headers = rows[0]
+    index_by_raw = {raw_headers[index].strip(): index for index in headers}
+
+    selected: dict[str, int] = {}
+    for raw_header, target in mapping.items():
+        if raw_header not in index_by_raw:
+            _fail("INVALID_INPUT")
+        if target == MAPPING_IGNORE:
+            continue
+        if target not in MAPPING_FIELDS:
+            _fail("INVALID_INPUT")
+        if target in selected:
+            _fail("LOW_CONFIDENCE")
+        selected[target] = index_by_raw[raw_header]
+
+    if "transaction_date" not in selected:
+        _fail("REQUIRED_COLUMN")
+    if not {"amount", "debit", "credit"}.intersection(selected):
+        _fail("REQUIRED_COLUMN")
+
+    # Signed amount files can safely infer direction only when the file
+    # actually contains both positive and negative numeric values.
+    infer_signed_direction = False
+    if (
+        "amount" in selected
+        and "direction" not in selected
+        and "debit" not in selected
+        and "credit" not in selected
+    ):
+        parsed = []
+        try:
+            parsed = [_parse_number(row.get(selected["amount"])) for row in records]
+        except CSVNormalizationError:
+            parsed = []
+        infer_signed_direction = (
+            bool(parsed)
+            and any(value < 0 for value in parsed)
+            and any(value > 0 for value in parsed)
+        )
+
+    preview: list[dict[str, Any]] = []
+    for row in records:
+        amount_value: Any = ""
+        direction_value: Any = ""
+
+        debit = (
+            _clean_text(row.get(selected["debit"]))
+            if "debit" in selected
+            else None
+        )
+        credit = (
+            _clean_text(row.get(selected["credit"]))
+            if "credit" in selected
+            else None
+        )
+        if debit is not None or credit is not None:
+            if debit is not None and credit is None:
+                amount_value = debit
+                direction_value = "expense"
+            elif credit is not None and debit is None:
+                amount_value = credit
+                direction_value = "income"
+            else:
+                # Both populated is ambiguous.  Preserve a visible amount but
+                # leave direction blank so row validation forces a correction.
+                amount_value = debit or credit or ""
+                direction_value = ""
+        elif "amount" in selected:
+            amount_value = row.get(selected["amount"], "")
+            if "direction" in selected:
+                direction_value = row.get(selected["direction"], "")
+            elif infer_signed_direction:
+                try:
+                    parsed_amount = _parse_number(amount_value)
+                    direction_value = "expense" if parsed_amount < 0 else "income"
+                except CSVNormalizationError:
+                    direction_value = ""
+
+        preview.append(
+            {
+                "Date": row.get(selected["transaction_date"], ""),
+                "Description": (
+                    row.get(selected["description"], "")
+                    if "description" in selected
+                    else ""
+                ),
+                "Amount": amount_value,
+                "Direction": direction_value,
+                "Category": (
+                    row.get(selected["category"], "")
+                    if "category" in selected
+                    else ""
+                ),
+                "Payment Mode": (
+                    row.get(selected["payment_method"], "")
+                    if "payment_method" in selected
+                    else ""
+                ),
+                "Reference": (
+                    row.get(selected["source_transaction_id"], "")
+                    if "source_transaction_id" in selected
+                    else ""
+                ),
+            }
+        )
+    return preview
+
 def preview_rows_from_payload(payload: dict[str, Any]) -> list[dict[str, Any]]:
     """Convert canonical records to user-editable major-unit preview rows."""
     records = payload.get("records", []) if isinstance(payload, dict) else []
@@ -935,6 +1058,7 @@ __all__ = [
     "inspect_csv",
     "suggest_column_mapping",
     "normalize_csv_with_mapping",
+    "preview_csv_with_mapping",
     "preview_rows_from_payload",
     "validate_preview_rows",
     "normalize_csv",
