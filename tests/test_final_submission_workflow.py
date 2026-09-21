@@ -1,6 +1,7 @@
 from decimal import Decimal
 
 from database import queries
+from finsight_app.business_ui import BUSINESS_TYPES
 from finsight_app.eligibility_engine import find_relevant_schemes
 from finsight_app.pdf_generator import generate_business_report
 from services import (
@@ -147,6 +148,18 @@ def test_final_controlled_workflow_multi_business_isolation_duplicates_and_pdf()
     assert b"FinSight" in pdf
     assert b"Business A" in pdf
 
+    assert auth_service.logout(token)["success"] is True
+    relogin = auth_service.login("final@example.com", "StrongPass1")
+    assert relogin["success"] is True
+    new_token = relogin["session"]["token"]
+    restored = business_service.list_user_businesses(new_token)["businesses"]
+    assert {row["business_id"] for row in restored} == {
+        business_a["business_id"], business_b["business_id"]
+    }
+    persisted = _analytics(new_token, business_a["business_id"], account_a)
+    assert persisted["kpis"]["transaction_count"] == 4
+    assert persisted["kpis"]["net_cash_flow_minor"] == 1_000_000
+
 
 def test_existing_business_is_repaired_idempotently_without_admin_bridge(
     isolated_test_database,
@@ -197,14 +210,27 @@ def test_existing_business_is_repaired_idempotently_without_admin_bridge(
 
 
 def test_preview_validation_reports_invalid_rows_without_payload():
-    payload = csv_normalizer.normalize_csv(CONTROLLED_CSV)
-    rows = csv_normalizer.preview_rows_from_payload(payload)
-    rows[2]["Amount"] = "not-a-number"
+    raw = b"""Date,Description,Amount,Direction,Category,Payment Mode
+2026-08-01,Sale,100.00,income,Sales,Cash
+2026-08-02,Rent,not-a-number,expense,Rent,Bank
+"""
+    mapping = csv_normalizer.suggest_column_mapping(raw)
+    rows = csv_normalizer.preview_csv_with_mapping(raw, mapping)
+    assert rows[1]["Amount"] == "not-a-number"
     result = csv_normalizer.validate_preview_rows(rows)
     assert result["valid"] is False
     assert result["invalid_count"] == 1
-    assert result["errors"][0]["row"] == 3
+    assert result["errors"][0]["row"] == 2
     assert result["payload"] is None
+
+
+def test_minor_units_and_business_type_default_are_submission_safe():
+    payload = csv_normalizer.normalize_csv(
+        b"Date,Amount,Direction\n2026-08-01,1234.50,income\n"
+    )
+    assert payload["records"][0]["amount_minor"] == 123450
+    assert BUSINESS_TYPES[0] == "Select business type"
+    assert BUSINESS_TYPES[0] != "Medical / Pharmacy"
 
 
 def test_scheme_engine_invoked_with_real_repository_rules_and_missing_information():
