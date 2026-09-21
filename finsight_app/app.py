@@ -1,4 +1,7 @@
+"""FinSight Streamlit application entry point."""
+
 import sys
+from collections import Counter
 from pathlib import Path
 
 import streamlit as st
@@ -7,126 +10,346 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-try:
-    from .eligibility_engine import check_eligibility
-    from .kpi_engine import compute_kpis
-    from .pdf_generator import generate_report
-except ImportError:
-    # ``streamlit run finsight_app/app.py`` executes this file as a script.
-    from eligibility_engine import check_eligibility
-    from kpi_engine import compute_kpis
-    from pdf_generator import generate_report
-
 from database import db
 from finsight_app.analytics_ui import render_analytics_page
+from finsight_app.business_ui import render_create_business, render_manage_businesses
 from finsight_app.ingestion_ui import render_ingestion_page
-from services import auth_service
+from finsight_app.reports_ui import render_reports
+from finsight_app.schemes_ui import render_government_schemes
+from finsight_app.workspace_ui import (
+    render_anomalies,
+    render_business_health,
+    render_overview,
+    render_recommendations,
+    render_transactions,
+)
+from services import auth_service, business_service
 
 
 db.initialize_database()
 
+st.set_page_config(page_title="FinSight", page_icon="📊", layout="wide")
 
-def _render_authentication():
-    token = st.session_state.get("auth_token")
-    if token:
-        session = auth_service.validate_session(token)
-        if session.get("success"):
-            st.caption(f"Signed in as {session['user']['username']}")
-            if st.button("Sign out"):
-                auth_service.logout(token)
-                st.session_state.pop("auth_token", None)
-                st.rerun()
-            return token
-        st.session_state.pop("auth_token", None)
-
-    st.subheader("Sign in to FinSight")
-    email = st.text_input("Email", key="login_email")
-    password = st.text_input("Password", type="password", key="login_password")
-    if st.button("Sign in"):
-        result = auth_service.login(email, password)
-        if result.get("success"):
-            st.session_state["auth_token"] = result["session"]["token"]
-            st.rerun()
-        else:
-            st.error("Unable to sign in. Check your credentials and try again.")
-    return None
-
-st.set_page_config(page_title="FinSight - Scheme Suggestions", layout="centered")
-auth_token = _render_authentication()
-if auth_token:
-    render_ingestion_page(st, auth_token)
-    render_analytics_page(st, auth_token)
-else:
-    st.info("Sign in to access transaction ingestion.")
-
-st.title("FinSight: Financial Report & Government Scheme Matcher")
-st.caption("Demo Coffee Shop | Synthetic dataset")
-
-with st.expander("Business profile used for this demo (some fields are assumed)"):
-    st.write("Sector: Service | State: Maharashtra (assumed) | Category: Micro (assumed) | Owner age: 30 (assumed)")
-    st.write("Revenue and expenses below are REAL, computed from actual transaction data.")
-
-kpis = compute_kpis()
-business = {
-    "turnover": kpis["annual_turnover"],
-    "sector": "Service",
-    "state": "Maharashtra",
-    "business_category": "Micro",
-    "owner_age": 30,
+st.markdown(
+    """
+<style>
+.stApp { background: #F7FBFE; color: #173B57; }
+[data-testid="stSidebar"] {
+    background: #DFF3FF;
+    border-right: 1px solid #D7E9F4;
 }
-eligibility_results = check_eligibility(business)
+div[data-testid="stMetric"] {
+    background: #FFFFFF;
+    border: 1px solid #D7E9F4;
+    border-radius: 12px;
+    padding: 16px;
+    box-shadow: 0 2px 10px rgba(23,59,87,.05);
+}
+div[data-testid="stForm"],
+div[data-testid="stVerticalBlockBorderWrapper"] {
+    border-color: #D7E9F4 !important;
+}
+.stButton > button {
+    background: #4EA5D9;
+    color: white;
+    border: 0;
+    border-radius: 8px;
+}
+.stButton > button:hover {
+    background: #3D94C8;
+    color: white;
+}
+h1, h2, h3 { color: #173B57; }
+[data-testid="stDataFrame"] { border: 1px solid #D7E9F4; border-radius: 10px; }
 
-st.header("Financial Summary")
-col1, col2, col3 = st.columns(3)
-col1.metric("Revenue", f"Rs {kpis['revenue_total']:,.0f}")
-col2.metric("Net Profit", f"Rs {kpis['net_profit']:,.0f}")
-col3.metric("Margin", f"{kpis['net_profit_margin']:.1f}%")
-st.caption(f"Estimated annual turnover (used for scheme matching): Rs {kpis['annual_turnover']:,.0f}")
+/* Keep form controls readable even when the browser/OS is using dark mode. */
+div[data-baseweb="input"] {
+    background: #FFFFFF !important;
+    border: 1px solid #C8DFEC !important;
+}
+div[data-baseweb="input"] input {
+    color: #173B57 !important;
+    -webkit-text-fill-color: #173B57 !important;
+    caret-color: #173B57 !important;
+}
+div[data-baseweb="input"] input::placeholder {
+    color: #7A8E9E !important;
+    opacity: 1 !important;
+}
+div[data-baseweb="select"] > div {
+    background: #FFFFFF !important;
+    color: #173B57 !important;
+    border-color: #C8DFEC !important;
+}
+div[data-baseweb="select"] span,
+div[data-baseweb="select"] svg {
+    color: #173B57 !important;
+    fill: #173B57 !important;
+}
+label[data-testid="stWidgetLabel"] p,
+[data-testid="stTextInput"] label p,
+[data-testid="stSelectbox"] label p {
+    color: #173B57 !important;
+    opacity: 1 !important;
+}
+[data-testid="stTextInput"] button,
+[data-testid="stTextInput"] svg {
+    color: #526B7C !important;
+}
 
-st.header("Matched Government Schemes")
-
-eligible = [r for r in eligibility_results if r["eligible"]]
-not_eligible = [r for r in eligibility_results if not r["eligible"]]
-
-if not eligible:
-    st.warning("No schemes matched.")
-else:
-    for r in eligible:
-        with st.container(border=True):
-            st.subheader(r["scheme_name"])
-            st.write(r["benefit_summary"])
-            st.caption(f"Source: {r['source_url']} | Verified: {r['last_verified_date']}")
-
-            with st.expander("Why this business qualifies"):
-                for check_name, passed in r["checks"]:
-                    icon = "\u2705" if passed else "\u274c"
-                    st.write(f"{icon} {check_name}")
-
-            # RAG chat -- only imported here so the app can still run and demo
-            # KPIs + eligibility even if the RAG/API piece has an issue
-            with st.expander(f"Ask a question about {r['scheme_name']}"):
-                question = st.text_input("Your question", key=f"q_{r['scheme_name']}")
-                if question:
-                    try:
-                        from scheme_rag import load_index, ask_scheme_question
-                        vectorstore = load_index()
-                        answer = ask_scheme_question(r["scheme_name"], question, vectorstore)
-                        st.write(answer)
-                    except Exception:
-                        st.error("Chat unavailable right now.")
-
-with st.expander("Schemes not matched"):
-    for r in not_eligible:
-        st.write(f"**{r['scheme_name']}**")
-        for check_name, passed in r["checks"]:
-            if not passed:
-                st.write(f"  \u274c {check_name}")
-
-st.header("Download Report")
-pdf_buffer = generate_report("Demo Coffee Shop", kpis, eligibility_results)
-st.download_button(
-    "Download PDF Report",
-    data=pdf_buffer,
-    file_name="finsight_report.pdf",
-    mime="application/pdf",
+</style>
+""",
+    unsafe_allow_html=True,
 )
+
+NAVIGATION = [
+    "Overview",
+    "Upload Transactions",
+    "Transactions",
+    "Financial Analytics",
+    "Business Health",
+    "Anomalies",
+    "Recommendations",
+    "Government Schemes",
+    "Reports",
+]
+
+
+def _clear_user_state() -> None:
+    for key in list(st.session_state.keys()):
+        del st.session_state[key]
+
+
+def _clear_business_scoped_state() -> None:
+    prefixes = (
+        "upload_",
+        "analysis_",
+        "report_",
+        "scheme_",
+        "transaction_",
+    )
+    for key in list(st.session_state.keys()):
+        if key.startswith(prefixes):
+            del st.session_state[key]
+
+
+def _render_authentication() -> None:
+    st.markdown("<h1 style='text-align:center'>FinSight</h1>", unsafe_allow_html=True)
+    st.markdown(
+        "<p style='text-align:center;color:#66788A'>"
+        "Financial Analytics & Transaction Intelligence for MSMEs"
+        "</p>",
+        unsafe_allow_html=True,
+    )
+    _left, center, _right = st.columns([1, 1.25, 1])
+    with center:
+        mode = st.radio(
+            "Account",
+            ["Sign In", "Register"],
+            horizontal=True,
+            label_visibility="collapsed",
+            key="auth_mode",
+        )
+        with st.container(border=True):
+            if mode == "Sign In":
+                st.subheader("Welcome back")
+                email = st.text_input("Email", key="login_email")
+                password = st.text_input(
+                    "Password",
+                    type="password",
+                    key="login_password",
+                )
+                if st.button("Sign In", width="stretch"):
+                    result = auth_service.login(email, password)
+                    if result.get("success"):
+                        token = result["session"]["token"]
+                        _clear_user_state()
+                        st.session_state["auth_token"] = token
+                        st.session_state["app_page"] = "Overview"
+                        st.session_state["nav_choice"] = "Overview"
+                        st.rerun()
+                    st.error("Unable to sign in. Check your credentials and try again.")
+            else:
+                st.subheader("Create your FinSight account")
+                username = st.text_input("Name", key="register_name")
+                email = st.text_input("Email", key="register_email")
+                phone = st.text_input("Phone", key="register_phone")
+                password = st.text_input(
+                    "Password",
+                    type="password",
+                    key="register_password",
+                )
+                if st.button("Register", width="stretch"):
+                    result = auth_service.signup(username, email, phone, password)
+                    if not result.get("success"):
+                        st.error(result.get("message", "Registration failed."))
+                        return
+                    login = auth_service.login(email, password)
+                    if not login.get("success"):
+                        st.error("Account created, but automatic sign-in failed.")
+                        return
+                    token = login["session"]["token"]
+                    _clear_user_state()
+                    st.session_state["auth_token"] = token
+                    st.session_state["app_page"] = "Create Business"
+                    st.session_state["nav_choice"] = "Overview"
+                    st.rerun()
+
+
+def _display_names(businesses):
+    counts = Counter(item["business_name"] for item in businesses)
+    seen = Counter()
+    labels = {}
+    for business in businesses:
+        name = business["business_name"]
+        seen[name] += 1
+        if counts[name] == 1:
+            labels[business["business_id"]] = name
+        else:
+            business_type = business.get("business_type") or "Business"
+            labels[business["business_id"]] = (
+                f"{name} — {business_type} ({seen[name]})"
+            )
+    return labels
+
+
+def _nav_changed():
+    st.session_state["app_page"] = st.session_state["nav_choice"]
+
+
+token = st.session_state.get("auth_token")
+session = auth_service.validate_session(token) if token else {"success": False}
+if not session.get("success"):
+    if token:
+        _clear_user_state()
+    _render_authentication()
+    st.stop()
+
+businesses_result = business_service.list_user_businesses(token)
+businesses = (
+    businesses_result.get("businesses", [])
+    if isinstance(businesses_result, dict) and businesses_result.get("success")
+    else []
+)
+
+if not businesses:
+    st.markdown("## FinSight")
+    st.caption(f"Signed in as {session['user']['username']}")
+    render_create_business(st, token, first_business=True)
+    if st.button("Logout"):
+        auth_service.logout(token)
+        _clear_user_state()
+        st.rerun()
+    st.stop()
+
+business_ids = [item["business_id"] for item in businesses]
+selected_id = st.session_state.get("selected_business_id")
+if selected_id not in business_ids:
+    selected_id = business_ids[0]
+    st.session_state["selected_business_id"] = selected_id
+
+display_names = _display_names(businesses)
+selected_business = next(
+    item for item in businesses if item["business_id"] == selected_id
+)
+
+pending_page = st.session_state.pop("pending_page", None)
+if pending_page is not None:
+    st.session_state["app_page"] = pending_page
+    if pending_page in NAVIGATION:
+        st.session_state["nav_choice"] = pending_page
+
+if "app_page" not in st.session_state:
+    st.session_state["app_page"] = "Overview"
+
+# Keep the navigation widget aligned with the actual navigable page.  This
+# runs before the widget is instantiated, which is the only safe time to
+# programmatically change a widget-backed session key.
+if st.session_state["app_page"] in NAVIGATION:
+    st.session_state["nav_choice"] = st.session_state["app_page"]
+else:
+    # Create/Manage are workspace actions rather than sidebar destinations.
+    # Use Overview as the neutral navigation selection so a previous page
+    # such as Reports is never shown as active while a transient view is open.
+    st.session_state["nav_choice"] = "Overview"
+
+with st.sidebar:
+    st.title("FinSight")
+    st.caption("Financial Intelligence for MSMEs")
+    st.markdown("#### Current Business")
+    selector_index = business_ids.index(selected_id)
+    new_selected_id = st.selectbox(
+        "Business",
+        options=business_ids,
+        index=selector_index,
+        format_func=lambda value: display_names[value],
+        label_visibility="collapsed",
+        key="business_selector",
+    )
+    if new_selected_id != selected_id:
+        st.session_state["selected_business_id"] = new_selected_id
+        _clear_business_scoped_state()
+        selected_id = new_selected_id
+        selected_business = next(
+            item for item in businesses if item["business_id"] == selected_id
+        )
+        st.rerun()
+
+    c1, c2 = st.columns(2)
+    if c1.button("+ Create", width="stretch"):
+        st.session_state["pending_page"] = "Create Business"
+        st.rerun()
+    if c2.button("Manage", width="stretch"):
+        st.session_state["pending_page"] = "Manage Businesses"
+        st.rerun()
+
+    st.divider()
+    st.markdown("#### Navigation")
+    st.radio(
+        "Navigation",
+        NAVIGATION,
+        key="nav_choice",
+        label_visibility="collapsed",
+        on_change=_nav_changed,
+    )
+
+    st.divider()
+    st.markdown("#### Account")
+    st.caption(f"Signed in as {session['user']['username']}")
+    if st.button("Logout", width="stretch"):
+        auth_service.logout(token)
+        _clear_user_state()
+        st.rerun()
+
+page = st.session_state.get("app_page", "Overview")
+
+st.markdown("## FinSight")
+st.caption(
+    f"Financial Analytics for MSMEs · Business: {selected_business['business_name']}"
+)
+
+if page == "Create Business":
+    render_create_business(st, token, first_business=False)
+elif page == "Manage Businesses":
+    render_manage_businesses(st, token, businesses, selected_id)
+elif page == "Overview":
+    render_overview(st, token, selected_business)
+elif page == "Upload Transactions":
+    render_ingestion_page(st, token, preferred_business_id=selected_id)
+elif page == "Transactions":
+    render_transactions(st, token, selected_business)
+elif page == "Financial Analytics":
+    render_analytics_page(st, token, preferred_business_id=selected_id)
+elif page == "Business Health":
+    render_business_health(st, token, selected_business)
+elif page == "Anomalies":
+    render_anomalies(st, token, selected_business)
+elif page == "Recommendations":
+    render_recommendations(st, token, selected_business)
+elif page == "Government Schemes":
+    render_government_schemes(st, token, selected_business)
+elif page == "Reports":
+    render_reports(st, token, selected_business)
+else:
+    st.session_state["pending_page"] = "Overview"
+    st.rerun()

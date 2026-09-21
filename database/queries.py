@@ -306,16 +306,17 @@ def get_document_chunks(document_id: str, user_id: str):
 def create_business_with_owner(user_id: str, business_name: str,
                                legal_identifier: Optional[str] = None,
                                contact_email: Optional[str] = None,
-                               contact_phone: Optional[str] = None) -> tuple[str, str]:
+                               contact_phone: Optional[str] = None,
+                               business_type: Optional[str] = None) -> tuple[str, str]:
     """Atomically create a Module 2 business and its owner membership."""
     business_id = generate_id("biz")
     membership_id = generate_id("mem")
     with get_connection() as connection:
         connection.execute(
             """INSERT INTO businesses
-               (business_id,business_name,legal_identifier,contact_email,contact_phone)
-               VALUES (?,?,?,?,?)""",
-            (business_id, business_name, legal_identifier, contact_email, contact_phone),
+               (business_id,business_name,business_type,legal_identifier,contact_email,contact_phone)
+               VALUES (?,?,?,?,?,?)""",
+            (business_id, business_name, business_type, legal_identifier, contact_email, contact_phone),
         )
         connection.execute(
             """INSERT INTO business_memberships
@@ -323,8 +324,159 @@ def create_business_with_owner(user_id: str, business_name: str,
                VALUES (?,?,?,'owner')""",
             (membership_id, business_id, user_id),
         )
+        # A user-created business is immediately usable.  Reuse the same
+        # identifier in the legacy ledger boundary so no human bridge approval
+        # is required for the owner's own business.
+        registry_name = business_name
+        registry_name_exists = connection.execute(
+            """SELECT 1 FROM business_registry
+               WHERE user_id=? AND business_name=?""",
+            (user_id, registry_name),
+        ).fetchone()
+        if registry_name_exists is not None:
+            registry_name = f"{business_name} [{business_id[-8:]}]"
+        connection.execute(
+            """INSERT INTO business_registry
+               (business_id,user_id,business_name,business_type) VALUES (?,?,?,?)""",
+            (business_id, user_id, registry_name, business_type),
+        )
+        connection.execute(
+            """UPDATE businesses
+               SET ledger_registry_business_id=? WHERE business_id=?""",
+            (business_id, business_id),
+        )
+        connection.execute(
+            """INSERT INTO financial_accounts
+               (account_id,business_id,account_name,account_type,currency,opening_balance_minor)
+               VALUES (?,?,?,'bank','INR',0)""",
+            (generate_id("acc"), business_id, "Default Business Account"),
+        )
     return business_id, membership_id
 
+
+
+def ensure_business_runtime_resources(business_id: str) -> dict[str, str]:
+    """Idempotently provision the hidden ledger link and default account.
+
+    The mapping is derived from the authoritative active owner membership.  It
+    never grants access and never changes ownership.  Existing verified bridge
+    mappings remain available as a legacy fallback in the ingestion service.
+    """
+    with get_connection() as connection:
+        business = connection.execute(
+            """SELECT * FROM businesses
+               WHERE business_id=? AND business_status='active'""",
+            (business_id,),
+        ).fetchone()
+        if business is None:
+            raise ValueError("Business is unavailable.")
+
+        owner = connection.execute(
+            """SELECT user_id FROM business_memberships
+               WHERE business_id=? AND membership_role='owner'
+                 AND membership_status='active'
+               ORDER BY created_at, membership_id LIMIT 1""",
+            (business_id,),
+        ).fetchone()
+        if owner is None:
+            raise ValueError("Business has no active owner.")
+        owner_user_id = owner["user_id"]
+
+        registry_business_id = business["ledger_registry_business_id"]
+        registry = None
+        if registry_business_id:
+            registry = connection.execute(
+                "SELECT * FROM business_registry WHERE business_id=?",
+                (registry_business_id,),
+            ).fetchone()
+            if registry is None or registry["user_id"] != owner_user_id:
+                raise ValueError("Business ledger relationship is invalid.")
+
+        if registry is None:
+            registry = connection.execute(
+                "SELECT * FROM business_registry WHERE business_id=?",
+                (business_id,),
+            ).fetchone()
+            if registry is not None and registry["user_id"] != owner_user_id:
+                raise ValueError("Business ledger relationship is unavailable.")
+
+            if registry is None:
+                # Older FinSight versions could create a Module 2 business
+                # without its hidden ledger row.  Reuse a unique legacy row
+                # only when BOTH authoritative owner and exact business name
+                # match; otherwise create the safe same-ID row.
+                registry = connection.execute(
+                    """SELECT * FROM business_registry
+                       WHERE user_id=? AND business_name=?""",
+                    (owner_user_id, business["business_name"]),
+                ).fetchone()
+                if registry is not None:
+                    linked_elsewhere = connection.execute(
+                        """SELECT 1 FROM businesses
+                           WHERE ledger_registry_business_id=?
+                             AND business_id<>?""",
+                        (registry["business_id"], business_id),
+                    ).fetchone()
+                    if linked_elsewhere is not None:
+                        registry = None
+
+                if registry is None:
+                    registry_name = business["business_name"]
+                    name_conflict = connection.execute(
+                        """SELECT 1 FROM business_registry
+                           WHERE user_id=? AND business_name=?""",
+                        (owner_user_id, registry_name),
+                    ).fetchone()
+                    if name_conflict is not None:
+                        registry_name = f"{business['business_name']} [{business_id[-8:]}]"
+                    connection.execute(
+                        """INSERT INTO business_registry
+                           (business_id,user_id,business_name,business_type)
+                           VALUES (?,?,?,?)""",
+                        (
+                            business_id,
+                            owner_user_id,
+                            registry_name,
+                            business["business_type"],
+                        ),
+                    )
+                    registry_business_id = business_id
+                else:
+                    registry_business_id = registry["business_id"]
+            else:
+                registry_business_id = business_id
+
+            connection.execute(
+                """UPDATE businesses
+                   SET ledger_registry_business_id=?,updated_at=CURRENT_TIMESTAMP
+                   WHERE business_id=?""",
+                (registry_business_id, business_id),
+            )
+
+        account = connection.execute(
+            """SELECT account_id FROM financial_accounts
+               WHERE business_id=? AND account_status='active'
+               ORDER BY CASE WHEN account_name='Default Business Account' THEN 0 ELSE 1 END,
+                        created_at,account_id
+               LIMIT 1""",
+            (business_id,),
+        ).fetchone()
+        if account is None:
+            account_id = generate_id("acc")
+            connection.execute(
+                """INSERT INTO financial_accounts
+                   (account_id,business_id,account_name,account_type,currency,opening_balance_minor)
+                   VALUES (?,?,?,'bank','INR',0)""",
+                (account_id, business_id, "Default Business Account"),
+            )
+        else:
+            account_id = account["account_id"]
+
+    return {
+        "registry_business_id": registry_business_id,
+        "account_id": account_id,
+        "owner_user_id": owner_user_id,
+    }
 
 def get_module2_business(business_id: str):
     with get_connection() as connection:
@@ -346,7 +498,7 @@ def get_business_membership(business_id: str, user_id: str):
 def list_active_user_businesses(user_id: str):
     with get_connection() as connection:
         return connection.execute(
-            """SELECT b.business_id,b.business_name,b.legal_identifier,b.contact_email,
+            """SELECT b.business_id,b.business_name,b.business_type,b.legal_identifier,b.contact_email,
                       b.contact_phone,b.business_status,b.created_at,b.updated_at,
                       m.membership_id,m.user_id,m.membership_role,m.membership_status,
                       m.created_at AS membership_created_at,
@@ -535,6 +687,20 @@ def get_active_business_membership(
             (business_id, user_id),
         ).fetchone()
 
+
+
+def get_active_business_owner_user_id(
+    business_id: str, connection: Optional[Any] = None
+) -> Optional[str]:
+    with _module4_connection(connection) as active_connection:
+        row = active_connection.execute(
+            """SELECT user_id FROM business_memberships
+               WHERE business_id=? AND membership_role='owner'
+                 AND membership_status='active'
+               ORDER BY created_at,membership_id LIMIT 1""",
+            (business_id,),
+        ).fetchone()
+    return None if row is None else row["user_id"]
 
 def get_active_financial_account(
     account_id: str, business_id: str, connection: Optional[Any] = None
@@ -729,6 +895,21 @@ def find_identity_by_source(
             ),
         ).fetchone()
 
+
+
+def get_ingested_transaction_date_bounds(
+    business_id: str,
+    account_id: str,
+    connection: Optional[Any] = None,
+):
+    with _module4_connection(connection) as active_connection:
+        return active_connection.execute(
+            """SELECT MIN(transaction_date) AS min_date,
+                      MAX(transaction_date) AS max_date
+               FROM ingested_transaction_identities
+               WHERE business_id=? AND account_id=?""",
+            (business_id, account_id),
+        ).fetchone()
 
 def insert_ledger_transaction(
     *,

@@ -184,24 +184,58 @@ def _resolve_verified_context(
     if account is None:
         _raise("ACCOUNT_NOT_AUTHORIZED")
 
-    bridge = queries.get_active_bridge(business_id, connection=connection)
-    if (
-        bridge is None
-        or bridge["proposed_by_user_id"] == bridge["verified_by_user_id"]
-    ):
-        _raise("BRIDGE_NOT_VERIFIED")
-    registry_business_id = bridge["registry_business_id"]
-
-    registry_business = queries.get_registry_business(
-        registry_business_id, connection=connection
+    # The Module 2 business owns an internal link to the legacy ledger scope.
+    # Managers may upload for the business, but the legacy ledger owner remains
+    # the authoritative active owner rather than the current uploader.
+    owner_user_id = queries.get_active_business_owner_user_id(
+        business_id, connection=connection
     )
-    if registry_business is None:
-        _raise("REGISTRY_BUSINESS_NOT_FOUND")
-    legacy_owner_user_id = queries.get_registry_owner(
-        registry_business_id, connection=connection
-    )
-    if legacy_owner_user_id is None:
+    if owner_user_id is None:
         _raise("REGISTRY_OWNER_NOT_FOUND")
+
+    registry_business_id = business["ledger_registry_business_id"]
+    registry_business = (
+        queries.get_registry_business(registry_business_id, connection=connection)
+        if registry_business_id
+        else None
+    )
+    if (
+        registry_business is not None
+        and registry_business["user_id"] == owner_user_id
+    ):
+        legacy_owner_user_id = owner_user_id
+    else:
+        # Safe compatibility path for businesses created before the internal
+        # link column existed.  A same-ID registry row owned by the active
+        # business owner is accepted without human approval.
+        registry_business = queries.get_registry_business(
+            business_id, connection=connection
+        )
+        if (
+            registry_business is not None
+            and registry_business["user_id"] == owner_user_id
+        ):
+            registry_business_id = business_id
+            legacy_owner_user_id = owner_user_id
+        else:
+            # Preserve verified bridges only for genuinely legacy mappings.
+            bridge = queries.get_active_bridge(business_id, connection=connection)
+            if (
+                bridge is None
+                or bridge["proposed_by_user_id"] == bridge["verified_by_user_id"]
+            ):
+                _raise("BRIDGE_NOT_VERIFIED")
+            registry_business_id = bridge["registry_business_id"]
+            registry_business = queries.get_registry_business(
+                registry_business_id, connection=connection
+            )
+            if registry_business is None:
+                _raise("REGISTRY_BUSINESS_NOT_FOUND")
+            legacy_owner_user_id = queries.get_registry_owner(
+                registry_business_id, connection=connection
+            )
+            if legacy_owner_user_id is None:
+                _raise("REGISTRY_OWNER_NOT_FOUND")
 
     return _VerifiedContext(
         uploader_user_id=uploader_user_id,
@@ -458,6 +492,9 @@ def _persist_ingestion(
             amount=_legacy_amount(record["amount_minor"]),
             transaction_type=record["direction"],
             transaction_hash=classification.canonical_identity_hash,
+            category=record.get("category"),
+            payment_mode=record.get("payment_method"),
+            description=record.get("description"),
             connection=connection,
         )
         queries.insert_transaction_identity(

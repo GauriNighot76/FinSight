@@ -16,7 +16,7 @@ def _error(code: str, message: str) -> dict:
 
 def _business(row) -> dict:
     return {key: row[key] for key in (
-        "business_id", "business_name", "legal_identifier", "contact_email",
+        "business_id", "business_name", "business_type", "legal_identifier", "contact_email",
         "contact_phone", "business_status", "created_at", "updated_at"
     )}
 
@@ -34,6 +34,7 @@ def create_business(token: str, business_data: dict) -> dict:
         return auth
     data = business_data if isinstance(business_data, dict) else {}
     name = (data.get("business_name") or "").strip()
+    business_type = (data.get("business_type") or "").strip() or None
     legal_id = (data.get("legal_identifier") or "").strip() or None
     email = (data.get("contact_email") or "").strip().lower() or None
     phone = (data.get("contact_phone") or "").strip() or None
@@ -47,7 +48,7 @@ def create_business(token: str, business_data: dict) -> dict:
         return _error("INVALID_INPUT", "Enter a valid business contact phone.")
     try:
         business_id, membership_id = queries.create_business_with_owner(
-            auth["user"]["user_id"], name, legal_id, email, phone
+            auth["user"]["user_id"], name, legal_id, email, phone, business_type
         )
         business = queries.get_module2_business(business_id)
         membership = queries.get_business_membership(business_id, auth["user"]["user_id"])
@@ -78,6 +79,32 @@ def require_business_access(token: str, business_id: str,
     return {"success": True, "user": auth["user"], "business": _business(business),
             "membership": _membership(membership)}
 
+
+
+def ensure_business_ready(token: str, business_id: str) -> dict:
+    """Ensure an authorized business has its hidden ingestion resources."""
+    access = require_business_access(token, business_id, {"owner", "manager"})
+    if not access["success"]:
+        return access
+    try:
+        resources = queries.ensure_business_runtime_resources(business_id)
+        return {
+            "success": True,
+            "business": access["business"],
+            "membership": access["membership"],
+            "account_id": resources["account_id"],
+            "message": "Business is ready for transaction ingestion.",
+        }
+    except (sqlite3.IntegrityError, ValueError):
+        return _error(
+            "BUSINESS_RUNTIME_SETUP_FAILED",
+            "The business could not be prepared for transaction ingestion.",
+        )
+    except Exception:
+        return _error(
+            "BUSINESS_RUNTIME_SETUP_FAILED",
+            "The business could not be prepared for transaction ingestion.",
+        )
 
 def get_business(token: str, business_id: str) -> dict:
     access = require_business_access(token, business_id)

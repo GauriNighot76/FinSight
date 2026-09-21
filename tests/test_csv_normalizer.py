@@ -237,15 +237,60 @@ def test_malformed_csv_is_rejected_safely():
         normalize('Date,Description,Amount\n2026-08-01,"unterminated,10.00\n')
 
 
-def test_more_than_canonical_batch_limit_is_rejected():
-    from services.csv_normalizer import CSVNormalizationError
+def test_realistic_larger_csv_is_not_truncated():
+    from services import ingestion_validation
 
-    rows = ["Date,Amount,Direction"] + [
-        f"2026-08-01,{index}.00,income" for index in range(1, 1002)
+    record_count = 1200
+    rows = ["Date,Description,Amount,Direction,Category,Payment Mode"] + [
+        f"2026-08-01,Sale {index},{index}.00,income,Sales,UPI"
+        for index in range(1, record_count + 1)
     ]
 
-    with pytest.raises(CSVNormalizationError, match="records"):
+    payload = normalize("\n".join(rows))
+
+    assert len(payload["records"]) == record_count
+    assert payload["records"][0]["description"] == "Sale 1"
+    assert payload["records"][-1]["description"] == f"Sale {record_count}"
+    assert record_count < ingestion_validation.MAX_RECORD_COUNT
+
+
+def test_more_than_canonical_batch_limit_is_rejected_without_truncation():
+    from services import ingestion_validation
+    from services.csv_normalizer import CSVNormalizationError
+
+    record_count = ingestion_validation.MAX_RECORD_COUNT + 1
+    rows = ["Date,Amount,Direction"] + [
+        f"2026-08-01,{index}.00,income" for index in range(1, record_count + 1)
+    ]
+
+    assert len(rows) - 1 == record_count
+    with pytest.raises(CSVNormalizationError, match="too many records"):
         normalize("\n".join(rows))
+
+
+def test_preview_validation_returns_controlled_over_limit_error():
+    from services import csv_normalizer, ingestion_validation
+
+    rows = [
+        {
+            "Date": "2026-08-01",
+            "Description": f"Sale {index}",
+            "Amount": f"{index + 1}.00",
+            "Direction": "income",
+            "Category": "Sales",
+            "Payment Mode": "UPI",
+            "Reference": "",
+        }
+        for index in range(ingestion_validation.MAX_RECORD_COUNT + 1)
+    ]
+
+    result = csv_normalizer.validate_preview_rows(rows)
+
+    assert result["valid"] is False
+    assert result["payload"] is None
+    assert result["error_code"] == "RECORD_COUNT_OUT_OF_RANGE"
+    assert str(ingestion_validation.MAX_RECORD_COUNT + 1) in result["error_message"]
+    assert str(ingestion_validation.MAX_RECORD_COUNT) in result["error_message"]
 
 
 def test_output_is_deterministic_and_json_serializable():

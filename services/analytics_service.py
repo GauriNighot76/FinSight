@@ -101,7 +101,7 @@ def _load_accepted_rows(
     with queries.get_connection() as connection:
         return connection.execute(
             """SELECT i.transaction_date, i.amount_minor, i.direction, i.currency,
-                      i.identity_id, t.category, t.payment_mode
+                      i.identity_id, t.category, t.payment_mode, t.description
                FROM ingested_transaction_identities i
                JOIN transaction_general_ledger t
                  ON t.transaction_id=i.transaction_id
@@ -242,17 +242,40 @@ def _build_account_summary(
 
 def _build_transaction_rows(rows: list[Any]) -> list[dict[str, Any]]:
     """Expose only non-sensitive accepted fields for downstream read-only analysis."""
-    return [
-        {
+    result = []
+    for row in rows:
+        item = {
             "transaction_date": row["transaction_date"],
             "amount_minor": row["amount_minor"],
             "direction": row["direction"],
             "category": row["category"],
             "payment_mode": row["payment_mode"],
         }
-        for row in rows
-    ]
+        # Description was added for the final-submission UI, but older callers/tests
+        # may provide rows that predate that optional field. Preserve the legacy
+        # response shape unless the source row actually exposes description.
+        if "description" in row.keys():
+            item["description"] = row["description"]
+        result.append(item)
+    return result
 
+
+
+def get_transaction_date_bounds(
+    *,
+    session_token: str,
+    business_id: str,
+    account_id: str,
+    currency: str,
+) -> dict[str, str | None]:
+    """Return the accepted transaction date bounds for one authorized account."""
+    _require_authorized_session(session_token, business_id)
+    _load_account(account_id, business_id, currency)
+    row = queries.get_ingested_transaction_date_bounds(business_id, account_id)
+    return {
+        "start_date": None if row is None else row["min_date"],
+        "end_date": None if row is None else row["max_date"],
+    }
 
 def get_financial_analytics(
     *,
@@ -319,4 +342,4 @@ def get_financial_analytics(
     }
 
 
-__all__ = ["AnalyticsError", "get_financial_analytics"]
+__all__ = ["AnalyticsError", "get_financial_analytics", "get_transaction_date_bounds"]

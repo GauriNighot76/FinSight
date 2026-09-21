@@ -51,8 +51,8 @@ class FakeStreamlit:
         self._event("button", label)
         return self.buttons.get(label, False)
 
-    def line_chart(self, data, **_kwargs):
-        self._event("line_chart", data)
+    def line_chart(self, data, **kwargs):
+        self._event("line_chart", data, kwargs)
 
     def dataframe(self, data, **_kwargs):
         self._event("dataframe", data)
@@ -270,7 +270,7 @@ def test_kpis_are_rendered_from_backend_result(monkeypatch):
     ]
 
 
-def test_trends_and_summary_sections_render_backend_rows(monkeypatch):
+def test_trends_and_summary_sections_render_explicit_numeric_charts(monkeypatch):
     analytics_ui = _authorized_context(monkeypatch)
     result = _analytics_result()
     monkeypatch.setattr(
@@ -281,14 +281,87 @@ def test_trends_and_summary_sections_render_backend_rows(monkeypatch):
     ui = FakeStreamlit()
 
     analytics_ui.render_analytics_page(ui, "session-token")
-    charts = [event[1] for event in ui.events if event[0] == "line_chart"]
+    chart_events = [event for event in ui.events if event[0] == "line_chart"]
     tables = [event[1] for event in ui.events if event[0] == "dataframe"]
-    assert charts == [
-        result["trends"]["daily"],
-        result["trends"]["weekly"],
-        result["trends"]["monthly"],
-    ]
+
+    assert len(chart_events) == 3
+    for _name, frame, kwargs in chart_events:
+        assert list(frame.columns) == [
+            "Period", "Income", "Expenses", "Net Cash Flow"
+        ]
+        assert kwargs["x"] == "Period"
+        assert kwargs["y"] == ["Income", "Expenses", "Net Cash Flow"]
+        assert kwargs["width"] == "stretch"
+        assert all(
+            str(frame[column].dtype).startswith(("float", "int"))
+            for column in ("Income", "Expenses", "Net Cash Flow")
+        )
+
     assert tables == [result["categories"], result["payment_modes"], result["accounts"]]
+
+
+@pytest.mark.parametrize(
+    "rows,period_kind,expected_rows,expected_income,expected_expense",
+    [
+        ([], "daily", 0, None, None),
+        (
+            [{"period": "2026-08-01", "income_minor": 1000}],
+            "daily",
+            1,
+            10.0,
+            0.0,
+        ),
+        (
+            [{"period": "2026-08-01", "expense_minor": 250}],
+            "daily",
+            1,
+            0.0,
+            2.5,
+        ),
+        (
+            [
+                {
+                    "period": "2026-08-02",
+                    "income_minor": Decimal("1250"),
+                    "expense_minor": 250,
+                    "net_cash_flow_minor": 1000,
+                    "transaction_count": 2,
+                },
+                {
+                    "period": "2026-08-01",
+                    "income_minor": "500",
+                    "expense_minor": None,
+                    "net_cash_flow_minor": "500",
+                    "transaction_count": 1,
+                },
+            ],
+            "daily",
+            2,
+            5.0,
+            0.0,
+        ),
+    ],
+)
+def test_trend_chart_frame_normalizes_mixed_service_values(
+    rows,
+    period_kind,
+    expected_rows,
+    expected_income,
+    expected_expense,
+):
+    from finsight_app import analytics_ui
+
+    frame = analytics_ui._trend_chart_frame(rows, period_kind=period_kind)
+
+    assert len(frame) == expected_rows
+    assert list(frame.columns) == ["Period", "Income", "Expenses", "Net Cash Flow"]
+    if expected_rows:
+        assert frame.iloc[0]["Income"] == expected_income
+        assert frame.iloc[0]["Expenses"] == expected_expense
+        assert all(
+            str(frame[column].dtype).startswith(("float", "int"))
+            for column in ("Income", "Expenses", "Net Cash Flow")
+        )
 
 
 def test_empty_analytics_shows_safe_empty_state(monkeypatch):
@@ -304,6 +377,7 @@ def test_empty_analytics_shows_safe_empty_state(monkeypatch):
     rendered = _events_text(ui)
     assert "No transactions" in rendered
     assert "Traceback" not in rendered
+    assert sum(event[0] == "line_chart" for event in ui.events) == 0
     assert sum(event[0] == "dataframe" for event in ui.events) == 3
 
 
@@ -401,4 +475,4 @@ def test_ui_has_no_direct_database_access(monkeypatch):
 def test_app_entrypoint_wires_the_analytics_page():
     app_source = (Path(__file__).parents[1] / "finsight_app" / "app.py").read_text()
     assert "from finsight_app.analytics_ui import render_analytics_page" in app_source
-    assert "render_analytics_page(st, auth_token)" in app_source
+    assert "render_analytics_page(st, token, preferred_business_id=selected_id)" in app_source

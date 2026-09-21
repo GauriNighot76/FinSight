@@ -151,6 +151,8 @@ def _financial_summary(kpis: dict[str, Any]) -> dict[str, Any]:
         "net_cash_flow_minor",
         "transaction_count",
         "average_transaction_minor",
+        "largest_income_minor",
+        "largest_expense_minor",
         "income_expense_ratio",
         "savings_rate",
         "opening_balance_minor",
@@ -278,6 +280,246 @@ def build_report(
     return report
 
 
+
+def build_advisory_model(
+    report: dict[str, Any],
+    recommendations: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Build a concise advisory view from existing report-service outputs.
+
+    This function does not recalculate financial statements.  It selects and
+    interprets already-computed analytics/health values for presentation.
+    """
+    if not isinstance(report, dict):
+        raise ReportError("The report result is invalid.")
+
+    sections = report.get("sections")
+    if not isinstance(sections, dict):
+        raise ReportError("The report result is invalid.")
+
+    summary = sections.get("financial_summary")
+    summary = summary if isinstance(summary, dict) else {}
+    categories = sections.get("category_report")
+    categories = categories if isinstance(categories, list) else []
+    health = sections.get("business_health_report")
+    health = health if isinstance(health, dict) else {}
+    anomalies = sections.get("anomaly_report")
+    anomalies = anomalies if isinstance(anomalies, list) else []
+    cash_flow = sections.get("cash_flow_summary")
+    cash_flow = cash_flow if isinstance(cash_flow, dict) else {}
+    trends = cash_flow.get("trends")
+    trends = trends if isinstance(trends, dict) else {}
+    monthly = trends.get("monthly")
+    monthly = monthly if isinstance(monthly, list) else []
+    recommendations = (
+        recommendations if isinstance(recommendations, list) else []
+    )
+
+    income_categories = [
+        row for row in categories
+        if isinstance(row, dict) and row.get("income_minor", 0)
+    ]
+    expense_categories = [
+        row for row in categories
+        if isinstance(row, dict) and row.get("expense_minor", 0)
+    ]
+
+    positives: list[str] = []
+    net_cash_flow = summary.get("net_cash_flow_minor")
+    expense_to_income = health.get("expense_to_income_ratio")
+    stability = health.get("cash_flow_stability")
+    if net_cash_flow is not None and Decimal(str(net_cash_flow)) > 0:
+        positives.append("Positive net cash flow was recorded for the selected period.")
+    if expense_to_income is not None and Decimal(str(expense_to_income)) < 1:
+        positives.append("Recorded expenses remained below recorded income.")
+    if stability is not None and Decimal(str(stability)) >= 70:
+        positives.append("Observed cash-flow stability is relatively strong in the available dataset.")
+    if not anomalies:
+        positives.append("No significant deterministic anomaly was detected in the selected period.")
+    positives = positives[:2]
+
+    severity_order = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}
+    ranked_anomalies = sorted(
+        [item for item in anomalies if isinstance(item, dict)],
+        key=lambda item: severity_order.get(str(item.get("severity", "")).upper(), 9),
+    )
+    if ranked_anomalies:
+        item = ranked_anomalies[0]
+        primary_risk = {
+            "title": str(item.get("type") or "Risk observation").replace("_", " ").title(),
+            "detail": item.get("explanation") or item.get("reason")
+            or "This pattern requires management review.",
+            "severity": str(item.get("severity") or "Medium").upper(),
+        }
+    elif health.get("category_concentration") is not None and Decimal(
+        str(health.get("category_concentration"))
+    ) > 60:
+        primary_risk = {
+            "title": "Activity concentration",
+            "detail": (
+                "A large share of observed transaction value is concentrated in "
+                "one category; concentration should be monitored."
+            ),
+            "severity": "MEDIUM",
+        }
+    else:
+        primary_risk = {
+            "title": "No material deterministic risk signal",
+            "detail": (
+                "The current rules did not identify a material risk signal. "
+                "This does not substitute for accounting or audit review."
+            ),
+            "severity": "LOW",
+        }
+
+    ranked_recommendations = sorted(
+        [item for item in recommendations if isinstance(item, dict)],
+        key=lambda item: severity_order.get(str(item.get("priority", "")).upper(), 9),
+    )
+    if ranked_recommendations:
+        top_recommendation = ranked_recommendations[0]
+        management_priority = {
+            "title": top_recommendation.get("title") or "Management action",
+            "action": top_recommendation.get("recommended_action")
+            or top_recommendation.get("reason")
+            or "Review the supporting financial records.",
+            "priority": str(top_recommendation.get("priority") or "MEDIUM").upper(),
+        }
+    else:
+        management_priority = {
+            "title": "Maintain financial visibility",
+            "action": (
+                "Continue importing complete transaction data and monitor the "
+                "largest income and expense categories over time."
+            ),
+            "priority": "LOW",
+        }
+
+    internal_actions: list[dict[str, str]] = []
+    for item in ranked_recommendations[:5]:
+        internal_actions.append({
+            "action": str(
+                item.get("recommended_action")
+                or item.get("title")
+                or "Review the identified financial pattern."
+            ),
+            "why": str(item.get("reason") or item.get("explanation") or ""),
+        })
+
+    if len(internal_actions) < 3 and expense_categories:
+        largest_expense_category = expense_categories[0]
+        internal_actions.append({
+            "action": f"Review {largest_expense_category.get('category') or 'the largest expense category'} spending.",
+            "why": "It is the largest observed expense category in the selected period.",
+        })
+    if len(internal_actions) < 3 and net_cash_flow is not None and Decimal(str(net_cash_flow)) > 0:
+        internal_actions.append({
+            "action": "Preserve the positive cash-flow buffer.",
+            "why": "Net cash flow is positive in the selected reporting period.",
+        })
+    if len(internal_actions) < 3 and income_categories:
+        largest_income_category = income_categories[0]
+        internal_actions.append({
+            "action": f"Monitor dependence on {largest_income_category.get('category') or 'the leading income category'}.",
+            "why": "It is the largest observed income category in the selected period.",
+        })
+
+    # De-duplicate while preserving deterministic order.
+    unique_actions: list[dict[str, str]] = []
+    seen_actions: set[str] = set()
+    for item in internal_actions:
+        action = item["action"]
+        if action in seen_actions:
+            continue
+        seen_actions.add(action)
+        unique_actions.append(item)
+    internal_actions = unique_actions[:5]
+
+    lender_observations: list[str] = []
+    count = int(summary.get("transaction_count", 0) or 0)
+    lender_observations.append(
+        f"The available dataset contains {count} accepted transaction(s) for the selected period."
+    )
+    if net_cash_flow is not None:
+        direction = "positive" if Decimal(str(net_cash_flow)) >= 0 else "negative"
+        lender_observations.append(
+            f"The observed transaction history produced {direction} net cash flow."
+        )
+    if stability is not None:
+        lender_observations.append(
+            f"Cash-flow stability score from the deterministic health model: {stability}."
+        )
+    if health.get("category_concentration") is not None:
+        lender_observations.append(
+            "Category concentration should be considered when assessing dependence on a limited activity mix."
+        )
+    lender_observations.append(
+        "Further accounting, tax, liability, receivable, payable and balance-sheet evidence "
+        "would be required for a complete credit or investment assessment."
+    )
+
+    priority_actions: list[dict[str, str]] = []
+    horizon_by_priority = {
+        "CRITICAL": "Immediate",
+        "HIGH": "Next 30 days",
+        "MEDIUM": "Next 30–60 days",
+        "LOW": "Ongoing",
+    }
+    for item in ranked_recommendations[:5]:
+        priority = str(item.get("priority") or "MEDIUM").upper()
+        priority_actions.append({
+            "priority": priority,
+            "action": str(item.get("title") or item.get("recommended_action") or "Review financial pattern"),
+            "rationale": str(item.get("reason") or item.get("explanation") or ""),
+            "time_horizon": horizon_by_priority.get(priority, "Ongoing"),
+        })
+
+    if len(priority_actions) < 3:
+        for item in internal_actions:
+            if len(priority_actions) >= 3:
+                break
+            if any(row["action"] == item["action"] for row in priority_actions):
+                continue
+            priority_actions.append({
+                "priority": "MEDIUM",
+                "action": item["action"],
+                "rationale": item["why"],
+                "time_horizon": "Next 30–60 days",
+            })
+
+    return _sanitize({
+        "performance_snapshot": {
+            "transaction_count": summary.get("transaction_count", 0),
+            "total_income_minor": summary.get("total_income_minor", 0),
+            "total_expense_minor": summary.get("total_expense_minor", 0),
+            "net_cash_flow_minor": summary.get("net_cash_flow_minor", 0),
+            "savings_rate": summary.get("savings_rate"),
+            "income_expense_ratio": summary.get("income_expense_ratio"),
+        },
+        "positives": positives,
+        "primary_risk": primary_risk,
+        "management_priority": management_priority,
+        "income_categories": income_categories[:5],
+        "expense_categories": expense_categories[:5],
+        "monthly_trends": monthly,
+        "health": health,
+        "internal_actions": internal_actions,
+        "lender_observations": lender_observations,
+        "priority_actions": priority_actions[:5],
+        "unsupported_metrics": [
+            "Gross margin / gross profit",
+            "EBITDA",
+            "Net income",
+            "CAC / churn",
+            "Inventory turnover",
+            "Receivable / payable days",
+            "Cash runway",
+            "Working capital",
+            "Debt ratio",
+            "ROI",
+        ],
+    })
+
 def report_to_json(report: dict[str, Any]) -> dict[str, Any]:
     """Return a JSON-serializable, sanitized report dictionary."""
     if not isinstance(report, dict):
@@ -345,6 +587,7 @@ to_json_ready = report_to_json
 
 __all__ = [
     "ReportError",
+    "build_advisory_model",
     "build_report",
     "create_report",
     "generate_report",

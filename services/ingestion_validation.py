@@ -8,7 +8,8 @@ CONTRACT_VERSION = "finsight_ingestion_v1"
 SOURCE_SYSTEM = "finsight_demo_bank_statement_v1"
 
 MIN_RECORD_COUNT = 1
-MAX_RECORD_COUNT = 1000
+# Bounded for the current single-transaction, per-record identity workflow.
+MAX_RECORD_COUNT = 5000
 MIN_AMOUNT_MINOR = 1
 MAX_AMOUNT_MINOR = 99_999_999_999_999
 MIN_BALANCE_AFTER_MINOR = -99_999_999_999_999

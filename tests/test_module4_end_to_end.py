@@ -61,6 +61,27 @@ def test_single_controlled_demo_ingestion_persists_complete_flow(ingestion_repos
     assert identity["currency"] == "INR"
 
 
+
+def test_ingestion_preserves_category_payment_method_and_description(ingestion_repository):
+    record = make_record(
+        source_transaction_id="E2E-METADATA",
+        category="Rent",
+        payment_method="Bank",
+        description="Monthly office rent",
+    )
+    result = ingestion_service.ingest(
+        **prepare_args(payload=make_payload([record]))
+    )
+    assert result.inserted_count == 1
+    with ingestion_repository() as connection:
+        ledger = connection.execute(
+            "SELECT category,payment_mode,description FROM transaction_general_ledger"
+        ).fetchone()
+    assert ledger["category"] == "Rent"
+    assert ledger["payment_mode"] == "Bank"
+    assert ledger["description"] == "Monthly office rent"
+
+
 def test_multiple_record_batch_preserves_order_and_aggregates_counts(ingestion_repository):
     records = [
         make_record(source_transaction_id="E2E-INCOME", amount_minor=1200),
