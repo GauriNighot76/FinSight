@@ -98,6 +98,7 @@ CREATE TABLE IF NOT EXISTS provider_identities (
 CREATE TABLE IF NOT EXISTS businesses (
     business_id TEXT PRIMARY KEY,
     business_name TEXT NOT NULL,
+    business_type TEXT,
     legal_identifier TEXT,
     contact_email TEXT,
     contact_phone TEXT,
