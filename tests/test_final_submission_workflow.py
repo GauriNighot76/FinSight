@@ -10,6 +10,7 @@ from services import (
     analytics_service,
     auth_service,
     business_service,
+    business_health_service,
     csv_normalizer,
     decision_support_service,
     ingestion_service,
@@ -128,6 +129,25 @@ def test_final_controlled_workflow_multi_business_isolation_duplicates_and_pdf()
         "Cash Sale", "UPI Sale", "Rent", "Electricity"
     }
 
+    sales = next(row for row in a["categories"] if row["category"] == "Sales")
+    rent = next(row for row in a["categories"] if row["category"] == "Rent")
+    utilities = next(row for row in a["categories"] if row["category"] == "Utilities")
+    assert sales["income_minor"] == 1_500_000
+    assert sales["expense_minor"] == 0
+    assert sales["income_count"] == 2
+    assert sales["income_percentage"] == Decimal("100.00")
+    assert rent["expense_minor"] == 400_000
+    assert rent["expense_percentage"] == Decimal("80.00")
+    assert utilities["expense_minor"] == 100_000
+    assert utilities["expense_percentage"] == Decimal("20.00")
+
+    cash = next(row for row in a["payment_modes"] if row["payment_mode"] == "Cash")
+    upi = next(row for row in a["payment_modes"] if row["payment_mode"] == "UPI")
+    bank = next(row for row in a["payment_modes"] if row["payment_mode"] == "Bank")
+    assert (cash["income_minor"], cash["expense_minor"]) == (1_000_000, 0)
+    assert (upi["income_minor"], upi["expense_minor"]) == (500_000, 100_000)
+    assert (bank["income_minor"], bank["expense_minor"]) == (0, 400_000)
+
     report_args = dict(
         session_token=token,
         business_id=business_a["business_id"],
@@ -138,6 +158,24 @@ def test_final_controlled_workflow_multi_business_isolation_duplicates_and_pdf()
     )
     report = report_service.build_report(**report_args)
     support = decision_support_service.get_decision_support(**report_args)
+    health = business_health_service.get_business_health(**report_args)
+
+    summary = report["sections"]["financial_summary"]
+    assert summary["total_income_minor"] == a["kpis"]["total_income_minor"]
+    assert summary["total_expense_minor"] == a["kpis"]["total_expense_minor"]
+    assert summary["net_cash_flow_minor"] == a["kpis"]["net_cash_flow_minor"]
+    assert summary["transaction_count"] == a["kpis"]["transaction_count"]
+    assert report["sections"]["category_report"] == a["categories"]
+    assert report["sections"]["payment_mode_report"] == a["payment_modes"]
+
+    health_ids = [item["anomaly_id"] for item in health["anomalies"]]
+    report_ids = [
+        item["anomaly_id"]
+        for item in report["sections"]["anomaly_report"]
+    ]
+    assert len(health_ids) == len(set(health_ids))
+    assert report_ids == health_ids
+
     pdf = generate_business_report(
         business=business_a,
         report=report,
