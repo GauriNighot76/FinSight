@@ -318,11 +318,9 @@ def _rule_recommendations(
     net = _decimal(kpis.get("net_cash_flow_minor"), income - expense)
     count = int(_decimal(kpis.get("transaction_count")))
     ratio_value = metrics.get("expense_to_income_ratio")
-    if ratio_value is None:
-        ratio = expense / income if income else Decimal("0")
-    else:
-        ratio = _decimal(ratio_value)
-    savings = _decimal(metrics.get("savings_rate", kpis.get("savings_rate")))
+    ratio = _decimal(ratio_value) if ratio_value is not None else None
+    savings_value = metrics.get("savings_rate", kpis.get("savings_rate"))
+    savings = _decimal(savings_value) if savings_value is not None else None
     concentration = _decimal(metrics.get("category_concentration"))
     recurring = _decimal(metrics.get("recurring_expense_burden"))
     stability = _decimal(metrics.get("cash_flow_stability"))
@@ -339,7 +337,12 @@ def _rule_recommendations(
         reserve = kpis.get("closing_balance_minor")
 
     if net < 0:
-        priority = "CRITICAL" if ratio > 1 else "HIGH"
+        priority = (
+            "CRITICAL"
+            if (income == 0 and expense > 0)
+            or (ratio is not None and ratio > 1)
+            else "HIGH"
+        )
         _add(
             recommendations,
             _recommendation(
@@ -362,9 +365,9 @@ def _rule_recommendations(
             ),
         )
 
-    if ratio > Decimal("1.00"):
+    if ratio is not None and ratio > Decimal("1.00"):
         priority = "CRITICAL"
-    elif ratio > Decimal("0.75"):
+    elif ratio is not None and ratio > Decimal("0.75"):
         priority = "HIGH"
     else:
         priority = ""
@@ -396,7 +399,7 @@ def _rule_recommendations(
             ),
         )
 
-    if savings < Decimal("20.00") and count:
+    if savings is not None and savings < Decimal("20.00") and count:
         _add(
             recommendations,
             _recommendation(
