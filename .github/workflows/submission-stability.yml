@@ -12,6 +12,13 @@ jobs:
           python-version: '3.14'
       - run: python -m pip install --upgrade pip
       - run: python -m pip install -r requirements.txt
+      - name: Run anomaly quality regressions
+        run: >-
+          python -m pytest -q
+          tests/test_anomaly_quality.py
+          tests/test_workspace_anomalies.py
+          tests/test_module6_health.py
+          tests/test_module7_reports.py
       - name: Run final correction calculation regressions
         run: python -m pytest -q tests/test_module5_analytics.py tests/test_module6_health.py tests/test_final_submission_workflow.py
       - name: Run anomaly rerun regression
