@@ -434,14 +434,14 @@ def generate_business_report(
     story.append(_section_title(2, "Advisory Performance Deep-Dive", styles))
 
     if "income_analysis" in included or "financial_performance" in included:
-        story.append(Paragraph("2.1 Top-Line Growth & Margin Engineering", styles["FS_H2"]))
+        story.append(Paragraph("2.1 Recorded Income Pattern & Margin Availability", styles["FS_H2"]))
         income_categories = advisory.get("income_categories", [])
         if income_categories:
             income_rows = [
                 [
                     row.get("category") or "Uncategorized",
                     _money(row.get("income_minor", 0), currency),
-                    row.get("count", 0),
+                    row.get("income_count", row.get("count", 0)),
                 ]
                 for row in income_categories[:5]
             ]
@@ -474,14 +474,14 @@ def generate_business_report(
         ))
 
     if "expense_analysis" in included or "financial_performance" in included:
-        story.append(Paragraph("2.2 Bottom-Line Efficiency & Earnings Quality", styles["FS_H2"]))
+        story.append(Paragraph("2.2 Expense Efficiency & Cash-Flow Quality", styles["FS_H2"]))
         expense_categories = advisory.get("expense_categories", [])
         if expense_categories:
             expense_rows = [
                 [
                     row.get("category") or "Uncategorized",
                     _money(row.get("expense_minor", 0), currency),
-                    row.get("count", 0),
+                    row.get("expense_count", row.get("count", 0)),
                 ]
                 for row in expense_categories[:5]
             ]
@@ -509,7 +509,7 @@ def generate_business_report(
         ))
 
     if "cash_flow" in included or "payment_mode" in included:
-        story.append(Paragraph("2.3 Liquidity, Working Capital & Capital Preservation", styles["FS_H2"]))
+        story.append(Paragraph("2.3 Cash Flow & Capital Preservation", styles["FS_H2"]))
         story.append(Paragraph(
             f"Observed net cash flow is {_money(summary.get('net_cash_flow_minor', 0), currency)}. "
             f"Cash-flow stability score: {_text(health.get('cash_flow_stability'))}. "
@@ -520,15 +520,16 @@ def generate_business_report(
             mode_rows = [
                 [
                     row.get("payment_mode") or "Other",
-                    _money(row.get("amount_minor", 0), currency),
-                    _percent(row.get("percentage")),
+                    _money(row.get("income_minor", 0), currency),
+                    _money(row.get("expense_minor", 0), currency),
+                    row.get("count", 0),
                 ]
                 for row in payment_modes[:5]
             ]
             story.append(_table(
-                ["Payment Mode", "Observed Value", "Share of Transaction Value"],
+                ["Payment Mode", "Recorded Income", "Recorded Expenses", "Transactions"],
                 mode_rows,
-                [58 * mm, 52 * mm, 50 * mm],
+                [48 * mm, 42 * mm, 42 * mm, 28 * mm],
             ))
         story.append(Paragraph(
             "<b>Working capital, receivable days, payable days, inventory turnover and cash runway:</b> "
