@@ -114,8 +114,8 @@ def test_robust_outlier_rule_reduces_false_high_rate_on_skewed_msme_population()
 
     assert len(large_income) == 2
     assert len(large_expense) == 2
-    assert len(large_income) / 100 == Decimal("0.02")
-    assert len(large_expense) / 80 == Decimal("0.025")
+    assert Decimal(len(large_income)) / Decimal(100) == Decimal("0.02")
+    assert Decimal(len(large_expense)) / Decimal(80) == Decimal("0.025")
     assert {row["metric_value"] for row in large_income} == {Decimal("8000"), Decimal("12000")}
     assert {row["metric_value"] for row in large_expense} == {Decimal("9000"), Decimal("15000")}
     assert all(row["severity"] == "HIGH" for row in large_income + large_expense)
