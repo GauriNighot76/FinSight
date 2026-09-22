@@ -568,7 +568,7 @@ def test_anomaly_results_are_sorted_and_read_only(monkeypatch):
     )
 
 
-def test_category_spike_inactive_period_and_expense_explosion(monkeypatch):
+def test_recurring_growth_inactive_period_and_expense_explosion(monkeypatch):
     trends = {
         "daily": [
             {"period": "2026-01-01", "net_cash_flow_minor": 100},
@@ -608,7 +608,8 @@ def test_category_spike_inactive_period_and_expense_explosion(monkeypatch):
     anomalies = _health(service)["anomalies"]
     anomaly_types = {item["type"] for item in anomalies}
 
-    assert "category_spike" in anomaly_types
+    assert "category_spike" not in anomaly_types
+    assert "recurring_expense_growth" in anomaly_types
     assert "inactive_period" in anomaly_types
     assert "expense_explosion" in anomaly_types
 
@@ -673,8 +674,10 @@ def test_phase2_anomalies_have_required_safe_metadata(monkeypatch):
         _phase2_analysis(income=2000, expense=1910, transactions=transactions),
     )
 
-    anomalies = _health(service)["anomalies"]
+    result = _health(service)
+    anomalies = result["anomalies"]
 
+    assert result["anomaly_engine_version"] == "finsight_tukey_outer_v1"
     large = next(
         item for item in anomalies
         if item["type"] == "unusually_large_expense"
@@ -746,7 +749,7 @@ def test_phase2_period_rules_are_all_detected(monkeypatch):
     assert {
         "expense_explosion",
         "negative_cash_flow_period",
-        "category_spike",
+        "recurring_expense_growth",
         "unexpected_payment_mode",
         "inactive_period",
         "income_interruption",
