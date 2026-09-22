@@ -565,6 +565,58 @@ def generate_business_report(
         styles["FS_Small"],
     ))
 
+    if "anomalies" in included:
+        anomaly_summary = advisory.get("anomaly_summary", {})
+        if isinstance(anomaly_summary, dict):
+            severity_counts = anomaly_summary.get("severity_counts", {})
+            severity_counts = (
+                severity_counts if isinstance(severity_counts, dict) else {}
+            )
+            total_findings = int(anomaly_summary.get("total", 0) or 0)
+            story.append(Spacer(1, 4 * mm))
+            story.append(Paragraph("Risk / Anomaly Summary", styles["FS_H2"]))
+            story.append(_table(
+                ["Total", "Critical", "High", "Medium", "Low"],
+                [[
+                    total_findings,
+                    severity_counts.get("CRITICAL", 0),
+                    severity_counts.get("HIGH", 0),
+                    severity_counts.get("MEDIUM", 0),
+                    severity_counts.get("LOW", 0),
+                ]],
+                [28 * mm, 30 * mm, 30 * mm, 36 * mm, 36 * mm],
+            ))
+
+            examples = anomaly_summary.get("material_examples", [])
+            examples = examples if isinstance(examples, list) else []
+            for item in examples[:3]:
+                if not isinstance(item, dict):
+                    continue
+                anomaly_type = str(item.get("type") or "Risk observation")
+                title = anomaly_type.replace("_", " ").title()
+                if anomaly_type == "negative_cash_flow_period":
+                    title = "Negative Daily Cash Flow"
+                elif anomaly_type == "repeated_identical_transactions":
+                    title = "Repeated Transaction Pattern"
+                period_text = _text(item.get("affected_period"), "")
+                context = item.get("detection_context")
+                context = context if isinstance(context, dict) else {}
+                category = _text(context.get("category"), "")
+                qualifiers = [value for value in (category, period_text) if value]
+                qualifier_text = f" ({' · '.join(qualifiers)})" if qualifiers else ""
+                story.append(Paragraph(
+                    f"• <b>{title}</b> [{_text(item.get('severity'), 'N/A')}]"
+                    f"{qualifier_text}: {_text(item.get('explanation'), 'Review required.')}",
+                    styles["FS_Body"],
+                ))
+            additional = int(anomaly_summary.get("additional_count", 0) or 0)
+            if additional > 0:
+                story.append(Paragraph(
+                    f"{additional} additional finding(s) are available in FinSight's "
+                    "Anomalies page; the executive report shows only the most material examples.",
+                    styles["FS_Small"],
+                ))
+
     # SECTION 4 — PRIORITY ACTIONS
     story.append(Spacer(1, 4 * mm))
     story.append(_section_title(4, "Priority Actions", styles))
