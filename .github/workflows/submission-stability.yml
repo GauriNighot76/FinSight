@@ -1,7 +1,7 @@
 name: submission-stability
 on:
   push:
-    branches: [stabilize-final-submission]
+    branches: [stabilize-final-submission, fix-reports-calculations-anomalies]
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -12,6 +12,14 @@ jobs:
           python-version: '3.14'
       - run: python -m pip install --upgrade pip
       - run: python -m pip install -r requirements.txt
+      - name: Run final correction calculation regressions
+        run: python -m pytest -q tests/test_module5_analytics.py tests/test_module6_health.py tests/test_final_submission_workflow.py
+      - name: Run anomaly rerun regression
+        run: python -m pytest -q tests/test_workspace_anomalies.py
+      - name: Run report consistency regressions
+        run: python -m pytest -q tests/test_module7_reports.py tests/test_final_submission_workflow.py
+      - name: Run existing scheme regression
+        run: python -m pytest -q tests/test_final_submission_workflow.py::test_scheme_engine_invoked_with_real_repository_rules_and_missing_information
       - name: Run ingestion hotfix regressions
         run: >-
           python -m pytest -q
