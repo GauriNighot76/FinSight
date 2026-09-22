@@ -92,7 +92,8 @@ def test_healthy_business_returns_structured_health_metrics(monkeypatch):
 
     result = _health(service)
 
-    assert set(result) == {"metrics", "anomalies"}
+    assert set(result) == {"metrics", "anomalies", "anomaly_engine_version"}
+    assert result["anomaly_engine_version"] == "finsight_tukey_outer_v1"
     assert result["metrics"]["overall_financial_health_score"] >= 70
     assert result["metrics"]["health_level"] in {"Excellent", "Good"}
     assert result["metrics"]["expense_to_income_ratio"] == Decimal("0.30")
