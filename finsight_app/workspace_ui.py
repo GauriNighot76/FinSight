@@ -16,6 +16,7 @@ from services import (
 
 ALL_START = "2000-01-01"
 ALL_END = "2099-12-31"
+_EXPECTED_ANOMALY_ENGINE_VERSION = "finsight_tukey_outer_v1"
 
 
 def _money(minor: Any, currency: str = "INR") -> str:
@@ -224,6 +225,15 @@ def _health_context(st: Any, token: str, business: dict[str, Any]):
         health = business_health_service.get_business_health(**args)
     except Exception:
         st.error("Business health could not be loaded for this business.")
+        return args, None
+    if (
+        not isinstance(health, dict)
+        or health.get("anomaly_engine_version") != _EXPECTED_ANOMALY_ENGINE_VERSION
+    ):
+        st.error(
+            "The anomaly analysis runtime is out of date. Restart FinSight from "
+            "the current fix-reports-calculations-anomalies branch."
+        )
         return args, None
     return args, health
 
