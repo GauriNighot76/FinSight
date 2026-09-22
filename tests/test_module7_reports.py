@@ -322,3 +322,87 @@ def test_generated_timestamp_accepts_datetime_and_remains_serializable(monkeypat
 
     assert report["generated_at"] == "2026-09-02T12:00:00+00:00"
     json.dumps(service.report_to_json(report))
+
+
+def test_advisory_anomaly_summary_uses_service_findings_without_redetection(monkeypatch):
+    health = _health_result(empty=True)
+    health["anomalies"] = [
+        {
+            "anomaly_id": f"anomaly-{index}",
+            "type": (
+                "unusually_large_expense"
+                if index < 2
+                else "negative_cash_flow_period"
+            ),
+            "severity": "HIGH" if index < 2 else "LOW",
+            "affected_period": f"2026-08-{index + 1:02d}",
+            "explanation": f"Finding detail {index}",
+            "detection_context": (
+                {"category": "Inventory"}
+                if index < 2
+                else {"period_kind": "daily"}
+            ),
+        }
+        for index in range(12)
+    ]
+    service, _calls = _authorized_context(monkeypatch, health=health)
+
+    report = _build(service)
+    advisory = service.build_advisory_model(report, [])
+    anomaly_summary = advisory["anomaly_summary"]
+
+    assert report["sections"]["anomaly_report"] == [
+        {
+            key: value
+            for key, value in item.items()
+            if key not in {"business_id", "account_id", "transaction_reference"}
+        }
+        for item in health["anomalies"]
+    ]
+    assert anomaly_summary["total"] == 12
+    assert anomaly_summary["severity_counts"]["HIGH"] == 2
+    assert anomaly_summary["severity_counts"]["LOW"] == 10
+    assert anomaly_summary["type_counts"]["unusually_large_expense"] == 2
+    assert anomaly_summary["type_counts"]["negative_cash_flow_period"] == 10
+    assert len(anomaly_summary["material_examples"]) == 5
+    assert anomaly_summary["additional_count"] == 7
+    assert {
+        item["anomaly_id"] for item in anomaly_summary["material_examples"]
+    } <= {
+        item["anomaly_id"] for item in report["sections"]["anomaly_report"]
+    }
+
+
+def test_pdf_anomaly_section_is_summary_not_full_finding_dump(monkeypatch):
+    from finsight_app.pdf_generator import generate_business_report
+
+    health = _health_result(empty=True)
+    health["anomalies"] = [
+        {
+            "anomaly_id": f"anomaly-{index}",
+            "type": "negative_cash_flow_period",
+            "severity": "LOW",
+            "affected_period": f"2026-08-{index + 1:02d}",
+            "explanation": f"Unique anomaly detail {index}",
+            "detection_context": {"period_kind": "daily"},
+        }
+        for index in range(12)
+    ]
+    service, _calls = _authorized_context(monkeypatch, health=health)
+    report = _build(service)
+
+    pdf = generate_business_report(
+        business={
+            "business_name": "Controlled Demo",
+            "business_type": "Retail",
+        },
+        report=report,
+        decision_support={"recommendations": []},
+        scheme_results=[],
+    ).getvalue()
+
+    assert pdf.startswith(b"%PDF")
+    assert b"Risk / Anomaly Summary" in pdf
+    assert b"additional finding" in pdf
+    assert b"Unique anomaly detail 0" in pdf
+    assert b"Unique anomaly detail 3" not in pdf
