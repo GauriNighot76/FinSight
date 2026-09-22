@@ -261,8 +261,129 @@ def render_business_health(st: Any, token: str, business: dict[str, Any]) -> boo
     return True
 
 
+_ANOMALY_TITLES = {
+    "unusually_large_income": "Unusually Large Income",
+    "unusually_large_expense": "Unusually Large Expense",
+    "negative_cash_flow_period": "Negative Daily Cash Flow",
+    "repeated_identical_transactions": "Repeated Transaction Pattern",
+    "unexpected_payment_mode": "Unusual Payment Mode",
+    "category_spike": "Category Spike",
+    "recurring_expense_growth": "Recurring Expense Growth",
+    "very_high_recurring_expenses": "High Recurring Expense Burden",
+}
+
+_ANOMALY_GROUPS = (
+    (
+        "Unusually Large Transactions",
+        {"unusually_large_income", "unusually_large_expense"},
+    ),
+    (
+        "Cash Flow Warnings",
+        {
+            "negative_cash_flow_period",
+            "sudden_expense_spike",
+            "expense_explosion",
+            "sudden_income_drop",
+            "income_interruption",
+            "high_expense_ratio",
+            "cash_flow_instability",
+            "inactive_period",
+        },
+    ),
+    (
+        "Repeated / Payment Patterns",
+        {"repeated_identical_transactions", "unexpected_payment_mode"},
+    ),
+    (
+        "Category / Recurring Expense Changes",
+        {
+            "category_spike",
+            "recurring_expense_growth",
+            "very_high_recurring_expenses",
+        },
+    ),
+)
+
+
+def _anomaly_title(item: dict[str, Any]) -> str:
+    anomaly_type = str(item.get("type") or "anomaly")
+    return _ANOMALY_TITLES.get(
+        anomaly_type,
+        anomaly_type.replace("_", " ").title(),
+    )
+
+
+def _anomaly_group(item: dict[str, Any]) -> str:
+    anomaly_type = str(item.get("type") or "")
+    for label, types in _ANOMALY_GROUPS:
+        if anomaly_type in types:
+            return label
+    return "Other Findings"
+
+
+def _render_anomaly_card(st: Any, item: dict[str, Any], currency: str) -> None:
+    with st.container(border=True):
+        st.markdown(f"**{_anomaly_title(item)}**")
+        st.caption(f"Severity: {str(item.get('severity', 'N/A')).title()}")
+        st.write(
+            item.get("explanation")
+            or item.get("reason")
+            or "This pattern requires review."
+        )
+
+        affected = item.get("affected_transaction")
+        if isinstance(affected, dict):
+            if affected.get("amount_minor") is not None:
+                st.write("Amount:", _money(affected["amount_minor"], currency))
+            if affected.get("date"):
+                st.write("Affected date:", affected["date"])
+            if affected.get("description"):
+                st.write("Description:", affected["description"])
+            if affected.get("category"):
+                st.write("Category:", affected["category"])
+            if affected.get("payment_mode"):
+                st.write("Payment mode:", affected["payment_mode"])
+
+        context = item.get("detection_context")
+        context = context if isinstance(context, dict) else {}
+        if context.get("category") and (
+            not isinstance(affected, dict)
+            or context["category"] != affected.get("category")
+        ):
+            st.write("Category:", context["category"])
+        if context.get("payment_mode") and (
+            not isinstance(affected, dict)
+            or context["payment_mode"] != affected.get("payment_mode")
+        ):
+            st.write("Payment mode:", context["payment_mode"])
+        if context.get("occurrence_count"):
+            st.write("Occurrences:", context["occurrence_count"])
+            st.write(
+                "Observed dates:",
+                f"{context.get('first_date', 'N/A')} to {context.get('last_date', 'N/A')}",
+            )
+
+        affected_period = item.get("affected_period")
+        affected_date = affected.get("date") if isinstance(affected, dict) else None
+        if affected_period and affected_period != affected_date:
+            period_label = (
+                "Affected day"
+                if context.get("period_kind") == "daily"
+                else "Affected period"
+            )
+            st.write(f"{period_label}:", affected_period)
+
+        reference = item.get("transaction_reference")
+        if reference and not (isinstance(affected, dict) and affected.get("description")):
+            st.write("Reference:", reference)
+
+        st.write(
+            "Suggested review action: Review the underlying transactions and supporting records."
+        )
+
+
 def render_anomalies(st: Any, token: str, business: dict[str, Any]) -> bool:
-    _args, health = _health_context(st, token, business)
+    args, health = _health_context(st, token, business)
     if health is None:
         return False
     count = int(health.get("metrics", {}).get("transaction_count", 0) or 0)
@@ -270,23 +391,49 @@ def render_anomalies(st: Any, token: str, business: dict[str, Any]) -> bool:
     if count == 0:
         st.info("Anomaly analysis will become available after transaction data is uploaded.")
         return True
-    anomalies = health.get("anomalies", [])
+
+    anomalies = [
+        item for item in health.get("anomalies", [])
+        if isinstance(item, dict)
+    ]
     if not anomalies:
         st.success("No significant anomalies were detected for the selected period.")
         return True
-    for item in anomalies:
-        with st.container(border=True):
-            st.markdown(f"**{str(item.get('type', 'Anomaly')).replace('_', ' ').title()}**")
-            st.caption(f"Severity: {str(item.get('severity', 'N/A')).title()}")
-            st.write(item.get("explanation") or item.get("reason") or "This pattern requires review.")
-            if item.get("affected_period"):
-                st.write("Affected period:", item["affected_period"])
-            context = item.get("detection_context")
-            if isinstance(context, dict) and context.get("payment_mode"):
-                st.write("Payment mode:", context["payment_mode"])
-            st.write("Suggested review action: Review the underlying transactions and supporting records.")
-    return True
 
+    severity_counts = {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0}
+    for item in anomalies:
+        severity = str(item.get("severity") or "").upper()
+        if severity in severity_counts:
+            severity_counts[severity] += 1
+
+    st.markdown("#### Anomaly Summary")
+    summary_columns = st.columns(4)
+    summary_columns[0].metric("Total Findings", len(anomalies))
+    summary_columns[1].metric(
+        "High / Critical",
+        severity_counts["HIGH"] + severity_counts["CRITICAL"],
+    )
+    summary_columns[2].metric("Medium", severity_counts["MEDIUM"])
+    summary_columns[3].metric("Low", severity_counts["LOW"])
+
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for item in anomalies:
+        grouped.setdefault(_anomaly_group(item), []).append(item)
+
+    ordered_labels = [label for label, _types in _ANOMALY_GROUPS]
+    ordered_labels.extend(
+        label for label in grouped
+        if label not in ordered_labels
+    )
+    currency = str((args or {}).get("currency") or "INR")
+    for label in ordered_labels:
+        findings = grouped.get(label, [])
+        if not findings:
+            continue
+        with st.expander(f"{label} ({len(findings)})", expanded=False):
+            for item in findings:
+                _render_anomaly_card(st, item, currency)
+    return True
 
 def render_recommendations(st: Any, token: str, business: dict[str, Any]) -> bool:
     args, health = _health_context(st, token, business)
