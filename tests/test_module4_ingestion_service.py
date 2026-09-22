@@ -297,16 +297,16 @@ def test_existing_source_id_is_classified_as_duplicate(ingestion_repository):
     assert result.records[0].outcome == ingestion_identity.IdentityOutcome.DUPLICATE_SOURCE_ID
 
 
-def test_existing_canonical_hash_is_classified_as_duplicate(ingestion_repository):
+def test_different_source_id_same_financial_tuple_is_unique(ingestion_repository):
     with ingestion_repository() as connection:
         seed_identity(connection)
     result = ingestion_service.prepare_ingestion(
         **prepare_args(payload=make_payload([make_record(source_transaction_id="SRC-002")]))
     )
-    assert result.records[0].outcome == ingestion_identity.IdentityOutcome.DUPLICATE_CANONICAL_IDENTITY
+    assert result.records[0].outcome == ingestion_identity.IdentityOutcome.UNIQUE
 
 
-def test_within_batch_duplicate_is_classified_without_writes(ingestion_repository):
+def test_within_batch_different_source_ids_same_tuple_are_both_unique(ingestion_repository):
     record = make_record(source_transaction_id="SRC-NEW")
     second_record = dict(record, source_transaction_id="SRC-NEW-2")
     result = ingestion_service.prepare_ingestion(
@@ -314,7 +314,7 @@ def test_within_batch_duplicate_is_classified_without_writes(ingestion_repositor
     )
     assert [item.outcome for item in result.records] == [
         ingestion_identity.IdentityOutcome.UNIQUE,
-        ingestion_identity.IdentityOutcome.DUPLICATE_CANONICAL_IDENTITY,
+        ingestion_identity.IdentityOutcome.UNIQUE,
     ]
     with ingestion_repository() as connection:
         assert_no_module4_writes(connection)
@@ -444,23 +444,16 @@ def test_ingest_manager_writes_legacy_owner_not_uploader(ingestion_repository):
     assert ledger["user_id"] == "legacy_owner_001"
 
 
-@pytest.mark.parametrize(
-    "source_transaction_id",
-    ["SRC-001", "SRC-002"],
-)
-def test_known_duplicates_do_not_insert_financial_rows(
-    ingestion_repository, source_transaction_id
-):
+def test_same_source_id_does_not_insert_financial_row_twice(ingestion_repository):
     with ingestion_repository() as connection:
         seed_identity(connection)
-    before = None
     with ingestion_repository() as connection:
         before = _module4_counts(connection)
 
     result = ingestion_service.ingest(
         **prepare_args(
             payload=make_payload(
-                [make_record(source_transaction_id=source_transaction_id)]
+                [make_record(source_transaction_id="SRC-001")]
             )
         )
     )
@@ -471,6 +464,34 @@ def test_known_duplicates_do_not_insert_financial_rows(
     with ingestion_repository() as connection:
         after = _module4_counts(connection)
     assert after == (before[0] + 1, before[1], before[2])
+
+
+def test_different_source_ids_same_tuple_both_insert_and_exact_reupload_dedupes(
+    ingestion_repository,
+):
+    records = [
+        make_record(source_transaction_id="SRC-A"),
+        make_record(source_transaction_id="SRC-B"),
+    ]
+
+    first = ingestion_service.ingest(
+        **prepare_args(payload=make_payload(records))
+    )
+    assert (first.inserted_count, first.duplicate_count) == (2, 0)
+
+    second = ingestion_service.ingest(
+        **prepare_args(payload=make_payload(records))
+    )
+    assert (second.inserted_count, second.duplicate_count) == (0, 2)
+
+    with ingestion_repository() as connection:
+        rows = connection.execute(
+            """SELECT source_transaction_id, canonical_identity_hash
+               FROM ingested_transaction_identities
+               ORDER BY source_transaction_id"""
+        ).fetchall()
+    assert [row["source_transaction_id"] for row in rows] == ["SRC-A", "SRC-B"]
+    assert len({row["canonical_identity_hash"] for row in rows}) == 2
 
 
 def test_source_identity_conflict_fails_without_partial_writes(ingestion_repository):
@@ -490,9 +511,15 @@ def test_source_identity_conflict_fails_without_partial_writes(ingestion_reposit
         assert _module4_counts(connection) == (1, 1, 1)
 
 
-def test_canonical_identity_conflict_fails_without_partial_writes(ingestion_repository):
+def test_fallback_canonical_identity_conflict_fails_without_partial_writes(
+    ingestion_repository,
+):
     with ingestion_repository() as connection:
-        seed_identity(connection, source_transaction_id="SRC-OLD", values={"amount_minor": 9999})
+        seed_identity(
+            connection,
+            source_transaction_id=None,
+            values={"amount_minor": 9999},
+        )
         connection.execute(
             "UPDATE ingested_transaction_identities SET canonical_identity_hash=?",
             (
@@ -511,7 +538,7 @@ def test_canonical_identity_conflict_fails_without_partial_writes(ingestion_repo
         ingestion_service.ingest(
             **prepare_args(
                 payload=make_payload(
-                    [make_record(source_transaction_id="SRC-NEW")]
+                    [make_record()]
                 )
             )
         )
