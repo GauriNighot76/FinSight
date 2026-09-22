@@ -315,14 +315,26 @@ def build_advisory_model(
         recommendations if isinstance(recommendations, list) else []
     )
 
-    income_categories = [
-        row for row in categories
-        if isinstance(row, dict) and row.get("income_minor", 0)
-    ]
-    expense_categories = [
-        row for row in categories
-        if isinstance(row, dict) and row.get("expense_minor", 0)
-    ]
+    income_categories = sorted(
+        [
+            row for row in categories
+            if isinstance(row, dict) and row.get("income_minor", 0)
+        ],
+        key=lambda row: (
+            -int(row.get("income_minor", 0) or 0),
+            str(row.get("category") or ""),
+        ),
+    )
+    expense_categories = sorted(
+        [
+            row for row in categories
+            if isinstance(row, dict) and row.get("expense_minor", 0)
+        ],
+        key=lambda row: (
+            -int(row.get("expense_minor", 0) or 0),
+            str(row.get("category") or ""),
+        ),
+    )
 
     positives: list[str] = []
     net_cash_flow = summary.get("net_cash_flow_minor")
