@@ -587,6 +587,29 @@ def generate_business_report(
                 [28 * mm, 30 * mm, 30 * mm, 36 * mm, 36 * mm],
             ))
 
+            type_counts = anomaly_summary.get("type_counts", {})
+            type_counts = type_counts if isinstance(type_counts, dict) else {}
+            ranked_types = sorted(
+                type_counts.items(),
+                key=lambda item: (-int(item[1]), str(item[0])),
+            )
+            if ranked_types:
+                story.append(Spacer(1, 2 * mm))
+                type_rows = [
+                    [str(name).replace("_", " ").title(), count]
+                    for name, count in ranked_types[:6]
+                ]
+                story.append(_table(
+                    ["Finding Type", "Count"],
+                    type_rows,
+                    [125 * mm, 35 * mm],
+                ))
+                if len(ranked_types) > 6:
+                    story.append(Paragraph(
+                        f"{len(ranked_types) - 6} additional finding type(s) are summarized in FinSight.",
+                        styles["FS_Small"],
+                    ))
+
             examples = anomaly_summary.get("material_examples", [])
             examples = examples if isinstance(examples, list) else []
             for item in examples[:3]:
