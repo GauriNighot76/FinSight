@@ -147,9 +147,15 @@ def test_source_conflict_fails_closed_without_new_rows(ingestion_repository):
         assert _module4_counts(connection) == (1, 1, 1)
 
 
-def test_canonical_conflict_fails_closed_without_new_rows(ingestion_repository):
+def test_fallback_canonical_conflict_fails_closed_without_new_rows(
+    ingestion_repository,
+):
     with ingestion_repository() as connection:
-        seed_identity(connection, source_transaction_id="E2E-OLD", values={"amount_minor": 9999})
+        seed_identity(
+            connection,
+            source_transaction_id=None,
+            values={"amount_minor": 9999},
+        )
         connection.execute(
             "UPDATE ingested_transaction_identities SET canonical_identity_hash=?",
             (ingestion_identity.build_canonical_identity_hash(
@@ -159,7 +165,7 @@ def test_canonical_conflict_fails_closed_without_new_rows(ingestion_repository):
 
     with pytest.raises(ingestion_service.IngestionServiceError) as exc_info:
         ingestion_service.ingest(
-            **prepare_args(payload=make_payload([make_record(source_transaction_id="E2E-NEW")]))
+            **prepare_args(payload=make_payload([make_record()]))
         )
     assert exc_info.value.code == "IDENTITY_CONFLICT"
     with ingestion_repository() as connection:
