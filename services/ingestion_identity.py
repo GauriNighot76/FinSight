@@ -10,6 +10,7 @@ from database import queries
 
 
 IDENTITY_VERSION = "finsight_transaction_identity_v1"
+SOURCE_IDENTITY_VERSION = "finsight_source_transaction_identity_v1"
 
 
 class IdentityError(ValueError):
@@ -117,6 +118,65 @@ def build_canonical_identity_hash(
     return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
 
 
+def serialize_source_identity(
+    account_id: Any,
+    source_system: Any,
+    source_transaction_id: Any,
+    currency: Any,
+    transaction_date: Any,
+    amount_minor: Any,
+    direction: Any,
+    identity_version: Any = SOURCE_IDENTITY_VERSION,
+) -> str:
+    """Serialize a source-backed transaction identity deterministically.
+
+    A trustworthy source transaction ID has precedence over the fallback
+    financial tuple.  The financial components remain in the serialization so
+    reusing one source ID for different transaction data is a conflict rather
+    than a duplicate.
+    """
+    if identity_version != SOURCE_IDENTITY_VERSION or type(identity_version) is not str:
+        raise IdentityError()
+    source_transaction_id = _require_text(source_transaction_id)
+    values = _require_identity_inputs(
+        account_id,
+        source_system,
+        currency,
+        transaction_date,
+        amount_minor,
+        direction,
+        IDENTITY_VERSION,
+    )
+    return json.dumps(
+        [identity_version, values[1], values[2], source_transaction_id, *values[3:]],
+        ensure_ascii=False,
+        separators=(",", ":"),
+        allow_nan=False,
+    )
+
+
+def build_source_identity_hash(
+    account_id: Any,
+    source_system: Any,
+    source_transaction_id: Any,
+    currency: Any,
+    transaction_date: Any,
+    amount_minor: Any,
+    direction: Any,
+) -> str:
+    """Hash a source-backed identity scoped to account and source system."""
+    serialized = serialize_source_identity(
+        account_id,
+        source_system,
+        source_transaction_id,
+        currency,
+        transaction_date,
+        amount_minor,
+        direction,
+    )
+    return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+
+
 def build_canonical_identity_hash_for_record(
     record: Any,
     account_id: Any,
@@ -124,7 +184,11 @@ def build_canonical_identity_hash_for_record(
     currency: Any,
     identity_version: Any = IDENTITY_VERSION,
 ) -> str:
-    """Build identity from only the approved identity-bearing record fields."""
+    """Build the persisted identity hash using source-ID-first precedence.
+
+    Records with a trustworthy source transaction ID use a source-backed hash.
+    Records without one retain the legacy date/amount/direction fallback hash.
+    """
     if type(record) is not dict:
         raise IdentityError()
     try:
@@ -133,6 +197,19 @@ def build_canonical_identity_hash_for_record(
         direction = record["direction"]
     except (KeyError, TypeError):
         raise IdentityError() from None
+
+    source_transaction_id = _source_transaction_id(record)
+    if source_transaction_id is not None:
+        return build_source_identity_hash(
+            account_id,
+            source_system,
+            source_transaction_id,
+            currency,
+            transaction_date,
+            amount_minor,
+            direction,
+        )
+
     return build_canonical_identity_hash(
         account_id,
         source_system,
@@ -269,11 +346,14 @@ def classify_transaction_identity(
 
 __all__ = [
     "IDENTITY_VERSION",
+    "SOURCE_IDENTITY_VERSION",
     "IdentityClassification",
     "IdentityError",
     "IdentityOutcome",
     "build_canonical_identity_hash",
     "build_canonical_identity_hash_for_record",
+    "build_source_identity_hash",
     "classify_transaction_identity",
     "serialize_canonical_identity",
+    "serialize_source_identity",
 ]
