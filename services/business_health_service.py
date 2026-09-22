@@ -3,6 +3,8 @@
 from collections import defaultdict
 from datetime import date
 from decimal import Decimal, ROUND_HALF_UP
+import hashlib
+import json
 from typing import Any, Optional
 
 from database import queries
@@ -187,24 +189,33 @@ def _health_score(metrics: dict[str, Any]) -> tuple[int, str]:
     if _decimal(metrics.get("transaction_count")) == 0:
         return 0, "Critical"
     score = 100
-    ratio = _decimal(metrics["expense_to_income_ratio"])
-    savings = _decimal(metrics["savings_rate"])
+    ratio_value = metrics.get("expense_to_income_ratio")
+    savings_value = metrics.get("savings_rate")
+    ratio = _decimal(ratio_value) if ratio_value is not None else None
+    savings = _decimal(savings_value) if savings_value is not None else None
     stability = _decimal(metrics["cash_flow_stability"])
     concentration = _decimal(metrics["category_concentration"])
     recurring = _decimal(metrics["recurring_expense_burden"])
 
-    if ratio > Decimal("1.00"):
+    if ratio is None:
+        if (
+            _decimal(metrics.get("total_income_minor")) == 0
+            and _decimal(metrics.get("total_expense_minor")) > 0
+        ):
+            score -= 35
+    elif ratio > Decimal("1.00"):
         score -= 35
     elif ratio > Decimal("0.75"):
         score -= 20
     elif ratio > Decimal("0.50"):
         score -= 10
-    if savings < 0:
-        score -= 25
-    elif savings < 10:
-        score -= 15
-    elif savings < 25:
-        score -= 5
+    if savings is not None:
+        if savings < 0:
+            score -= 25
+        elif savings < 10:
+            score -= 15
+        elif savings < 25:
+            score -= 5
     if stability < 50:
         score -= 25
     elif stability < 75:
@@ -258,6 +269,7 @@ def _anomaly(
     *,
     period: Optional[str] = None,
     metric_value: Any = None,
+    detection_context: Optional[dict[str, Any]] = None,
 ) -> dict[str, Any]:
     transaction_reference = None
     if isinstance(row, dict):
@@ -274,6 +286,7 @@ def _anomaly(
         "threshold": threshold,
         "metric_value": threshold if metric_value is None else metric_value,
         "transaction_reference": transaction_reference,
+        "detection_context": dict(detection_context or {}),
     }
 
 
@@ -521,15 +534,17 @@ def _detect_period_anomalies(
     if total_count >= 3:
         for row in payment_modes:
             if int(_decimal(row.get("count"))) == 1:
+                payment_mode = str(row.get("payment_mode") or "Other")
                 anomalies.append(
                     _anomaly(
                         "unexpected_payment_mode",
                         "Medium",
                         None,
-                        "This payment mode appears only once in the selected period.",
+                        f"Payment mode {payment_mode} appears only once in the selected period.",
                         "payment_mode_count",
                         1,
                         period=None,
+                        detection_context={"payment_mode": payment_mode},
                     )
                 )
 
@@ -565,6 +580,31 @@ def _phase2_severity(value: Any) -> str:
     return "MEDIUM"
 
 
+def _anomaly_identity(
+    anomaly: dict[str, Any],
+    *,
+    business_id: str,
+    account_id: str,
+) -> str:
+    identity_payload = {
+        "business_id": business_id,
+        "account_id": account_id,
+        "type": anomaly.get("type"),
+        "date": anomaly.get("date"),
+        "transaction_reference": anomaly.get("transaction_reference"),
+        "affected_transaction": anomaly.get("affected_transaction"),
+        "trigger_metric": anomaly.get("trigger_metric"),
+        "detection_context": anomaly.get("detection_context") or {},
+    }
+    serialized = json.dumps(
+        identity_payload,
+        sort_keys=True,
+        separators=(",", ":"),
+        default=str,
+    )
+    return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+
+
 def _finalize_anomalies(
     anomalies: list[dict[str, Any]],
     *,
@@ -572,6 +612,7 @@ def _finalize_anomalies(
     account_id: str,
 ) -> list[dict[str, Any]]:
     finalized: list[dict[str, Any]] = []
+    seen_ids: set[str] = set()
     for anomaly in anomalies:
         base = dict(anomaly)
         anomaly_type = base.get("type")
@@ -582,16 +623,23 @@ def _finalize_anomalies(
         base["explanation"] = base.get("explanation") or base.get("reason")
         base["affected_period"] = base.get("affected_period", base.get("date"))
         base.setdefault("transaction_reference", None)
-        if anomaly_type != "sudden_expense_spike":
-            base["severity"] = _phase2_severity(base.get("severity"))
-        finalized.append(base)
+        base.setdefault("detection_context", {})
+        base["severity"] = _phase2_severity(base.get("severity"))
 
         alias = _PHASE2_TYPE_ALIASES.get(anomaly_type)
         if alias is not None:
-            aliased = dict(base)
-            aliased["type"] = alias
-            aliased["severity"] = _phase2_severity(base.get("severity"))
-            finalized.append(aliased)
+            base["legacy_type"] = alias
+
+        anomaly_id = _anomaly_identity(
+            base,
+            business_id=business_id,
+            account_id=account_id,
+        )
+        if anomaly_id in seen_ids:
+            continue
+        seen_ids.add(anomaly_id)
+        base["anomaly_id"] = anomaly_id
+        finalized.append(base)
     return finalized
 
 
@@ -667,9 +715,13 @@ def get_business_health(
         "expense_to_income_ratio": (
             (total_expense / total_income).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
             if total_income
-            else Decimal("0.00")
+            else None
         ),
-        "savings_rate": _decimal(kpis.get("savings_rate")),
+        "savings_rate": (
+            _decimal(kpis.get("savings_rate"))
+            if kpis.get("savings_rate") is not None
+            else None
+        ),
         "recurring_expense_burden": _recurring_expense_burden(
             transactions, total_expense
         ),
@@ -708,7 +760,7 @@ def get_business_health(
     metrics["income_ratio"] = (
         (total_income / total_expense).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
         if total_expense
-        else Decimal("0.00")
+        else None
     )
 
     anomalies = _detect_transaction_anomalies(transactions)
