@@ -281,6 +281,49 @@ def build_report(
 
 
 
+def _anomaly_summary(anomalies: list[Any]) -> dict[str, Any]:
+    """Summarize the health-service anomaly set without re-detecting findings."""
+    valid = [item for item in anomalies if isinstance(item, dict)]
+    severity_counts = {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0}
+    type_counts: dict[str, int] = {}
+    for item in valid:
+        severity = str(item.get("severity") or "").upper()
+        if severity in severity_counts:
+            severity_counts[severity] += 1
+        anomaly_type = str(item.get("type") or "other")
+        type_counts[anomaly_type] = type_counts.get(anomaly_type, 0) + 1
+
+    severity_order = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}
+    ranked = sorted(
+        valid,
+        key=lambda item: (
+            severity_order.get(str(item.get("severity") or "").upper(), 9),
+            str(item.get("affected_period") or item.get("date") or ""),
+            str(item.get("type") or ""),
+            str(item.get("anomaly_id") or ""),
+        ),
+    )
+    examples = [
+        {
+            "anomaly_id": item.get("anomaly_id"),
+            "type": item.get("type"),
+            "severity": item.get("severity"),
+            "affected_period": item.get("affected_period") or item.get("date"),
+            "explanation": item.get("explanation") or item.get("reason"),
+            "affected_transaction": item.get("affected_transaction"),
+            "detection_context": item.get("detection_context") or {},
+        }
+        for item in ranked[:5]
+    ]
+    return {
+        "total": len(valid),
+        "severity_counts": severity_counts,
+        "type_counts": dict(sorted(type_counts.items())),
+        "material_examples": examples,
+        "additional_count": max(0, len(valid) - len(examples)),
+    }
+
+
 def build_advisory_model(
     report: dict[str, Any],
     recommendations: list[dict[str, Any]] | None = None,
@@ -518,6 +561,7 @@ def build_advisory_model(
         "internal_actions": internal_actions,
         "lender_observations": lender_observations,
         "priority_actions": priority_actions[:5],
+        "anomaly_summary": _anomaly_summary(anomalies),
         "unsupported_metrics": [
             "Gross margin / gross profit",
             "EBITDA",
