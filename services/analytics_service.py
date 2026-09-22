@@ -160,12 +160,26 @@ def _build_category_summary(rows: list[Any]) -> list[dict[str, Any]]:
         category = row["category"] or "Uncategorized"
         group = groups.setdefault(
             category,
-            {"income_minor": 0, "expense_minor": 0, "count": 0},
+            {
+                "income_minor": 0,
+                "expense_minor": 0,
+                "income_count": 0,
+                "expense_count": 0,
+                "count": 0,
+            },
         )
+        direction = row["direction"]
         group["count"] += 1
-        group[f"{row['direction']}_minor"] += row["amount_minor"]
+        group[f"{direction}_count"] += 1
+        group[f"{direction}_minor"] += row["amount_minor"]
 
-    total_amount = sum(row["amount_minor"] for row in rows)
+    total_income = sum(
+        row["amount_minor"] for row in rows if row["direction"] == "income"
+    )
+    total_expense = sum(
+        row["amount_minor"] for row in rows if row["direction"] == "expense"
+    )
+    total_amount = total_income + total_expense
     result = []
     for category, group in groups.items():
         amount = group["income_minor"] + group["expense_minor"]
@@ -175,7 +189,15 @@ def _build_category_summary(rows: list[Any]) -> list[dict[str, Any]]:
                 "income_minor": group["income_minor"],
                 "expense_minor": group["expense_minor"],
                 "amount_minor": amount,
+                "income_count": group["income_count"],
+                "expense_count": group["expense_count"],
                 "count": group["count"],
+                "income_percentage": _percentage(
+                    group["income_minor"], total_income
+                ),
+                "expense_percentage": _percentage(
+                    group["expense_minor"], total_expense
+                ),
                 "percentage": _percentage(amount, total_amount),
             }
         )
@@ -196,12 +218,26 @@ def _build_payment_mode_summary(rows: list[Any]) -> list[dict[str, Any]]:
             payment_mode = "Other"
         group = groups.setdefault(
             payment_mode,
-            {"income_minor": 0, "expense_minor": 0, "count": 0},
+            {
+                "income_minor": 0,
+                "expense_minor": 0,
+                "income_count": 0,
+                "expense_count": 0,
+                "count": 0,
+            },
         )
+        direction = row["direction"]
         group["count"] += 1
-        group[f"{row['direction']}_minor"] += row["amount_minor"]
+        group[f"{direction}_count"] += 1
+        group[f"{direction}_minor"] += row["amount_minor"]
 
-    total_amount = sum(row["amount_minor"] for row in rows)
+    total_income = sum(
+        row["amount_minor"] for row in rows if row["direction"] == "income"
+    )
+    total_expense = sum(
+        row["amount_minor"] for row in rows if row["direction"] == "expense"
+    )
+    total_amount = total_income + total_expense
     result = []
     for payment_mode, group in groups.items():
         amount = group["income_minor"] + group["expense_minor"]
@@ -211,7 +247,15 @@ def _build_payment_mode_summary(rows: list[Any]) -> list[dict[str, Any]]:
                 "income_minor": group["income_minor"],
                 "expense_minor": group["expense_minor"],
                 "amount_minor": amount,
+                "income_count": group["income_count"],
+                "expense_count": group["expense_count"],
                 "count": group["count"],
+                "income_percentage": _percentage(
+                    group["income_minor"], total_income
+                ),
+                "expense_percentage": _percentage(
+                    group["expense_minor"], total_expense
+                ),
                 "percentage": _percentage(amount, total_amount),
             }
         )
