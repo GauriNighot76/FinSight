@@ -145,9 +145,38 @@ def _analytics_result(*, empty=False):
             "weekly": [{"period": "2026-W31", "income_minor": 1000}],
             "monthly": [{"period": "2026-08", "income_minor": 1000}],
         },
-        "categories": [{"category": "Sales", "amount_minor": 1000}],
-        "payment_modes": [{"payment_mode": "UPI", "amount_minor": 1000}],
-        "accounts": [{"transaction_count": 2, "net_cash_flow_minor": 750}],
+        "categories": [{
+            "category": "Sales",
+            "income_minor": 1000,
+            "expense_minor": 0,
+            "amount_minor": 1000,
+            "income_count": 1,
+            "expense_count": 0,
+            "count": 1,
+            "income_percentage": Decimal("100.00"),
+            "expense_percentage": Decimal("0.00"),
+            "percentage": Decimal("100.00"),
+        }],
+        "payment_modes": [{
+            "payment_mode": "UPI",
+            "income_minor": 1000,
+            "expense_minor": 0,
+            "amount_minor": 1000,
+            "income_count": 1,
+            "expense_count": 0,
+            "count": 1,
+            "income_percentage": Decimal("100.00"),
+            "expense_percentage": Decimal("0.00"),
+            "percentage": Decimal("100.00"),
+        }],
+        "accounts": [{
+            "opening_balance_minor": 5000,
+            "closing_balance_minor": 5750,
+            "total_income_minor": 1000,
+            "total_expense_minor": 250,
+            "net_cash_flow_minor": 750,
+            "transaction_count": 2,
+        }],
     }
 
 
@@ -297,7 +326,33 @@ def test_trends_and_summary_sections_render_explicit_numeric_charts(monkeypatch)
             for column in ("Income", "Expenses", "Net Cash Flow")
         )
 
-    assert tables == [result["categories"], result["payment_modes"], result["accounts"]]
+    assert tables[0] == [{
+        "Category": "Sales",
+        "Income": 10.0,
+        "Expenses": 0.0,
+        "Income Transactions": 1,
+        "Expense Transactions": 0,
+        "Income Share (%)": Decimal("100.00"),
+        "Expense Share (%)": Decimal("0.00"),
+    }]
+    assert tables[1] == [{
+        "Payment Mode": "UPI",
+        "Income": 10.0,
+        "Expenses": 0.0,
+        "Income Transactions": 1,
+        "Expense Transactions": 0,
+        "Income Share (%)": Decimal("100.00"),
+        "Expense Share (%)": Decimal("0.00"),
+    }]
+    assert tables[2] == [{
+        "Opening Balance": 50.0,
+        "Closing Balance": 57.5,
+        "Total Income": 10.0,
+        "Total Expenses": 2.5,
+        "Net Cash Flow": 7.5,
+        "Transactions": 2,
+    }]
+    assert "_minor" not in repr(tables)
 
 
 @pytest.mark.parametrize(
