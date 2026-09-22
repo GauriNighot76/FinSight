@@ -30,6 +30,9 @@ class FakeStreamlit:
     def success(self, value):
         self.events.append(("success", value))
 
+    def error(self, value):
+        self.events.append(("error", value))
+
     def container(self, **_kwargs):
         return _Container()
 
@@ -235,3 +238,73 @@ def test_category_and_negative_daily_titles_expose_context(monkeypatch):
     assert "Inventory" in rendered
     assert "Negative Daily Cash Flow" in rendered
     assert "Affected day:" in rendered
+
+
+def test_health_context_rejects_stale_legacy_anomaly_engine(monkeypatch):
+    ui = FakeStreamlit()
+    monkeypatch.setattr(
+        workspace_ui,
+        "_business_account",
+        lambda st, token, business_id: {
+            "account_id": "account-1",
+            "currency": "INR",
+        },
+    )
+    monkeypatch.setattr(
+        workspace_ui.business_health_service,
+        "get_business_health",
+        lambda **kwargs: {
+            "metrics": {"transaction_count": 10},
+            "anomalies": [
+                {
+                    "type": "unusually_large_income",
+                    "severity": "HIGH",
+                    "reason": "The income is more than twice the average income amount.",
+                }
+            ],
+        },
+    )
+
+    args, health = workspace_ui._health_context(
+        ui,
+        "token",
+        {"business_id": "business-1"},
+    )
+
+    assert args["business_id"] == "business-1"
+    assert health is None
+    assert any(
+        event[0] == "error" and "runtime is out of date" in event[1].lower()
+        for event in ui.events
+    )
+
+
+def test_health_context_accepts_only_current_anomaly_engine(monkeypatch):
+    ui = FakeStreamlit()
+    payload = {
+        "metrics": {"transaction_count": 10},
+        "anomalies": [],
+        "anomaly_engine_version": "finsight_tukey_outer_v1",
+    }
+    monkeypatch.setattr(
+        workspace_ui,
+        "_business_account",
+        lambda st, token, business_id: {
+            "account_id": "account-1",
+            "currency": "INR",
+        },
+    )
+    monkeypatch.setattr(
+        workspace_ui.business_health_service,
+        "get_business_health",
+        lambda **kwargs: payload,
+    )
+
+    _args, health = workspace_ui._health_context(
+        ui,
+        "token",
+        {"business_id": "business-1"},
+    )
+
+    assert health is payload
+    assert not any(event[0] == "error" for event in ui.events)
