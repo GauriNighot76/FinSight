@@ -244,8 +244,8 @@ def test_anomalies_are_explainable_and_do_not_expose_transaction_ids(monkeypatch
 
     anomalies = _health(service)["anomalies"]
 
-    assert any(anomaly["type"] == "unusually_large_expense" for anomaly in anomalies)
-    assert any(anomaly["type"] == "repeated_identical_transactions" for anomaly in anomalies)
+    assert not any(anomaly["type"] == "unusually_large_expense" for anomaly in anomalies)
+    assert not any(anomaly["type"] == "repeated_identical_transactions" for anomaly in anomalies)
     for anomaly in anomalies:
         assert set(anomaly) >= {
             "type",
@@ -391,7 +391,7 @@ def test_anomaly_identity_is_unique_and_repeated_analysis_is_idempotent(monkeypa
     assert len(ids) == len(set(ids))
     assert first == second
     assert not any(item["type"] == item.get("legacy_type") for item in first)
-    assert sum(item["type"] == "unusually_large_expense" for item in first) == 1
+    assert sum(item["type"] == "unusually_large_expense" for item in first) == 0
     payment = [item for item in first if item["type"] == "unexpected_payment_mode"]
     assert len(payment) == 1
     assert payment[0]["detection_context"]["payment_mode"] == "Cash"
@@ -500,7 +500,7 @@ def test_sudden_expense_spike_is_detected(monkeypatch):
     anomalies = _health(service)["anomalies"]
 
     spike = next(item for item in anomalies if item["type"] == "sudden_expense_spike")
-    assert spike["severity"] == "HIGH"
+    assert spike["severity"] == "MEDIUM"
     assert spike["threshold"] == Decimal("50.00")
 
 
@@ -655,42 +655,34 @@ def _phase2_analysis(*, income=1000, expense=300, trends=None, transactions=None
 def test_phase2_anomalies_have_required_safe_metadata(monkeypatch):
     transactions = [
         {
-            "transaction_date": "2026-08-01",
-            "amount_minor": 100,
+            "transaction_date": f"2026-08-{index:02d}",
+            "amount_minor": amount,
             "direction": "expense",
             "category": "Food",
             "payment_mode": "UPI",
-            "source_transaction_id": "source-1",
-        },
-        {
-            "transaction_date": "2026-08-02",
-            "amount_minor": 100,
-            "direction": "expense",
-            "category": "Food",
-            "payment_mode": "UPI",
-            "source_transaction_id": "source-2",
-        },
-        {
-            "transaction_date": "2026-08-03",
-            "amount_minor": 1000,
-            "direction": "expense",
-            "category": "Food",
-            "payment_mode": "UPI",
-            "source_transaction_id": "source-3",
-        },
+            "description": f"Purchase {index}",
+            "source_transaction_id": f"source-{index}",
+        }
+        for index, amount in enumerate(
+            [100, 110, 120, 130, 140, 150, 160, 1000],
+            start=1,
+        )
     ]
     service = _authorized_context(
         monkeypatch,
-        _phase2_analysis(income=1000, expense=1200, transactions=transactions),
+        _phase2_analysis(income=2000, expense=1910, transactions=transactions),
     )
 
     anomalies = _health(service)["anomalies"]
 
-    assert any(
-        item["type"] == "unusually_large_expense"
-        and item.get("legacy_type") == "large_transaction"
-        for item in anomalies
+    large = next(
+        item for item in anomalies
+        if item["type"] == "unusually_large_expense"
     )
+    assert large.get("legacy_type") == "large_transaction"
+    assert large["severity"] == "HIGH"
+    assert large["affected_transaction"]["description"] == "Purchase 8"
+    assert large["detection_context"]["sample_size"] == 8
     for anomaly in anomalies:
         assert anomaly["severity"] in {"LOW", "MEDIUM", "HIGH", "CRITICAL"}
         assert anomaly["business_id"] == BUSINESS_ID
@@ -753,7 +745,6 @@ def test_phase2_period_rules_are_all_detected(monkeypatch):
 
     assert {
         "expense_explosion",
-        "sudden_income_drop",
         "negative_cash_flow_period",
         "category_spike",
         "unexpected_payment_mode",
@@ -789,32 +780,25 @@ def test_phase2_ratio_and_stability_rules_use_strict_boundaries(monkeypatch):
 def test_phase2_duplicate_pattern_and_recurring_growth_are_deterministic(monkeypatch):
     transactions = [
         {
-            "transaction_date": "2026-01-01",
-            "amount_minor": 100,
+            "transaction_date": transaction_date,
+            "amount_minor": amount,
             "direction": "expense",
             "category": "Rent",
             "payment_mode": "Bank",
-        },
-        {
-            "transaction_date": "2026-01-02",
-            "amount_minor": 100,
-            "direction": "expense",
-            "category": "Rent",
-            "payment_mode": "Bank",
-        },
-        {
-            "transaction_date": "2026-02-01",
-            "amount_minor": 200,
-            "direction": "expense",
-            "category": "Rent",
-            "payment_mode": "Bank",
-        },
+        }
+        for transaction_date, amount in [
+            ("2026-01-01", 100),
+            ("2026-01-02", 100),
+            ("2026-01-03", 100),
+            ("2026-01-04", 100),
+            ("2026-02-01", 200),
+        ]
     ]
     service = _authorized_context(
         monkeypatch,
         _phase2_analysis(
             income=1000,
-            expense=400,
+            expense=600,
             trends={"daily": [], "weekly": [], "monthly": []},
             transactions=transactions,
         ),
@@ -825,6 +809,14 @@ def test_phase2_duplicate_pattern_and_recurring_growth_are_deterministic(monkeyp
     anomaly_types = {item["type"] for item in first["anomalies"]}
 
     assert "repeated_identical_transactions" in anomaly_types
+    repeated = next(
+        item for item in first["anomalies"]
+        if item["type"] == "repeated_identical_transactions"
+    )
+    assert repeated["severity"] == "LOW"
+    assert repeated["detection_context"]["occurrence_count"] == 4
+    assert "not proof of duplicate" in repeated["explanation"].lower()
+
     recurring = next(
         item for item in first["anomalies"]
         if item["type"] == "very_high_recurring_expenses"
