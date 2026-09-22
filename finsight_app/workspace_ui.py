@@ -145,7 +145,8 @@ def render_overview(st: Any, token: str, business: dict[str, Any]) -> bool:
         modes = pd.DataFrame([
             {
                 "Payment Mode": row.get("payment_mode") or "Other",
-                "Amount": float(Decimal(row.get("amount_minor", 0)) / 100),
+                "Income": float(Decimal(row.get("income_minor", 0)) / 100),
+                "Expenses": float(Decimal(row.get("expense_minor", 0)) / 100),
             }
             for row in payment_modes
         ])
@@ -280,6 +281,9 @@ def render_anomalies(st: Any, token: str, business: dict[str, Any]) -> bool:
             st.write(item.get("explanation") or item.get("reason") or "This pattern requires review.")
             if item.get("affected_period"):
                 st.write("Affected period:", item["affected_period"])
+            context = item.get("detection_context")
+            if isinstance(context, dict) and context.get("payment_mode"):
+                st.write("Payment mode:", context["payment_mode"])
             st.write("Suggested review action: Review the underlying transactions and supporting records.")
     return True
 
