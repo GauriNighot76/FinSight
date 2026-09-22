@@ -15,6 +15,16 @@ class BusinessHealthError(ValueError):
     """Safe error raised for invalid or unavailable health requests."""
 
 
+# Statistical anomaly rules are intentionally conservative for skewed MSME data.
+# Tukey's outer fence (Q3 + 3*IQR) is used only when a direction has enough
+# observations for a meaningful distribution.  This reserves HIGH severity for
+# genuinely exceptional transaction amounts rather than merely above-average ones.
+_MIN_OUTLIER_SAMPLE_SIZE = 8
+_HIGH_OUTLIER_IQR_MULTIPLIER = Decimal("3")
+_REPEATED_PATTERN_MIN_OCCURRENCES = 4
+_REPEATED_PATTERN_MIN_DISTINCT_DATES = 3
+
+
 def _decimal(value: Any, default: Decimal = Decimal("0")) -> Decimal:
     if isinstance(value, Decimal):
         return value
@@ -22,6 +32,37 @@ def _decimal(value: Any, default: Decimal = Decimal("0")) -> Decimal:
         return Decimal(str(value))
     except (ArithmeticError, TypeError, ValueError):
         return default
+
+
+def _median(values: list[Decimal]) -> Decimal:
+    ordered = sorted(values)
+    midpoint = len(ordered) // 2
+    if len(ordered) % 2:
+        return ordered[midpoint]
+    return (ordered[midpoint - 1] + ordered[midpoint]) / Decimal(2)
+
+
+def _tukey_outer_fence(values: list[Decimal]) -> Optional[dict[str, Decimal]]:
+    """Return Tukey quartiles and the 3*IQR outer fence for a stable sample."""
+    if len(values) < _MIN_OUTLIER_SAMPLE_SIZE:
+        return None
+    ordered = sorted(values)
+    midpoint = len(ordered) // 2
+    lower = ordered[:midpoint]
+    upper = ordered[midpoint:] if len(ordered) % 2 == 0 else ordered[midpoint + 1 :]
+    if not lower or not upper:
+        return None
+    q1 = _median(lower)
+    q3 = _median(upper)
+    iqr = q3 - q1
+    if iqr <= 0:
+        return None
+    return {
+        "q1": q1,
+        "q3": q3,
+        "iqr": iqr,
+        "upper_fence": q3 + (_HIGH_OUTLIER_IQR_MULTIPLIER * iqr),
+    }
 
 
 def _percentage(numerator: Any, denominator: Any) -> Decimal:
@@ -252,6 +293,7 @@ def _affected_transaction(row: Optional[dict[str, Any]]) -> Optional[dict[str, A
         return None
     return {
         "date": row.get("transaction_date"),
+        "description": row.get("description"),
         "direction": row.get("direction"),
         "amount_minor": row.get("amount_minor"),
         "category": row.get("category") or "Uncategorized",
@@ -299,32 +341,48 @@ def _detect_transaction_anomalies(
         if row.get("direction") in {"income", "expense"}:
             by_direction[row["direction"]].append(row)
 
+    # Income and expense use independent robust baselines.  A HIGH large-
+    # transaction finding requires Tukey's outer fence (Q3 + 3*IQR), at least
+    # eight observations, and non-zero spread.  Small/identical samples do not
+    # support a statistical HIGH outlier claim.
     for direction, rows in by_direction.items():
-        average = (
-            sum(_decimal(row.get("amount_minor")) for row in rows) / len(rows)
-            if rows
-            else Decimal("0")
-        )
-        threshold = average * Decimal(2)
+        amounts = [_decimal(row.get("amount_minor")) for row in rows]
+        fence = _tukey_outer_fence(amounts)
+        if fence is None:
+            continue
+        threshold = fence["upper_fence"]
         for ordinal, row in enumerate(rows):
             amount = _decimal(row.get("amount_minor"))
-            if amount > threshold and threshold > 0:
+            if amount > threshold:
                 label = "income" if direction == "income" else "expense"
                 anomalies.append(
                     _anomaly(
                         f"unusually_large_{label}",
-                        "High",
+                        "HIGH",
                         row,
-                        f"The {label} is more than twice the average {label} amount.",
-                        "amount_minor",
+                        (
+                            f"The {label} exceeds the robust Tukey outer fence "
+                            "for comparable transactions in this direction."
+                        ),
+                        "amount_minor_iqr_outer_fence",
                         threshold,
+                        metric_value=amount,
                         detection_context={
                             "direction": direction,
                             "transaction_ordinal": ordinal,
+                            "sample_size": len(rows),
+                            "q1_minor": fence["q1"],
+                            "q3_minor": fence["q3"],
+                            "iqr_minor": fence["iqr"],
+                            "upper_fence_minor": threshold,
+                            "iqr_multiplier": _HIGH_OUTLIER_IQR_MULTIPLIER,
                         },
                     )
                 )
 
+    # This is deliberately a repeated-pattern review signal, not ingestion
+    # duplicate detection.  A pair of equal-value legitimate sales is too weak
+    # to flag; require repeated occurrence across several distinct dates.
     identical: dict[tuple[Any, ...], list[dict[str, Any]]] = defaultdict(list)
     for row in transactions:
         key = (
@@ -335,27 +393,44 @@ def _detect_transaction_anomalies(
         )
         identical[key].append(row)
     for rows in identical.values():
-        if len(rows) >= 2:
+        dates = sorted(
+            {
+                str(row.get("transaction_date") or "")
+                for row in rows
+                if row.get("transaction_date")
+            }
+        )
+        if (
+            len(rows) >= _REPEATED_PATTERN_MIN_OCCURRENCES
+            and len(dates) >= _REPEATED_PATTERN_MIN_DISTINCT_DATES
+        ):
             repeated_row = rows[0]
             anomalies.append(
                 _anomaly(
                     "repeated_identical_transactions",
-                    "Medium",
+                    "LOW",
                     repeated_row,
-                    "The same amount, direction, category, and payment mode repeat.",
-                    "identical_transaction_count",
-                    2,
+                    (
+                        f"The same amount/direction/category/payment pattern occurs "
+                        f"{len(rows)} times across {len(dates)} dates. This is a "
+                        "review signal, not proof of duplicate persisted transactions."
+                    ),
+                    "repeated_pattern_count",
+                    _REPEATED_PATTERN_MIN_OCCURRENCES,
                     metric_value=len(rows),
                     detection_context={
                         "amount_minor": repeated_row.get("amount_minor"),
                         "direction": repeated_row.get("direction"),
                         "category": repeated_row.get("category") or "Uncategorized",
                         "payment_mode": repeated_row.get("payment_mode") or "Other",
+                        "occurrence_count": len(rows),
+                        "distinct_date_count": len(dates),
+                        "first_date": dates[0],
+                        "last_date": dates[-1],
                     },
                 )
             )
     return anomalies
-
 
 def _detect_period_anomalies(
     analysis: dict[str, Any],
@@ -372,16 +447,24 @@ def _detect_period_anomalies(
         current_expense = _decimal(current.get("expense_minor"))
         previous_income = _decimal(previous.get("income_minor"))
         current_income = _decimal(current.get("income_minor"))
-        if previous_expense > 0 and current_expense >= previous_expense * Decimal("1.5"):
+        if (
+            previous_expense > 0
+            and current_expense >= previous_expense * Decimal("1.5")
+            and current_expense < previous_expense * Decimal("2")
+        ):
             anomalies.append(
                 _anomaly(
                     "sudden_expense_spike",
-                    "High",
+                    "MEDIUM",
                     None,
-                    "Monthly expenses increased sharply compared with the prior period.",
+                    "Monthly expenses increased by at least 50% compared with the prior month.",
                     "monthly_expense_growth",
                     Decimal("50.00"),
                     period=current.get("period"),
+                    metric_value=_percentage(
+                        current_expense - previous_expense, previous_expense
+                    ),
+                    detection_context={"period_kind": "monthly"},
                 )
             )
         if previous_expense > 0 and current_expense >= previous_expense * Decimal("2"):
@@ -394,9 +477,17 @@ def _detect_period_anomalies(
                     "monthly_expense_growth",
                     Decimal("100.00"),
                     period=current.get("period"),
+                    metric_value=_percentage(
+                        current_expense - previous_expense, previous_expense
+                    ),
+                    detection_context={"period_kind": "monthly"},
                 )
             )
-        if previous_income > 0 and current_income <= previous_income * Decimal("0.5"):
+        if (
+            previous_income > 0
+            and current_income <= previous_income * Decimal("0.5")
+            and current_income > 0
+        ):
             anomalies.append(
                 _anomaly(
                     "sudden_income_drop",
@@ -406,6 +497,8 @@ def _detect_period_anomalies(
                     "monthly_income_change",
                     Decimal("-50.00"),
                     period=current.get("period"),
+                    metric_value=_signed_change(current_income, previous_income),
+                    detection_context={"period_kind": "monthly"},
                 )
             )
         if previous_income > 0 and current_income == 0:
@@ -418,6 +511,7 @@ def _detect_period_anomalies(
                     "monthly_income_minor",
                     0,
                     period=current.get("period"),
+                    detection_context={"period_kind": "monthly"},
                 )
             )
 
@@ -472,18 +566,20 @@ def _detect_period_anomalies(
                 )
             )
 
-    for period in _periods(analysis):
+    for period in _trend_values(analysis, "daily"):
         net = _period_value(period, "net_cash_flow_minor")
         if net < 0:
             anomalies.append(
                 _anomaly(
                     "negative_cash_flow_period",
-                    "Medium",
+                    "LOW",
                     None,
-                    "The selected period has negative net cash flow.",
+                    "Recorded expenses exceeded recorded income on this day.",
                     "net_cash_flow_minor",
                     0,
                     period=period.get("period"),
+                    metric_value=net,
+                    detection_context={"period_kind": "daily"},
                 )
             )
 
@@ -515,29 +611,46 @@ def _detect_period_anomalies(
         previous_amount = month_values[previous_month]
         current_amount = month_values[current_month]
         if previous_amount > 0 and current_amount >= previous_amount * Decimal("1.5"):
+            growth = _percentage(current_amount - previous_amount, previous_amount)
+            severity = "HIGH" if growth >= Decimal("100.00") else "MEDIUM"
+            context = {
+                "category": category,
+                "previous_month": previous_month,
+                "current_month": current_month,
+                "previous_amount_minor": previous_amount,
+                "current_amount_minor": current_amount,
+                "growth_percentage": growth,
+            }
             anomalies.append(
                 _anomaly(
                     "category_spike",
-                    "High",
+                    severity,
                     category_rows.get((category, current_month)),
-                    "Expense spending in a category increased sharply compared with the prior month.",
+                    (
+                        f"Expense spending in {category} increased by {growth}% "
+                        "compared with its prior active month."
+                    ),
                     "category_monthly_growth",
                     Decimal("50.00"),
                     period=current_month,
+                    metric_value=growth,
+                    detection_context=context,
                 )
             )
             anomalies.append(
                 _anomaly(
                     "recurring_expense_growth",
-                    "HIGH",
+                    severity,
                     category_rows.get((category, current_month)),
-                    "A recurring expense category increased sharply compared with the prior month.",
+                    (
+                        f"Recurring expense activity in {category} increased by "
+                        f"{growth}% compared with its prior active month."
+                    ),
                     "recurring_expense_growth",
                     Decimal("50.00"),
                     period=current_month,
-                    metric_value=_percentage(
-                        current_amount - previous_amount, previous_amount
-                    ),
+                    metric_value=growth,
+                    detection_context=context,
                 )
             )
 
