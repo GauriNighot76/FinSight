@@ -19,6 +19,7 @@ class BusinessHealthError(ValueError):
 # Tukey's outer fence (Q3 + 3*IQR) is used only when a direction has enough
 # observations for a meaningful distribution.  This reserves HIGH severity for
 # genuinely exceptional transaction amounts rather than merely above-average ones.
+ANOMALY_ENGINE_VERSION = "finsight_tukey_outer_v1"
 _MIN_OUTLIER_SAMPLE_SIZE = 8
 _HIGH_OUTLIER_IQR_MULTIPLIER = Decimal("3")
 _REPEATED_PATTERN_MIN_OCCURRENCES = 4
@@ -730,6 +731,49 @@ def _anomaly_identity(
     return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
 
 
+def _category_movement_key(anomaly: dict[str, Any]) -> Optional[tuple[Any, ...]]:
+    if anomaly.get("type") not in {"category_spike", "recurring_expense_growth"}:
+        return None
+    context = anomaly.get("detection_context")
+    if not isinstance(context, dict):
+        return None
+    category = context.get("category")
+    if not category:
+        return None
+    return (
+        str(category),
+        str(anomaly.get("date") or context.get("current_month") or ""),
+        str(context.get("previous_month") or ""),
+        str(context.get("previous_amount_minor") or ""),
+        str(context.get("current_amount_minor") or ""),
+        str(context.get("growth_percentage") or anomaly.get("metric_value") or ""),
+    )
+
+
+def _suppress_semantic_duplicates(
+    anomalies: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Prefer the more specific recurring-growth finding for one category movement."""
+    recurring_keys = {
+        key
+        for anomaly in anomalies
+        if anomaly.get("type") == "recurring_expense_growth"
+        for key in [_category_movement_key(anomaly)]
+        if key is not None
+    }
+    result: list[dict[str, Any]] = []
+    for anomaly in anomalies:
+        key = _category_movement_key(anomaly)
+        if (
+            anomaly.get("type") == "category_spike"
+            and key is not None
+            and key in recurring_keys
+        ):
+            continue
+        result.append(anomaly)
+    return result
+
+
 def _finalize_anomalies(
     anomalies: list[dict[str, Any]],
     *,
@@ -737,6 +781,7 @@ def _finalize_anomalies(
     account_id: str,
 ) -> list[dict[str, Any]]:
     finalized: list[dict[str, Any]] = []
+    anomalies = _suppress_semantic_duplicates(anomalies)
     seen_ids: set[str] = set()
     for anomaly in anomalies:
         base = dict(anomaly)
@@ -777,6 +822,25 @@ def _sort_anomalies(anomalies: list[dict[str, Any]]) -> list[dict[str, Any]]:
             str(row.get("severity") or ""),
         ),
     )
+
+
+def _generate_anomalies(
+    *,
+    analysis: dict[str, Any],
+    metrics: dict[str, Any],
+    transactions: list[dict[str, Any]],
+    business_id: str,
+    account_id: str,
+) -> list[dict[str, Any]]:
+    """Canonical anomaly-generation path for every Business Health response."""
+    anomalies = _detect_transaction_anomalies(transactions)
+    anomalies.extend(_detect_period_anomalies(analysis, metrics))
+    finalized = _finalize_anomalies(
+        anomalies,
+        business_id=business_id,
+        account_id=account_id,
+    )
+    return _sort_anomalies(finalized)
 
 
 def get_business_health(
@@ -888,20 +952,25 @@ def get_business_health(
         else None
     )
 
-    anomalies = _detect_transaction_anomalies(transactions)
-    anomalies.extend(_detect_period_anomalies(analysis, metrics))
-    finalized = _finalize_anomalies(
-        anomalies,
+    finalized = _generate_anomalies(
+        analysis=analysis,
+        metrics=metrics,
+        transactions=transactions,
         business_id=business_id,
         account_id=account_id,
     )
-    return {"metrics": metrics, "anomalies": _sort_anomalies(finalized)}
+    return {
+        "metrics": metrics,
+        "anomalies": finalized,
+        "anomaly_engine_version": ANOMALY_ENGINE_VERSION,
+    }
 
 
 analyze_business_health = get_business_health
 
 
 __all__ = [
+    "ANOMALY_ENGINE_VERSION",
     "BusinessHealthError",
     "analyze_business_health",
     "get_business_health",
