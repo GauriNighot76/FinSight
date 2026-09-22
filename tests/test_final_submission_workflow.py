@@ -92,6 +92,17 @@ def test_final_controlled_workflow_multi_business_isolation_duplicates_and_pdf()
     assert validation["valid"] is True
     assert validation["invalid_count"] == 0
 
+    source_records = validation["payload"]["records"]
+    source_income = sum(
+        row["amount_minor"] for row in source_records
+        if row["direction"] == "income"
+    )
+    source_expense = sum(
+        row["amount_minor"] for row in source_records
+        if row["direction"] == "expense"
+    )
+    source_count = len(source_records)
+
     first = ingestion_service.ingest(
         session_token=token,
         business_id=business_a["business_id"],
@@ -110,6 +121,29 @@ def test_final_controlled_workflow_multi_business_isolation_duplicates_and_pdf()
 
     a = _analytics(token, business_a["business_id"], account_a)
     b = _analytics(token, business_b["business_id"], account_b)
+
+    with queries.get_connection() as connection:
+        db_totals = connection.execute(
+            """SELECT
+                   COUNT(*) AS transaction_count,
+                   COALESCE(SUM(CASE WHEN direction='income' THEN amount_minor ELSE 0 END), 0)
+                     AS total_income_minor,
+                   COALESCE(SUM(CASE WHEN direction='expense' THEN amount_minor ELSE 0 END), 0)
+                     AS total_expense_minor
+               FROM ingested_transaction_identities
+               WHERE business_id=? AND account_id=?
+                 AND transaction_date BETWEEN ? AND ?""",
+            (
+                business_a["business_id"],
+                account_a,
+                "2026-08-01",
+                "2026-08-04",
+            ),
+        ).fetchone()
+
+    assert source_income == db_totals["total_income_minor"] == a["kpis"]["total_income_minor"]
+    assert source_expense == db_totals["total_expense_minor"] == a["kpis"]["total_expense_minor"]
+    assert source_count == db_totals["transaction_count"] == a["kpis"]["transaction_count"]
     assert a["kpis"]["total_income_minor"] == 1_500_000
     assert a["kpis"]["total_expense_minor"] == 500_000
     assert a["kpis"]["net_cash_flow_minor"] == 1_000_000
