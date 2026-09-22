@@ -825,7 +825,11 @@ def test_phase2_duplicate_pattern_and_recurring_growth_are_deterministic(monkeyp
     anomaly_types = {item["type"] for item in first["anomalies"]}
 
     assert "repeated_identical_transactions" in anomaly_types
-    assert "recurring_expense_growth" in anomaly_types
+    recurring = next(
+        item for item in first["anomalies"]
+        if item["type"] == "very_high_recurring_expenses"
+    )
+    assert recurring.get("legacy_type") == "recurring_expense_growth"
     assert first == second
 
 
