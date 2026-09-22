@@ -194,8 +194,8 @@ def test_minor_unit_header_preserves_exact_integer_amount():
 
 def test_source_transaction_id_and_balance_are_mapped():
     payload = normalize(
-        "Date,Transaction ID,Amount,Direction,Closing Balance\n"
-        "2026-08-01,txn-001,10.00,income,110.00\n"
+        "Date,Transaction_ID,Amount,Direction,Closing Balance\n"
+        "2026-08-01,  txn-001  ,10.00,income,110.00\n"
     )
 
     assert payload["records"][0]["source_transaction_id"] == "txn-001"
