@@ -449,8 +449,14 @@ def test_category_summary_contains_income_expense_and_percentages(ingestion_repo
     assert [row["category"] for row in categories] == ["sales", "rent"]
     assert categories[0]["income_minor"] == 2000
     assert categories[0]["expense_minor"] == 500
+    assert categories[0]["income_count"] == 1
+    assert categories[0]["expense_count"] == 1
     assert categories[0]["count"] == 2
+    assert categories[0]["income_percentage"] == Decimal("100.00")
+    assert categories[0]["expense_percentage"] == Decimal("33.33")
     assert categories[0]["percentage"] == Decimal("71.43")
+    assert categories[1]["income_percentage"] == Decimal("0.00")
+    assert categories[1]["expense_percentage"] == Decimal("66.67")
     assert categories[1]["percentage"] == Decimal("28.57")
 
 
@@ -473,8 +479,15 @@ def test_payment_mode_summary_uses_known_modes_and_other(ingestion_repository):
     assert {row["payment_mode"] for row in modes} == {"Cash", "UPI", "Card", "Bank", "Other"}
     other = next(row for row in modes if row["payment_mode"] == "Other")
     assert other["count"] == 1
+    assert other["expense_count"] == 1
+    assert other["income_count"] == 0
     assert other["amount_minor"] == 25
-    assert next(row for row in modes if row["payment_mode"] == "UPI")["amount_minor"] == 200
+    upi = next(row for row in modes if row["payment_mode"] == "UPI")
+    assert upi["amount_minor"] == 200
+    assert upi["income_minor"] == 200
+    assert upi["expense_minor"] == 0
+    assert upi["income_percentage"] == Decimal("66.67")
+    assert upi["expense_percentage"] == Decimal("0.00")
 
 
 def test_account_summary_is_scoped_to_selected_account(ingestion_repository):
