@@ -243,7 +243,6 @@ def test_identity_version_is_part_of_serialization_and_has_exact_token():
 @pytest.mark.parametrize(
     "field,value",
     [
-        ("source_transaction_id", "SRC-002"),
         ("category", "Different Category"),
         ("description", "Different Description"),
         ("counterparty", "Different Counterparty"),
@@ -266,6 +265,28 @@ def test_excluded_record_and_operational_fields_do_not_change_hash(field, value)
     assert ingestion_identity.build_canonical_identity_hash_for_record(
         base, ACCOUNT_ID, SOURCE_SYSTEM, CURRENCY
     ) == ingestion_identity.build_canonical_identity_hash_for_record(
+        changed, ACCOUNT_ID, SOURCE_SYSTEM, CURRENCY
+    )
+
+
+def test_source_transaction_id_changes_persisted_identity_hash():
+    base = make_record(source_transaction_id="SRC-001")
+    changed = make_record(source_transaction_id="SRC-002")
+
+    assert ingestion_identity.build_canonical_identity_hash_for_record(
+        base, ACCOUNT_ID, SOURCE_SYSTEM, CURRENCY
+    ) != ingestion_identity.build_canonical_identity_hash_for_record(
+        changed, ACCOUNT_ID, SOURCE_SYSTEM, CURRENCY
+    )
+
+
+def test_source_backed_hash_changes_when_same_source_id_changes_financial_components():
+    base = make_record(source_transaction_id="SRC-001")
+    changed = make_record(source_transaction_id="SRC-001", amount_minor=9999)
+
+    assert ingestion_identity.build_canonical_identity_hash_for_record(
+        base, ACCOUNT_ID, SOURCE_SYSTEM, CURRENCY
+    ) != ingestion_identity.build_canonical_identity_hash_for_record(
         changed, ACCOUNT_ID, SOURCE_SYSTEM, CURRENCY
     )
 
@@ -371,7 +392,7 @@ def test_classifier_reports_source_identity_conflict(identity_repository):
     assert result.outcome == ingestion_identity.IdentityOutcome.SOURCE_IDENTITY_CONFLICT
 
 
-def test_classifier_reports_duplicate_canonical_identity_for_different_source_id(
+def test_classifier_treats_different_source_id_same_financial_tuple_as_unique(
     identity_repository,
 ):
     with identity_repository() as connection:
@@ -381,7 +402,7 @@ def test_classifier_reports_duplicate_canonical_identity_for_different_source_id
             connection=connection,
         )
 
-    assert result.outcome == ingestion_identity.IdentityOutcome.DUPLICATE_CANONICAL_IDENTITY
+    assert result.outcome == ingestion_identity.IdentityOutcome.UNIQUE
 
 
 def test_classifier_reports_duplicate_canonical_identity_without_source_id(
