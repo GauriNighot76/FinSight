@@ -1,4 +1,5 @@
 from decimal import Decimal
+import inspect
 
 from services import business_health_service as service
 
@@ -226,7 +227,7 @@ def test_same_date_genuine_outliers_remain_separate_with_human_context():
     }
 
 
-def test_category_spikes_in_same_month_have_category_identity_and_dedupe_exact_repeat():
+def test_category_and_recurring_same_movement_emit_only_specific_recurring_finding():
     analysis = {
         "trends": {"daily": [], "weekly": [], "monthly": []},
         "payment_modes": [],
@@ -244,26 +245,42 @@ def test_category_spikes_in_same_month_have_category_identity_and_dedupe_exact_r
     }
 
     raw = service._detect_period_anomalies(analysis, metrics)
+    assert sum(row["type"] == "category_spike" for row in raw) == 2
+    assert sum(row["type"] == "recurring_expense_growth" for row in raw) == 2
+
     final = service._finalize_anomalies(
         raw,
         business_id="business-1",
         account_id="account-1",
     )
-    spikes = [row for row in final if row["type"] == "category_spike"]
+    recurring = [
+        row for row in final
+        if row["type"] == "recurring_expense_growth"
+    ]
 
-    assert len(spikes) == 2
-    assert {row["detection_context"]["category"] for row in spikes} == {
+    assert not any(row["type"] == "category_spike" for row in final)
+    assert len(recurring) == 2
+    assert {row["detection_context"]["category"] for row in recurring} == {
         "Inventory",
         "Utilities",
     }
-    assert len({row["anomaly_id"] for row in spikes}) == 2
+    assert len({row["anomaly_id"] for row in recurring}) == 2
 
     duplicated = service._finalize_anomalies(
-        raw + [dict(next(row for row in raw if row["type"] == "category_spike"))],
+        raw + [dict(next(row for row in raw if row["type"] == "recurring_expense_growth"))],
         business_id="business-1",
         account_id="account-1",
     )
-    assert sum(row["type"] == "category_spike" for row in duplicated) == 2
+    assert sum(row["type"] == "recurring_expense_growth" for row in duplicated) == 2
+
+
+def test_canonical_anomaly_engine_has_no_legacy_two_mean_path():
+    source = inspect.getsource(service._detect_transaction_anomalies).lower()
+
+    assert service.ANOMALY_ENGINE_VERSION == "finsight_tukey_outer_v1"
+    assert "twice the average" not in source
+    assert "average * decimal(2)" not in source
+    assert "_tukey_outer_fence" in source
 
 
 def test_repeated_amount_pair_is_not_called_duplicate_but_stronger_pattern_is_review_signal():
