@@ -306,7 +306,7 @@ def _detect_transaction_anomalies(
             else Decimal("0")
         )
         threshold = average * Decimal(2)
-        for row in rows:
+        for ordinal, row in enumerate(rows):
             amount = _decimal(row.get("amount_minor"))
             if amount > threshold and threshold > 0:
                 label = "income" if direction == "income" else "expense"
@@ -318,6 +318,10 @@ def _detect_transaction_anomalies(
                         f"The {label} is more than twice the average {label} amount.",
                         "amount_minor",
                         threshold,
+                        detection_context={
+                            "direction": direction,
+                            "transaction_ordinal": ordinal,
+                        },
                     )
                 )
 
@@ -332,14 +336,22 @@ def _detect_transaction_anomalies(
         identical[key].append(row)
     for rows in identical.values():
         if len(rows) >= 2:
+            repeated_row = rows[0]
             anomalies.append(
                 _anomaly(
                     "repeated_identical_transactions",
                     "Medium",
-                    rows[0],
+                    repeated_row,
                     "The same amount, direction, category, and payment mode repeat.",
                     "identical_transaction_count",
                     2,
+                    metric_value=len(rows),
+                    detection_context={
+                        "amount_minor": repeated_row.get("amount_minor"),
+                        "direction": repeated_row.get("direction"),
+                        "category": repeated_row.get("category") or "Uncategorized",
+                        "payment_mode": repeated_row.get("payment_mode") or "Other",
+                    },
                 )
             )
     return anomalies
