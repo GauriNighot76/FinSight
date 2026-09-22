@@ -857,3 +857,43 @@ def test_failed_attempt_is_terminal(ingestion_repository):
         public_error_code="STORAGE_FAILED",
         public_error_message="The ingestion could not be completed.",
     )
+
+
+def test_medical_scale_unique_source_ids_insert_and_reupload_dedupes(
+    ingestion_repository,
+):
+    record_count = 1278
+    records = [
+        make_record(
+            source_transaction_id=f"FS{index:06d}",
+            amount_minor=(((index - 1) % 50) + 1) * 100,
+        )
+        for index in range(1, record_count + 1)
+    ]
+
+    first = ingestion_service.ingest(
+        **prepare_args(payload=make_payload(records))
+    )
+    assert (first.record_count, first.inserted_count, first.duplicate_count) == (
+        record_count,
+        record_count,
+        0,
+    )
+
+    second = ingestion_service.ingest(
+        **prepare_args(payload=make_payload(records))
+    )
+    assert (second.record_count, second.inserted_count, second.duplicate_count) == (
+        record_count,
+        0,
+        record_count,
+    )
+
+    with ingestion_repository() as connection:
+        assert connection.execute(
+            "SELECT COUNT(*) FROM ingested_transaction_identities"
+        ).fetchone()[0] == record_count
+        assert connection.execute(
+            "SELECT COUNT(DISTINCT source_transaction_id) "
+            "FROM ingested_transaction_identities"
+        ).fetchone()[0] == record_count
