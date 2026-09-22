@@ -126,6 +126,67 @@ def _safe_table_rows(rows: Any) -> list[dict[str, Any]]:
     return safe_rows
 
 
+def _major_number(value: Any) -> float:
+    try:
+        return float(Decimal(str(value or 0)) / Decimal(100))
+    except (ArithmeticError, TypeError, ValueError):
+        return 0.0
+
+
+def _category_table_rows(rows: Any) -> list[dict[str, Any]]:
+    return [
+        {
+            "Category": row.get("category") or "Uncategorized",
+            "Income": _major_number(row.get("income_minor")),
+            "Expenses": _major_number(row.get("expense_minor")),
+            "Income Transactions": int(row.get("income_count", 0) or 0),
+            "Expense Transactions": int(row.get("expense_count", 0) or 0),
+            "Income Share (%)": row.get("income_percentage"),
+            "Expense Share (%)": row.get("expense_percentage"),
+        }
+        for row in _safe_table_rows(rows)
+    ]
+
+
+def _payment_mode_table_rows(rows: Any) -> list[dict[str, Any]]:
+    return [
+        {
+            "Payment Mode": row.get("payment_mode") or "Other",
+            "Income": _major_number(row.get("income_minor")),
+            "Expenses": _major_number(row.get("expense_minor")),
+            "Income Transactions": int(row.get("income_count", 0) or 0),
+            "Expense Transactions": int(row.get("expense_count", 0) or 0),
+            "Income Share (%)": row.get("income_percentage"),
+            "Expense Share (%)": row.get("expense_percentage"),
+        }
+        for row in _safe_table_rows(rows)
+    ]
+
+
+def _account_table_rows(rows: Any) -> list[dict[str, Any]]:
+    result = []
+    for row in _safe_table_rows(rows):
+        result.append(
+            {
+                "Opening Balance": (
+                    None
+                    if row.get("opening_balance_minor") is None
+                    else _major_number(row.get("opening_balance_minor"))
+                ),
+                "Closing Balance": (
+                    None
+                    if row.get("closing_balance_minor") is None
+                    else _major_number(row.get("closing_balance_minor"))
+                ),
+                "Total Income": _major_number(row.get("total_income_minor")),
+                "Total Expenses": _major_number(row.get("total_expense_minor")),
+                "Net Cash Flow": _major_number(row.get("net_cash_flow_minor")),
+                "Transactions": int(row.get("transaction_count", 0) or 0),
+            }
+        )
+    return result
+
+
 def _trend_chart_frame(rows: Any, *, period_kind: str) -> pd.DataFrame:
     """Return explicit chart columns from the analytics trend contract."""
     columns = ["Period", "Income", "Expenses", "Net Cash Flow"]
@@ -237,11 +298,23 @@ def _render_analytics(st: Any, result: dict[str, Any], currency: str) -> None:
         )
 
     st.subheader("Category summary")
-    st.dataframe(_safe_table_rows(result.get("categories", [])), hide_index=True)
+    st.dataframe(
+        _category_table_rows(result.get("categories", [])),
+        hide_index=True,
+        width="stretch",
+    )
     st.subheader("Payment mode summary")
-    st.dataframe(_safe_table_rows(result.get("payment_modes", [])), hide_index=True)
+    st.dataframe(
+        _payment_mode_table_rows(result.get("payment_modes", [])),
+        hide_index=True,
+        width="stretch",
+    )
     st.subheader("Account summary")
-    st.dataframe(_safe_table_rows(result.get("accounts", [])), hide_index=True)
+    st.dataframe(
+        _account_table_rows(result.get("accounts", [])),
+        hide_index=True,
+        width="stretch",
+    )
 
 
 def render_analytics_page(st: Any, session_token: Any, preferred_business_id: Any = None) -> bool:
@@ -374,6 +447,9 @@ def render_analytics_page(st: Any, session_token: Any, preferred_business_id: An
 
 __all__ = [
     "AUTHORIZED_MEMBERSHIP_ROLES",
+    "_account_table_rows",
+    "_category_table_rows",
+    "_payment_mode_table_rows",
     "_trend_chart_frame",
     "render_analytics_page",
 ]
