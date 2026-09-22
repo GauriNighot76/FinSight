@@ -323,6 +323,80 @@ def test_empty_analytics_returns_stable_zero_health(monkeypatch):
     assert result["anomalies"] == []
 
 
+def test_undefined_ratios_remain_unavailable_instead_of_zero(monkeypatch):
+    service = _authorized_context(
+        monkeypatch,
+        _analysis_result(income=0, expense=2500, transaction_count=2),
+    )
+
+    metrics = _health(service)["metrics"]
+
+    assert metrics["expense_to_income_ratio"] is None
+    assert metrics["savings_rate"] is None
+    assert metrics["income_ratio"] == Decimal("0.00")
+
+
+def test_zero_expense_income_ratio_is_unavailable(monkeypatch):
+    service = _authorized_context(
+        monkeypatch,
+        _analysis_result(income=2500, expense=0, transaction_count=2),
+    )
+
+    metrics = _health(service)["metrics"]
+
+    assert metrics["expense_to_income_ratio"] == Decimal("0.00")
+    assert metrics["income_ratio"] is None
+
+
+def test_anomaly_identity_is_unique_and_repeated_analysis_is_idempotent(monkeypatch):
+    transactions = [
+        {
+            "transaction_date": "2026-08-01",
+            "amount_minor": 100,
+            "direction": "expense",
+            "category": "Food",
+            "payment_mode": "UPI",
+        },
+        {
+            "transaction_date": "2026-08-02",
+            "amount_minor": 100,
+            "direction": "expense",
+            "category": "Food",
+            "payment_mode": "UPI",
+        },
+        {
+            "transaction_date": "2026-08-03",
+            "amount_minor": 1000,
+            "direction": "expense",
+            "category": "Food",
+            "payment_mode": "Cash",
+        },
+    ]
+    analysis = _analysis_result(
+        income=1000,
+        expense=1200,
+        transaction_count=3,
+        transactions=transactions,
+        payment_modes=[
+            {"payment_mode": "UPI", "count": 2, "amount_minor": 200},
+            {"payment_mode": "Cash", "count": 1, "amount_minor": 1000},
+        ],
+    )
+    service = _authorized_context(monkeypatch, analysis)
+
+    first = _health(service)["anomalies"]
+    second = _health(service)["anomalies"]
+
+    ids = [item["anomaly_id"] for item in first]
+    assert len(ids) == len(set(ids))
+    assert first == second
+    assert not any(item["type"] == item.get("legacy_type") for item in first)
+    assert sum(item["type"] == "unusually_large_expense" for item in first) == 1
+    payment = [item for item in first if item["type"] == "unexpected_payment_mode"]
+    assert len(payment) == 1
+    assert payment[0]["detection_context"]["payment_mode"] == "Cash"
+
+
 def test_invalid_session_is_rejected_without_service_call(monkeypatch):
     from services import business_health_service
 
@@ -426,7 +500,7 @@ def test_sudden_expense_spike_is_detected(monkeypatch):
     anomalies = _health(service)["anomalies"]
 
     spike = next(item for item in anomalies if item["type"] == "sudden_expense_spike")
-    assert spike["severity"] == "High"
+    assert spike["severity"] == "HIGH"
     assert spike["threshold"] == Decimal("50.00")
 
 
@@ -612,7 +686,11 @@ def test_phase2_anomalies_have_required_safe_metadata(monkeypatch):
 
     anomalies = _health(service)["anomalies"]
 
-    assert any(item["type"] == "large_transaction" for item in anomalies)
+    assert any(
+        item["type"] == "unusually_large_expense"
+        and item.get("legacy_type") == "large_transaction"
+        for item in anomalies
+    )
     for anomaly in anomalies:
         assert anomaly["severity"] in {"LOW", "MEDIUM", "HIGH", "CRITICAL"}
         assert anomaly["business_id"] == BUSINESS_ID
@@ -675,10 +753,10 @@ def test_phase2_period_rules_are_all_detected(monkeypatch):
 
     assert {
         "expense_explosion",
-        "income_drop",
-        "negative_cash_flow",
+        "sudden_income_drop",
+        "negative_cash_flow_period",
         "category_spike",
-        "payment_mode_change",
+        "unexpected_payment_mode",
         "inactive_period",
         "income_interruption",
     } <= anomaly_types
@@ -746,7 +824,7 @@ def test_phase2_duplicate_pattern_and_recurring_growth_are_deterministic(monkeyp
     second = _health(service)
     anomaly_types = {item["type"] for item in first["anomalies"]}
 
-    assert "duplicate_pattern" in anomaly_types
+    assert "repeated_identical_transactions" in anomaly_types
     assert "recurring_expense_growth" in anomaly_types
     assert first == second
 
