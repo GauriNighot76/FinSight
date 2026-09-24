@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="136" viewBox="0 0 128 136" fill="none">
+  <title>Finny, the FinSight financial guide</title>
+  <defs>
+    <linearGradient id="body" x1="29" y1="21" x2="101" y2="114" gradientUnits="userSpaceOnUse"><stop stop-color="#6FE2E3"/><stop offset="1" stop-color="#249AC6"/></linearGradient>
+    <linearGradient id="coin" x1="54" y1="89" x2="76" y2="116" gradientUnits="userSpaceOnUse"><stop stop-color="#FFE59A"/><stop offset="1" stop-color="#F6BB45"/></linearGradient>
+  </defs>
+  <ellipse cx="64" cy="128" rx="34" ry="5" fill="#173B57" opacity=".13"/>
+  <path d="M31 89C16 85 9 70 13 64C17 58 24 64 34 73" fill="#54CBDC" stroke="#173B57" stroke-width="3" stroke-linecap="round"/>
+  <path d="M98 82C112 78 115 63 111 57C108 53 103 59 98 65" fill="#54CBDC" stroke="#173B57" stroke-width="3" stroke-linecap="round"/>
+  <path d="M43 110L37 122H54L57 113M73 113L76 122H93L86 110" fill="#173B57"/>
+  <path d="M30 48L25 23L48 35C58 31 73 31 82 35L104 23L99 50V83C99 105 83 117 64 117C43 117 28 104 28 83V54" fill="url(#body)" stroke="#173B57" stroke-width="3.5" stroke-linejoin="round"/>
+  <path d="M34 48C42 38 54 40 64 47C74 40 87 38 95 48V74C88 90 42 90 34 74V48Z" fill="#F5FDFF"/>
+  <circle cx="47" cy="62" r="17" fill="white" stroke="#173B57" stroke-width="3"/>
+  <circle cx="81" cy="62" r="17" fill="white" stroke="#173B57" stroke-width="3"/>
+  <path d="M62 60H66M30 57L26 54M98 57L102 54" stroke="#173B57" stroke-width="3" stroke-linecap="round"/>
+  <ellipse cx="49" cy="63" rx="5" ry="7" fill="#173B57"/><ellipse cx="79" cy="63" rx="5" ry="7" fill="#173B57"/>
+  <circle cx="51" cy="60" r="2" fill="white"/><circle cx="81" cy="60" r="2" fill="white"/>
+  <path d="M59 77Q64 83 69 77" stroke="#173B57" stroke-width="2.5" stroke-linecap="round"/>
+  <ellipse cx="38" cy="75" rx="5" ry="2.5" fill="#FFAFA0"/><ellipse cx="90" cy="75" rx="5" ry="2.5" fill="#FFAFA0"/>
+  <circle cx="64" cy="101" r="13" fill="url(#coin)" stroke="#173B57" stroke-width="2"/>
+  <path d="M58 95H70M58 99H70M61 95C69 95 69 102 60 102L68 109" stroke="#173B57" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="52" y="24" width="6" height="9" rx="2" fill="#173B57"/><rect x="61" y="19" width="6" height="14" rx="2" fill="#173B57"/><rect x="70" y="13" width="6" height="20" rx="2" fill="#F6BB45"/>
+  <path d="M110 31V39M106 35H114M17 40V46M14 43H20" stroke="#F6BB45" stroke-width="2.5" stroke-linecap="round"/>
+</svg>

@@ -5,6 +5,7 @@ from decimal import Decimal
 from typing import Any
 
 import pandas as pd
+from services.rag.dashboard_context import remember
 
 from services import (
     account_service,
@@ -74,6 +75,7 @@ def load_business_analytics(st: Any, token: str, business_id: str):
     except Exception:
         st.error("Financial analytics could not be loaded for this business.")
         return account, None
+    remember(st, business_id, analysis=result, currency=account["currency"])
     return account, result
 
 
@@ -235,6 +237,7 @@ def _health_context(st: Any, token: str, business: dict[str, Any]):
             "the current fix-reports-calculations-anomalies branch."
         )
         return args, None
+    remember(st, business["business_id"], health=health, currency=args["currency"])
     return args, health
 
 
@@ -460,6 +463,7 @@ def render_recommendations(st: Any, token: str, business: dict[str, Any]) -> boo
         st.error("Recommendations could not be loaded for this business.")
         return False
     recommendations = support.get("recommendations", [])
+    remember(st, business["business_id"], support=support)
     if not recommendations:
         st.info("No specific recommendations were generated for the available data.")
         return True

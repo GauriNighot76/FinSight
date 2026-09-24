@@ -441,6 +441,10 @@ def render_analytics_page(st: Any, session_token: Any, preferred_business_id: An
         st.error("Analytics could not be loaded.")
         return False
 
+    from services.rag.dashboard_context import remember
+    remember(st, selected_business["business_id"], analysis=result,
+             scope=f"Financial Analytics filters: {start_date} to {end_date}",
+             currency=selected_account["currency"])
     _render_analytics(st, result, selected_account["currency"])
     return True
 

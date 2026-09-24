@@ -1,0 +1,2 @@
+# Optional multilingual semantic ranking; no FAISS or LangChain.
+sentence-transformers==5.1.1

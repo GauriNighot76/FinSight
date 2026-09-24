@@ -136,6 +136,7 @@ def find_relevant_schemes(
             relevance = "Likely relevant based on supplied information"
 
         results.append({
+            "scheme_id": scheme["scheme_id"],
             "scheme_name": scheme["scheme_name"],
             "benefit_summary": scheme["benefit_summary"],
             "source_url": scheme["source_url"],

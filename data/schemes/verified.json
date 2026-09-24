@@ -1,0 +1,241 @@
+[
+  {
+    "scheme_id": "pmegp",
+    "scheme_name": "Prime Minister’s Employment Generation Programme (PMEGP)",
+    "aliases": [
+      "pmegp",
+      "पीएमईजीपी"
+    ],
+    "tags": [
+      "manufacturing",
+      "business",
+      "loan",
+      "subsidy"
+    ],
+    "official_url": "https://www.pib.gov.in/newsite/archiveContent.aspx?lang=2&reg=48&relid=286631",
+    "source_domain": "www.pib.gov.in",
+    "rules": {
+      "owner_age": 18,
+      "new_or_greenfield": true,
+      "sector": [
+        "Manufacturing",
+        "Service"
+      ]
+    },
+    "facts": {
+      "reason": {
+        "en": "Supports new non-farm micro enterprises through a subsidy on bank loans.",
+        "hi": "नए गैर-कृषि सूक्ष्म उद्यमों के बैंक ऋण पर सब्सिडी सहायता।",
+        "mr": "नवीन बिगरशेती सूक्ष्म उद्योगांना बँक कर्जावर अनुदान सहाय्य."
+      },
+      "eligibility": {
+        "en": "Applicants must be at least 18. Education, family-benefit and government-employment conditions also apply; this is not a complete eligibility assessment.",
+        "hi": "आयु कम से कम 18 वर्ष होनी चाहिए। शिक्षा, पारिवारिक लाभ और सरकारी नौकरी की शर्तें भी लागू हैं; यह पूर्ण पात्रता मूल्यांकन नहीं है।",
+        "mr": "वय किमान 18 वर्षे असावे. शिक्षण, कुटुंबाला मिळालेले लाभ आणि सरकारी नोकरीच्या अटीही लागू आहेत; हे संपूर्ण पात्रता मूल्यांकन नाही."
+      },
+      "benefits": {
+        "en": "Margin money subsidy on bank loans for new micro enterprises. Confirm current terms officially.",
+        "hi": "नए सूक्ष्म उद्यमों के बैंक ऋण पर मार्जिन मनी सब्सिडी। वर्तमान शर्तों की आधिकारिक पुष्टि करें।",
+        "mr": "नवीन सूक्ष्म उद्योगांसाठी बँक कर्जावर मार्जिन मनी अनुदान. सध्याच्या अटी अधिकृत स्रोतावर तपासा."
+      }
+    },
+    "source_title": "Prime Minister’s Employment Generation Programme (PMEGP)",
+    "source_updated_at": "2026-03-23",
+    "last_checked_at": "2026-09-24",
+    "indexed_at": "2026-09-24",
+    "verification_status": "verified_official",
+    "language": "en",
+    "content_hash": "2333652d73687b6323e6923827ac0692de45b406973b68b9b39b57cc78434690",
+    "screening_ids": [
+      "S001",
+      "S002"
+    ]
+  },
+  {
+    "scheme_id": "mudra",
+    "scheme_name": "Pradhan Mantri MUDRA Yojana (PMMY)",
+    "aliases": [
+      "mudra",
+      "pmmy",
+      "मुद्रा",
+      "kishor",
+      "किशोर",
+      "shishu",
+      "tarun",
+      "kishore"
+    ],
+    "tags": [
+      "business",
+      "manufacturing",
+      "loan",
+      "collateral"
+    ],
+    "official_url": "https://financialservices.gov.in/pradhan-mantri-mudra-yojana-pmmy",
+    "source_domain": "financialservices.gov.in",
+    "rules": {},
+    "facts": {
+      "reason": {
+        "en": "Provides institutional credit for micro-enterprise term loans and working capital.",
+        "hi": "सूक्ष्म उद्यमों को सावधि ऋण और कार्यशील पूँजी के लिए संस्थागत ऋण।",
+        "mr": "सूक्ष्म उद्योगांना मुदत कर्ज आणि खेळत्या भांडवलासाठी संस्थात्मक कर्ज."
+      },
+      "eligibility": {
+        "en": "Covers non-agricultural purposes and activities allied to agriculture. Confirm borrower requirements with the lender.",
+        "hi": "गैर-कृषि और कृषि-संबद्ध गतिविधियों के लिए। उधारकर्ता की शर्तें ऋणदाता से जाँचें।",
+        "mr": "बिगरशेती आणि शेतीपूरक व्यवसायांसाठी. कर्जदाराच्या अटी कर्जदात्याकडे तपासा."
+      },
+      "benefits": {
+        "en": "Collateral is not required. Kishore covers loans above Rs. 50,000 and up to Rs. 5 lakh.",
+        "hi": "तारण आवश्यक नहीं है। किशोर में 50,000 रुपये से अधिक और 5 लाख रुपये तक का ऋण शामिल है।",
+        "mr": "तारण आवश्यक नाही. किशोरमध्ये 50,000 रुपयांपेक्षा जास्त आणि 5 लाख रुपयांपर्यंत कर्ज समाविष्ट आहे."
+      }
+    },
+    "source_title": "Pradhan Mantri MUDRA Yojana (PMMY)",
+    "source_updated_at": "2026-02-05",
+    "last_checked_at": "2026-09-24",
+    "indexed_at": "2026-09-24",
+    "verification_status": "verified_official",
+    "language": "en",
+    "content_hash": "a11c6e50d874a4d06ddccf28c046af8f45bd51886754efef4afb1dab0112d63c",
+    "screening_ids": [
+      "S005",
+      "S006",
+      "S007",
+      "S008"
+    ]
+  },
+  {
+    "scheme_id": "cgtmse",
+    "scheme_name": "Credit Guarantee Scheme for Micro and Small Enterprises (CGTMSE)",
+    "aliases": [
+      "cgtmse",
+      "सीजीटीएमएसई"
+    ],
+    "tags": [
+      "business",
+      "manufacturing",
+      "loan",
+      "collateral"
+    ],
+    "official_url": "https://www.pib.gov.in/newsite/archiveContent.aspx?lang=2&reg=48&relid=286631",
+    "source_domain": "www.pib.gov.in",
+    "rules": {
+      "business_category": [
+        "Micro",
+        "Small"
+      ]
+    },
+    "facts": {
+      "reason": {
+        "en": "Credit guarantee support helps micro and small enterprises access collateral-free loans.",
+        "hi": "ऋण गारंटी सहायता सूक्ष्म और लघु उद्यमों को बिना तारण ऋण पाने में मदद करती है।",
+        "mr": "कर्ज हमी सहाय्यामुळे सूक्ष्म आणि लघु उद्योगांना विनातारण कर्ज मिळण्यास मदत होते."
+      },
+      "eligibility": {
+        "en": "Targets micro and small enterprises. Detailed borrower and lender conditions need official confirmation.",
+        "hi": "सूक्ष्म और लघु उद्यमों के लिए। उधारकर्ता और ऋणदाता की विस्तृत शर्तें आधिकारिक स्रोत से जाँचें।",
+        "mr": "सूक्ष्म आणि लघु उद्योगांसाठी. कर्जदार आणि कर्जदात्याच्या सविस्तर अटी अधिकृत स्रोतावर तपासा."
+      },
+      "benefits": {
+        "en": "Guarantee support for collateral-free lending, subject to scheme and lender requirements.",
+        "hi": "बिना तारण ऋण के लिए गारंटी सहायता, योजना और ऋणदाता की शर्तों के अधीन।",
+        "mr": "विनातारण कर्जासाठी हमी सहाय्य, योजनेच्या आणि कर्जदात्याच्या अटींच्या अधीन."
+      }
+    },
+    "source_title": "Credit Guarantee Scheme for Micro and Small Enterprises (CGTMSE)",
+    "source_updated_at": "2026-03-23",
+    "last_checked_at": "2026-09-24",
+    "indexed_at": "2026-09-24",
+    "verification_status": "verified_official",
+    "language": "en",
+    "content_hash": "5eae208c37632cc56e86f20da60ceee6c0712ea12f646c584107c77508b5c1d1",
+    "screening_ids": [
+      "S003",
+      "S004"
+    ]
+  },
+  {
+    "scheme_id": "cgss",
+    "scheme_name": "CGSS for DPIIT Startups",
+    "screening_ids": [
+      "S010"
+    ],
+    "aliases": [
+      "cgss",
+      "credit guarantee scheme for startups",
+      "dpiit startups"
+    ],
+    "tags": [
+      "startup"
+    ],
+    "rules": {
+      "startup_recognized": true
+    },
+    "official_url": "https://www.startupindia.gov.in/content/sih/en/credit-guarantee-scheme-for-startups.html",
+    "source_domain": "www.startupindia.gov.in",
+    "facts": {
+      "reason": {
+        "en": "CGSS helps eligible startups obtain debt finance by guaranteeing lending institutions, rather than paying a grant directly to startups.",
+        "hi": "CGSS ऋणदाताओं को गारंटी देकर पात्र स्टार्टअप को ऋण पाने में मदद करता है; यह स्टार्टअप को सीधे अनुदान नहीं देता।",
+        "mr": "CGSS कर्जदात्यांना हमी देऊन पात्र स्टार्टअपना कर्ज मिळवण्यास मदत करते; थेट अनुदान देत नाही."
+      },
+      "eligibility": {
+        "en": "DPIIT recognition is required. The startup must not be in default or classified as a non-performing asset. A member institution must certify eligibility.",
+        "hi": "DPIIT मान्यता आवश्यक है। स्टार्टअप डिफॉल्ट में या NPA नहीं होना चाहिए। सदस्य संस्था पात्रता प्रमाणित करती है।",
+        "mr": "DPIIT मान्यता आवश्यक आहे. स्टार्टअप थकबाकीदार किंवा NPA नसावा. सदस्य संस्था पात्रता प्रमाणित करते."
+      },
+      "benefits": {
+        "en": "Debt eligible for guarantee cover is capped at Rs 20 crore per borrower. Transaction-based cover is 85% of default for loans up to Rs 10 crore and 75% above that. Apply through Jan Samarth or a member institution; the lender assesses the proposal.",
+        "hi": "गारंटी हेतु पात्र ऋण सीमा प्रति उधारकर्ता 20 करोड़ रुपये है। लेनदेन आधारित गारंटी 10 करोड़ तक के ऋण पर डिफॉल्ट का 85%, उससे ऊपर 75% है। Jan Samarth या सदस्य संस्था से आवेदन करें; ऋणदाता प्रस्ताव की जाँच करता है।",
+        "mr": "हमीसाठी पात्र कर्जाची मर्यादा प्रति कर्जदार 20 कोटी रुपये आहे. व्यवहार आधारित हमी 10 कोटीपर्यंतच्या कर्जावरील थकबाकीच्या 85%, त्यापुढे 75% आहे. Jan Samarth किंवा सदस्य संस्थेमार्फत अर्ज करा; कर्जदाता प्रस्ताव तपासतो."
+      }
+    },
+    "last_checked_at": "2026-09-25",
+    "indexed_at": "2026-09-25",
+    "verification_status": "verified_official",
+    "language": "en",
+    "source_title": "CGSS for DPIIT Startups",
+    "content_hash": "afae305a1dd7b42787631da53c6e7d7560d086d7d523beedf3cc3a2a9c76c952"
+  },
+  {
+    "scheme_id": "stand_up_india",
+    "scheme_name": "Stand-Up India",
+    "screening_ids": [
+      "S009"
+    ],
+    "aliases": [
+      "stand-up india",
+      "stand up india",
+      "standup india"
+    ],
+    "tags": [
+      "greenfield"
+    ],
+    "rules": {},
+    "official_url": "https://financialservices.gov.in/stand-india-scheme-supi",
+    "source_domain": "financialservices.gov.in",
+    "facts": {
+      "reason": {
+        "en": "Stand-Up India supported entrepreneurship among women and Scheduled Caste/Scheduled Tribe borrowers.",
+        "hi": "Stand-Up India महिला और अनुसूचित जाति/जनजाति उद्यमियों के लिए था।",
+        "mr": "Stand-Up India महिला आणि अनुसूचित जाती/जमाती उद्योजकांसाठी होता."
+      },
+      "eligibility": {
+        "en": "The published scheme targeted entrepreneurs above 18 setting up greenfield enterprises. The Department of Financial Services states its term ran up to 31 March 2025; confirm current availability before applying. A local screening match does not establish that applications are open.",
+        "hi": "प्रकाशित योजना 18 वर्ष से अधिक आयु के नए उद्यम स्थापित करने वालों के लिए थी। वित्तीय सेवा विभाग के अनुसार अवधि 31 मार्च 2025 तक थी। आवेदन से पहले वर्तमान उपलब्धता जाँचें; स्थानीय मिलान से आवेदन खुले होने की पुष्टि नहीं होती।",
+        "mr": "प्रकाशित योजना 18 वर्षांवरील नवीन उद्योग सुरू करणाऱ्यांसाठी होती. वित्तीय सेवा विभागानुसार मुदत 31 मार्च 2025 पर्यंत होती. अर्जापूर्वी सध्याची उपलब्धता तपासा; स्थानिक जुळणी म्हणजे अर्ज खुले असल्याची खात्री नाही."
+      },
+      "benefits": {
+        "en": "Published terms described composite bank loans from Rs 10 lakh to Rs 1 crore. These are historical terms, not confirmation of a currently available offer.",
+        "hi": "प्रकाशित अटीं में 10 लाख से 1 करोड़ रुपये तक बैंक ऋण था। ये ऐतिहासिक अटीं हैं, वर्तमान उपलब्धता की पुष्टि नहीं।",
+        "mr": "प्रकाशित अटींमध्ये 10 लाख ते 1 कोटी रुपये बँक कर्ज होते. या ऐतिहासिक अटी आहेत, सध्याच्या उपलब्धतेची खात्री नाही."
+      }
+    },
+    "last_checked_at": "2026-09-25",
+    "indexed_at": "2026-09-25",
+    "verification_status": "verified_official",
+    "language": "en",
+    "source_title": "Stand-Up India",
+    "content_hash": "1f43ac69d61eb79d52a3c82b397583be45da52c66304f40d624f6bb200d5d859"
+  }
+]

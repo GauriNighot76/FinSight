@@ -16,6 +16,7 @@ from finsight_app.business_ui import render_create_business, render_manage_busin
 from finsight_app.ingestion_ui import render_ingestion_page
 from finsight_app.reports_ui import render_reports
 from finsight_app.schemes_ui import render_government_schemes
+from finsight_app.scheme_assistant_ui import render_help_assistant
 from finsight_app.workspace_ui import (
     render_anomalies,
     render_business_health,
@@ -322,6 +323,7 @@ with st.sidebar:
         st.rerun()
 
 page = st.session_state.get("app_page", "Overview")
+render_help_assistant(st, selected_id)
 
 st.markdown("## FinSight")
 st.caption(

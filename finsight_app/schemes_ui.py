@@ -4,7 +4,6 @@ from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from finsight_app.eligibility_engine import find_relevant_schemes
-from finsight_app import scheme_rag
 
 
 def _optional_decimal(value: str):
@@ -48,7 +47,8 @@ def render_government_schemes(
 ) -> bool:
     del token  # authorization has already been enforced by the workspace/router.
     business_id = business["business_id"]
-    st.subheader("Government Schemes")
+    st.subheader("Government Schemes: local rule screening")
+    st.caption("Click Finny, your floating guide in the bottom-right corner, to ask about schemes.")
     st.caption(
         "FinSight screens the repository's scheme rules using information you "
         "provide. Missing information remains unknown; eligibility is never invented."
@@ -178,43 +178,4 @@ def render_government_schemes(
             if source:
                 st.link_button("Open Source", source)
 
-            scheme_name = item.get("scheme_name", "")
-            if scheme_rag.supports_scheme(scheme_name):
-                with st.expander("Ask about this scheme"):
-                    status = scheme_rag.rag_status()
-                    if not status["dependencies_available"]:
-                        st.info(
-                            "Scheme document Q&A is unavailable because the optional "
-                            "RAG dependencies are not installed. Deterministic scheme "
-                            "screening above is still active."
-                        )
-                    elif not status["api_key_configured"]:
-                        st.info(
-                            "Scheme document Q&A requires GROQ_API_KEY. "
-                            "Deterministic screening above is still active."
-                        )
-                    else:
-                        question = st.text_input(
-                            "Question",
-                            key=f"scheme_question_{business_id}_{scheme_name}",
-                        )
-                        if st.button(
-                            "Ask Scheme Documents",
-                            key=f"scheme_ask_{business_id}_{scheme_name}",
-                        ):
-                            if not question.strip():
-                                st.warning("Enter a question first.")
-                            else:
-                                try:
-                                    answer = scheme_rag.ask_scheme_question(
-                                        scheme_name, question.strip()
-                                    )
-                                    st.write(answer)
-                                except scheme_rag.SchemeRAGUnavailable as error:
-                                    st.info(str(error))
-                                except Exception:
-                                    st.error(
-                                        "Scheme document Q&A could not be completed. "
-                                        "No eligibility result was fabricated."
-                                    )
     return True
