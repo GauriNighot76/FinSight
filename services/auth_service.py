@@ -149,3 +149,54 @@ def google_sign_in(id_token_value: str, verifier: Callable[[str], dict] = verify
     queries.create_authentication_log(user["user_id"], "GOOGLE_LOGIN")
     return {"success": True, "user": _safe_user(user), "session": session,
             "message": "Google login successful."}
+
+
+def _deletion_requires_password(user) -> bool:
+    # Google-only creation uses this marker and a random unusable credential.
+    # A locally registered user retains a phone number even when Google is linked.
+    provider_only = (user["contact_number"] == "google" or not user["password_hash"])
+    return not (provider_only and queries.has_user_provider_identity(user["user_id"]))
+
+
+def _owned_businesses_error(names: list[str]) -> dict:
+    return {**_result_error(
+        "ACTIVE_BUSINESSES_OWNED",
+        f"You still own {len(names)} active business(es). Delete those businesses before deleting your FinSight account.",
+    ), "owned_businesses": names}
+
+
+def get_account_deletion_requirements(token: str) -> dict:
+    """Expose confirmation requirements, never credentials or password hashes."""
+    try:
+        session = validate_session(token)
+        if not session["success"]:
+            return session
+        user = queries.get_user_by_id(session["user"]["user_id"])
+        return {"success": True, "requires_password": _deletion_requires_password(user)}
+    except Exception:
+        return _result_error("ACCOUNT_SETTINGS_FAILED", "Account settings could not be loaded.")
+
+
+def delete_account(token: str, confirmation: str, password: Optional[str] = None) -> dict:
+    """Deactivate only the current authenticated user, preserving historical data."""
+    try:
+        session = validate_session(token)
+        if not session["success"]:
+            return session
+        user_id = session["user"]["user_id"]
+        user = queries.get_user_by_id(user_id)
+        owned = queries.list_active_owned_businesses(user_id)
+        if owned:
+            return _owned_businesses_error([row["business_name"] for row in owned])
+        if not isinstance(confirmation, str) or confirmation.strip() != "DELETE MY ACCOUNT":
+            return _result_error("CONFIRMATION_MISMATCH", "Type DELETE MY ACCOUNT exactly to confirm.")
+        if _deletion_requires_password(user) and not verify_password(password or "", user["password_hash"]):
+            return _result_error("INVALID_PASSWORD", "Current password is incorrect.")
+        status, names = queries.deactivate_user_account(user_id, _hash_token(token), user["password_hash"])
+        if status == "ACTIVE_BUSINESSES_OWNED":
+            return _owned_businesses_error(names)
+        if status != "DELETED":
+            return _result_error("SESSION_INVALID", "Session is invalid or expired.")
+        return {"success": True, "message": "Your FinSight account has been deleted."}
+    except Exception:
+        return _result_error("ACCOUNT_DELETE_FAILED", "Account could not be deleted. Please try again.")
