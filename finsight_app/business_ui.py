@@ -124,6 +124,54 @@ def render_create_business(st: Any, token: str, *, first_business: bool = False)
     return False
 
 
+def _clear_deleted_business_state(st: Any, business_id: str) -> None:
+    """Clear only this business's existing scoped state and selection."""
+    for key in list(st.session_state):
+        if (key.startswith((f"upload_{business_id}_", f"{business_id}_",
+                            f"report_section_{business_id}_", f"delete_business_{business_id}_"))
+                or (key.startswith(("report_", "scheme_")) and key.endswith(f"_{business_id}"))
+                or key in {f"prepare_csv_{business_id}", f"use_business_{business_id}"}):
+            st.session_state.pop(key, None)
+    for key in ("selected_business_id", "business_selector"):
+        if st.session_state.get(key) == business_id:
+            st.session_state.pop(key, None)
+
+
+def _render_delete_business(st: Any, token: str, business: dict) -> None:
+    if business.get("membership", {}).get("membership_role") != "owner":
+        return
+    business_id = business["business_id"]
+    name = business["business_name"]
+    prefix = f"delete_business_{business_id}_"
+    with st.expander("Danger Zone — Delete Business"):
+        st.write("This business will be removed from your active FinSight workspace. "
+                 "Existing financial records will be retained for data integrity.")
+        if not st.session_state.get(prefix + "pending"):
+            if st.button("Delete Business", key=prefix + "open"):
+                st.session_state[prefix + "pending"] = True
+                st.rerun()
+            return
+        st.write(f'Delete "{name}"?')
+        confirmation = st.text_input(f'Type "{name}" to confirm.', key=prefix + "name")
+        cancel, confirm = st.columns(2)
+        if cancel.button("Cancel", key=prefix + "cancel"):
+            st.session_state.pop(prefix + "pending", None)
+            st.session_state.pop(prefix + "name", None)
+            st.rerun()
+        if confirm.button("Confirm Delete", key=prefix + "confirm"):
+            if confirmation.strip() != name:
+                st.error("Enter the business name exactly to confirm deletion.")
+                return
+            result = business_service.delete_business(token, business_id, confirmation)
+            if not result.get("success"):
+                st.error(result.get("message", "Business could not be deleted."))
+                return
+            _clear_deleted_business_state(st, business_id)
+            st.session_state["pending_page"] = "Overview"
+            st.success("Business deleted successfully.")
+            st.rerun()
+
+
 def render_manage_businesses(
     st: Any,
     token: str,
@@ -154,4 +202,5 @@ def render_manage_businesses(
                 st.session_state["selected_business_id"] = business["business_id"]
                 st.session_state["pending_page"] = "Overview"
                 st.rerun()
+            _render_delete_business(st, token, business)
     return True

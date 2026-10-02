@@ -544,11 +544,14 @@ def disable_business_membership(membership_id: str) -> bool:
     return cursor.rowcount == 1
 
 
-def set_module2_business_status(business_id: str, status: str) -> bool:
+def set_module2_business_status(
+    business_id: str, status: str, *, expected_status: Optional[str] = None
+) -> bool:
     with get_connection() as connection:
         cursor = connection.execute(
-            "UPDATE businesses SET business_status=?,updated_at=CURRENT_TIMESTAMP WHERE business_id=?",
-            (status, business_id),
+            """UPDATE businesses SET business_status=?,updated_at=CURRENT_TIMESTAMP
+               WHERE business_id=? AND (? IS NULL OR business_status=?)""",
+            (status, business_id, expected_status, expected_status),
         )
     return cursor.rowcount == 1
 

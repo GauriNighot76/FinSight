@@ -81,6 +81,28 @@ def require_business_access(token: str, business_id: str,
 
 
 
+def delete_business(token: str, business_id: str, confirmation_name: str) -> dict:
+    """Remove an owner's business from active use while retaining its history."""
+    try:
+        access = require_business_access(token, business_id, {"owner"})
+        if not access["success"]:
+            if access.get("error") == "FORBIDDEN":
+                return _error("FORBIDDEN", "You do not have permission to delete this business.")
+            return access
+        business = access["business"]
+        if (not isinstance(confirmation_name, str)
+                or confirmation_name.strip() != business["business_name"]):
+            return _error("CONFIRMATION_MISMATCH",
+                          "Enter the business name exactly to confirm deletion.")
+        if not queries.set_module2_business_status(
+            business["business_id"], "disabled", expected_status="active"
+        ):
+            return _error("BUSINESS_DISABLED", "This business is already disabled.")
+        return {"success": True, "message": "Business deleted successfully."}
+    except Exception:
+        return _error("BUSINESS_DELETE_FAILED", "Business could not be deleted. Please try again.")
+
+
 def ensure_business_ready(token: str, business_id: str) -> dict:
     """Ensure an authorized business has its hidden ingestion resources."""
     access = require_business_access(token, business_id, {"owner", "manager"})
