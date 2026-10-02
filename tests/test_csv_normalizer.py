@@ -327,3 +327,109 @@ def test_file_like_input_is_supported_without_accepting_paths():
     )
 
     assert payload["records"][0]["amount_minor"] == 100
+
+
+GENERIC_MAPPING_CSV = (
+    'When,Item,Money,Flow,Group,PayVia,RefNo,Unused\n'
+    '2026-01-01,Notebook,250.00,RECEIVED,Stationery,UPI,T001,x\n'
+    '2026-01-02,Wholesale stock,100.00,PAID,Purchases,Bank,T002,y\n'
+)
+GENERIC_MAPPING = {'date': 'When', 'description': 'Item', 'amount': 'Money',
+                   'direction': 'Flow', 'category': 'Group', 'payment_method': 'PayVia',
+                   'source_transaction_id': 'RefNo'}
+GENERIC_DIRECTIONS = {'RECEIVED': 'income', 'PAID': 'expense'}
+
+
+def test_arbitrary_headers_direction_values_and_canonical_preview():
+    from services import csv_normalizer as n
+    payload = n.normalize_csv(GENERIC_MAPPING_CSV, GENERIC_MAPPING, GENERIC_DIRECTIONS)
+    assert payload['records'][0] == {
+        'transaction_date': '2026-01-01', 'description': 'Notebook', 'amount_minor': 25000,
+        'direction': 'income', 'category': 'Stationery', 'payment_method': 'UPI',
+        'source_transaction_id': 'T001',
+    }
+    assert payload['records'][1]['direction'] == 'expense'
+    preview = n.preview_csv_with_mapping(GENERIC_MAPPING_CSV,
+                n.source_column_mapping(GENERIC_MAPPING), GENERIC_DIRECTIONS)
+    assert preview[0]['Description'] == 'Notebook'
+    assert n.validate_preview_rows(preview)['payload'] == payload
+
+
+@pytest.mark.parametrize('description_header', ['Item', 'Medicine/Product Name'])
+def test_manual_description_overrides_alias_without_new_alias(description_header):
+    from services import csv_normalizer as n
+    raw = f'Date,Remarks,{description_header},Amount,Direction\n2026-01-01,Wrong,Chosen,10,income\n'
+    assert n.normalize_csv(raw)['records'][0]['description'] == 'Wrong'
+    mapping = {'date': 'Date', 'description': description_header, 'amount': 'Amount', 'direction': 'Direction'}
+    assert n.normalize_csv(raw, mapping)['records'][0]['description'] == 'Chosen'
+    assert n._header_key(description_header) not in n._DESCRIPTION_ALIASES
+
+
+@pytest.mark.parametrize('raw,mapping,directions,expected', [
+    ('When,Out,In\n2026-01-01,25,\n2026-01-02,,30\n',
+     {'date': 'When', 'debit': 'Out', 'credit': 'In'}, None, ['expense', 'income']),
+    ('When,Money\n2026-01-01,-25\n2026-01-02,30\n',
+     {'date': 'When', 'amount': 'Money'}, None, ['expense', 'income']),
+    ('When,Money\n2026-01-01,-25\n',
+     {'date': 'When', 'amount': 'Money'}, None, ['expense']),
+])
+def test_manual_amount_models(raw, mapping, directions, expected):
+    from services import csv_normalizer as n
+    payload = n.normalize_csv(raw, mapping, directions)
+    assert [r['direction'] for r in payload['records']] == expected
+    preview = n.preview_csv_with_mapping(raw, n.source_column_mapping(mapping), directions)
+    assert n.validate_preview_rows(preview)['payload'] == payload
+
+
+@pytest.mark.parametrize('mapping,message', [
+    ({'amount': 'Money', 'direction': 'Flow'}, 'Date column'),
+    ({'date': 'When'}, 'Amount column'),
+    ({'date': 'When', 'amount': 'Money'}, 'Direction column'),
+    ({'date': 'When', 'amount': 'When', 'direction': 'Flow'}, 'only once'),
+])
+def test_manual_mapping_errors_are_safe(mapping, message):
+    from services import csv_normalizer as n
+    with pytest.raises(n.CSVNormalizationError, match=message):
+        n.normalize_csv(GENERIC_MAPPING_CSV, mapping)
+
+
+@pytest.mark.parametrize('directions', [None, {'RECEIVED': 'other'}, {'RECEIVED': []},
+                                       {'RECEIVED': 'income'}, {'RECEIVED': 'ignore', 'PAID': 'ignore'}])
+def test_unknown_or_invalid_direction_mapping_fails_safely(directions):
+    from services import csv_normalizer as n
+    with pytest.raises(n.CSVNormalizationError):
+        n.normalize_csv(GENERIC_MAPPING_CSV, GENERIC_MAPPING, directions)
+
+
+def test_explicit_ignore_direction_and_override_known_value():
+    from services import csv_normalizer as n
+    result = n.normalize_csv(GENERIC_MAPPING_CSV, GENERIC_MAPPING,
+                            {'RECEIVED': 'ignore', 'PAID': 'expense'})
+    assert len(result['records']) == 1
+    assert result['records'][0]['source_transaction_id'] == 'T002'
+    raw = 'Date,Amount,Direction\n2026-01-01,10,credit\n'
+    mapping = {'date': 'Date', 'amount': 'Amount', 'direction': 'Direction'}
+    assert n.normalize_csv(raw, mapping, {'credit': 'expense'})['records'][0]['direction'] == 'expense'
+
+
+def test_optional_fields_minor_units_and_edit_round_trip():
+    from services import csv_normalizer as n
+    raw = 'When,amount_minor,Flow,Who,balance_minor,Kind,OtherRef\n2026-01-01,125050,income,A,-250,POS,R1\n'
+    mapping = {'date': 'When', 'amount': 'amount_minor', 'direction': 'Flow',
+               'counterparty': 'Who', 'balance': 'balance_minor', 'source_subtype': 'Kind',
+               'source_record_reference': 'OtherRef'}
+    payload = n.normalize_csv(raw, mapping)
+    row = payload['records'][0]
+    assert row['amount_minor'] == 125050 and row['balance_after_minor'] == -250
+    assert row['counterparty'] == 'A' and row['source_record_reference'] == 'R1'
+    assert 'description' not in row
+    preview = n.preview_csv_with_mapping(raw, n.source_column_mapping(mapping))
+    assert preview[0]['Amount'] == '1250.5'
+    assert n.validate_preview_rows(preview)['payload'] == payload
+
+
+def test_mapped_currency_amount_uses_existing_parser():
+    from services import csv_normalizer as n
+    raw = 'When,Money,Flow\n2026-01-01,"₹1,250.50",credit\n'
+    payload = n.normalize_csv(raw, {'date': 'When', 'amount': 'Money', 'direction': 'Flow'})
+    assert payload['records'][0]['amount_minor'] == 125050

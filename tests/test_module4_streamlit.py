@@ -521,3 +521,140 @@ def test_expected_wizard_validation_error_is_rendered_without_escape(monkeypatch
     assert str(ingestion_validation.MAX_RECORD_COUNT) in rendered
     assert "Traceback" not in rendered
     assert "RECORD_COUNT_OUT_OF_RANGE" not in rendered
+
+
+def _mapping_app():
+    import streamlit as st
+    from finsight_app.ingestion_ui import _render_csv_wizard
+    _render_csv_wizard(st, 'token', {'business_id': 'mapping-test', 'business_name': 'Generic Business'})
+
+
+def _widget(elements, label):
+    return next(element for element in elements if element.label == label)
+
+
+def _wizard_step(app, label):
+    """Run a navigation action, then render its persisted state in a fresh tree.
+
+    Streamlit 1.60 AppTest retains removed selectboxes after explicit st.rerun,
+    unlike the browser; carrying only wizard state avoids those stale elements.
+    Widget selection reruns within a step still use the same AppTest instance.
+    """
+    from streamlit.testing.v1 import AppTest
+    from finsight_app.ingestion_ui import _wizard_keys
+    _widget(app.button, label).click().run()
+    assert not app.exception
+    next_app = AppTest.from_function(_mapping_app)
+    for key in _wizard_keys('mapping-test').values():
+        if key in app.session_state:
+            next_app.session_state[key] = app.session_state[key]
+    return next_app.run()
+
+
+def _start_mapping_app(monkeypatch, raw):
+    import streamlit as st
+    from streamlit.testing.v1 import AppTest
+    from finsight_app import ingestion_ui
+    calls = []
+    upload = [UploadedCsv(raw.encode('utf-8'))]
+    monkeypatch.setattr(st, 'file_uploader', lambda *a, **k: upload[0])
+    monkeypatch.setattr(ingestion_ui.business_service, 'ensure_business_ready',
+                        lambda *a: calls.append('ready') or {'success': True, 'account_id': 'a'})
+    monkeypatch.setattr(ingestion_ui.account_service, 'list_business_accounts',
+                        lambda *a: calls.append('accounts') or {'success': True, 'accounts': [{'account_id': 'a'}]})
+    from types import SimpleNamespace
+    monkeypatch.setattr(ingestion_ui.ingestion_service, 'prepare_ingestion',
+                        lambda **k: calls.append('prepare') or SimpleNamespace(records=[]))
+    # Return a harmless marker; no database write is performed by these UI tests.
+    monkeypatch.setattr(ingestion_ui.ingestion_service, 'ingest',
+                        lambda **k: calls.append(('ingest', k['payload'])))
+    app = AppTest.from_function(_mapping_app).run()
+    assert not app.exception and calls == []
+    app = _wizard_step(app, 'Next: Map Columns')
+    assert not app.exception and calls == []
+    return app, calls, upload
+
+
+def test_real_wizard_unknown_headers_preview_direction_and_confirm(monkeypatch):
+    from test_csv_normalizer import GENERIC_MAPPING_CSV
+    app, calls, _ = _start_mapping_app(monkeypatch, GENERIC_MAPPING_CSV)
+    selections = {'Date *': 'When', 'Description': 'Item', 'Amount': 'Money', 'Direction': 'Flow',
+                  'Category': 'Group', 'Payment Mode': 'PayVia', 'Transaction / Reference ID': 'RefNo'}
+    for label, header in selections.items():
+        assert header in _widget(app.selectbox, label).options
+        _widget(app.selectbox, label).select(header)
+    app.run()
+    _widget(app.selectbox, 'RECEIVED →').select('Income')
+    _widget(app.selectbox, 'PAID →').select('Expense')
+    app.run()
+    assert calls == [] and not app.exception
+    app = _wizard_step(app, 'Next: Preview')
+    assert not app.exception and calls == []
+    preview = app.session_state['upload_mapping-test_preview']
+    assert preview[0]['Description'] == 'Notebook'
+    assert preview[0]['Direction'] == 'income'
+    assert preview[0]['Reference'] == 'T001'
+    # Back/forward navigation retains explicit mapping and direction selections.
+    app = _wizard_step(app, 'Back')
+    assert _widget(app.selectbox, 'Description').value == 'Item'
+    assert _widget(app.selectbox, 'RECEIVED →').value == 'Income'
+    app = _wizard_step(app, 'Next: Preview')
+    app = _wizard_step(app, 'Validate Transactions')
+    assert not app.exception and calls == []
+    assert app.session_state['upload_mapping-test_validation']['valid']
+    app = _wizard_step(app, 'Confirm Import')
+    assert not app.exception
+    assert calls[:3] == ['ready', 'accounts', 'prepare']
+    assert calls[3][0] == 'ingest'
+    assert calls[3][1]['records'][0]['amount_minor'] == 25000
+    assert calls[3][1]['records'][0]['description'] == 'Notebook'
+
+
+def test_real_wizard_standard_and_medical_datasets(monkeypatch):
+    cases = [
+        ('Date,Description,Amount,Direction\n2026-01-01,Notebook,250,income\n', None, 'Notebook'),
+        ('Date,Transaction Type,Medicine/Product Name,Product Category,Total Amount,Payment Mode,Transaction/Bill ID\n'
+         '2026-01-01,sale,Azithromycin 500mg,Antibiotic,250,UPI,T1\n', 'Medicine/Product Name', 'Azithromycin 500mg'),
+    ]
+    for raw, manual_description, expected in cases:
+        app, calls, _ = _start_mapping_app(monkeypatch, raw)
+        if manual_description:
+            _widget(app.selectbox, 'Description').select(manual_description).run()
+        app = _wizard_step(app, 'Next: Preview')
+        assert not app.exception and calls == []
+        assert app.session_state['upload_mapping-test_preview'][0]['Description'] == expected
+        app = _wizard_step(app, 'Validate Transactions')
+        assert app.session_state['upload_mapping-test_validation']['valid']
+        assert calls == []
+
+
+def test_real_wizard_resets_mapping_for_different_content_same_filename(monkeypatch):
+    raw = 'Date,Item,Amount,Direction\n2026-01-01,First,25,income\n'
+    app, calls, upload = _start_mapping_app(monkeypatch, raw)
+    _widget(app.selectbox, 'Description').select('Item').run()
+    first_fingerprint = app.session_state['upload_mapping-test_fingerprint']
+    app = _wizard_step(app, 'Back')
+    upload[0] = UploadedCsv(raw.replace('First', 'Second').encode())
+    app.run()
+    app = _wizard_step(app, 'Next: Map Columns')
+    assert app.session_state['upload_mapping-test_fingerprint'] != first_fingerprint
+    assert _widget(app.selectbox, 'Description').value == '— Not mapped —'
+    assert calls == [] and not app.exception
+
+
+def test_real_wizard_blocks_reused_source_and_unmapped_direction_values(monkeypatch):
+    from test_csv_normalizer import GENERIC_MAPPING_CSV
+    app, calls, _ = _start_mapping_app(monkeypatch, GENERIC_MAPPING_CSV)
+    _widget(app.selectbox, 'Date *').select('When')
+    _widget(app.selectbox, 'Amount').select('When')
+    app.run()
+    _widget(app.button, 'Next: Preview').click().run()
+    assert app.session_state['upload_mapping-test_step'] == 2
+    assert any('only one' in w.value for w in app.warning)
+    _widget(app.selectbox, 'Amount').select('Money')
+    _widget(app.selectbox, 'Direction').select('Flow')
+    app.run()
+    _widget(app.button, 'Next: Preview').click().run()
+    assert app.session_state['upload_mapping-test_step'] == 2
+    assert any('unfamiliar direction' in w.value for w in app.warning)
+    assert calls == []

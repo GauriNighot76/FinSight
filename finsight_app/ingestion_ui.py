@@ -6,6 +6,7 @@ classification and persistence.  A small legacy adapter is retained for the
 existing backend/UI regression tests and canonical JSON development surface.
 """
 
+import hashlib
 import json
 from typing import Any, Optional
 
@@ -59,6 +60,10 @@ _FIELD_LABELS = {
     "source_transaction_id": "Transaction / Reference ID",
     "debit": "Debit Amount",
     "credit": "Credit Amount",
+    "counterparty": "Counterparty",
+    "balance": "Balance",
+    "source_subtype": "Source Subtype",
+    "source_record_reference": "Source Record Reference",
 }
 _LABEL_TO_FIELD = {label: key for key, label in _FIELD_LABELS.items()}
 
@@ -236,6 +241,9 @@ def _wizard_keys(business_id: str) -> dict[str, str]:
         "name": prefix + "name",
         "inspection": prefix + "inspection",
         "mapping": prefix + "mapping",
+        "fingerprint": prefix + "fingerprint",
+        "directions": prefix + "directions",
+        "direction_column": prefix + "direction_column",
         "preview": prefix + "preview",
         "validation": prefix + "validation",
         "result": prefix + "result",
@@ -243,6 +251,13 @@ def _wizard_keys(business_id: str) -> dict[str, str]:
 
 
 def _reset_wizard(st: Any, keys: dict[str, str]) -> None:
+    fingerprint = st.session_state.get(keys["fingerprint"])
+    if fingerprint:
+        for key in list(st.session_state):
+            if isinstance(key, str) and f"_{fingerprint}_" in key:
+                st.session_state.pop(key, None)
+    business_id = keys["step"].removeprefix("upload_").removesuffix("_step")
+    st.session_state.pop(f"{business_id}_transaction_editor", None)
     for key in keys.values():
         st.session_state.pop(key, None)
 
@@ -258,28 +273,6 @@ def _render_csv_wizard(
     business: dict[str, Any],
 ) -> bool:
     business_id = business["business_id"]
-    ready = business_service.ensure_business_ready(session_token, business_id)
-    if not isinstance(ready, dict) or ready.get("success") is not True:
-        st.error(
-            ready.get(
-                "message",
-                "The business could not be prepared for transaction ingestion.",
-            ) if isinstance(ready, dict) else
-            "The business could not be prepared for transaction ingestion."
-        )
-        return False
-
-    account_id = ready["account_id"]
-    accounts_result = account_service.list_business_accounts(session_token, business_id)
-    accounts = accounts_result.get("accounts", []) if isinstance(accounts_result, dict) else []
-    account = next(
-        (item for item in accounts if item.get("account_id") == account_id),
-        None,
-    )
-    if account is None:
-        st.error("The internal business account is unavailable.")
-        return False
-
     keys = _wizard_keys(business_id)
     step = int(st.session_state.get(keys["step"], 1))
     st.header("Upload Transactions")
@@ -298,14 +291,19 @@ def _render_csv_wizard(
             accept_multiple_files=False,
             key=f"{business_id}_csv_upload",
         )
-        if uploaded_file is None:
+        if uploaded_file is None and not st.session_state.get(keys["bytes"]):
             st.info(
                 "Choose a CSV exported from your accounting, banking, POS, "
                 "billing or spreadsheet system."
             )
             return False
         try:
-            raw = uploaded_file.getvalue()
+            raw = uploaded_file.getvalue() if uploaded_file is not None else st.session_state[keys["bytes"]]
+            name = getattr(uploaded_file, "name", st.session_state.get(keys["name"], "transactions.csv"))
+            fingerprint = hashlib.sha256(name.encode("utf-8") + b"\0" + raw).hexdigest()
+            if fingerprint != st.session_state.get(keys["fingerprint"]):
+                _reset_wizard(st, keys)
+                st.session_state[keys["fingerprint"]] = fingerprint
             inspection = csv_normalizer.inspect_csv(raw)
             suggestion = csv_normalizer.suggest_column_mapping(raw)
         except csv_normalizer.CSVNormalizationError as error:
@@ -313,6 +311,7 @@ def _render_csv_wizard(
             return False
         row_count = int(inspection["row_count"])
         st.caption(f"Rows detected: {row_count}")
+        st.write("Uploaded columns:", ", ".join(inspection["headers"]))
         if hasattr(st, "dataframe"):
             st.dataframe(
                 inspection["rows"][:8],
@@ -324,9 +323,9 @@ def _render_csv_wizard(
             return False
         if st.button("Next: Map Columns", type="primary"):
             st.session_state[keys["bytes"]] = raw
-            st.session_state[keys["name"]] = getattr(uploaded_file, "name", "transactions.csv")
-            st.session_state[keys["inspection"]] = inspection
-            st.session_state[keys["mapping"]] = suggestion
+            st.session_state[keys["name"]] = name
+            st.session_state[keys["inspection"]] = {key: inspection[key] for key in ("headers", "row_count")}
+            st.session_state.setdefault(keys["mapping"], suggestion)
             st.session_state[keys["step"]] = 2
             st.rerun()
         return False
@@ -346,36 +345,69 @@ def _render_csv_wizard(
         )
         suggestion = st.session_state.get(keys["mapping"], {})
         chosen_mapping: dict[str, str] = {}
-        options = list(_FIELD_LABELS.values())
-        for header in inspection["headers"]:
-            suggested_field = suggestion.get(header, "ignore")
-            suggested_label = _FIELD_LABELS.get(suggested_field, _FIELD_LABELS["ignore"])
-            index = options.index(suggested_label)
-            selected_label = st.selectbox(
-                f"{header} →",
-                options,
-                index=index,
-                key=f"{business_id}_map_{header}",
+        not_mapped = "— Not mapped —"
+        options = [not_mapped, *inspection["headers"]]
+        fingerprint = st.session_state.get(keys["fingerprint"], "")
+        selected_sources = []
+        for field in csv_normalizer.MAPPING_FIELDS:
+            initial = next((header for header, target in suggestion.items() if target == field), not_mapped)
+            selected = st.selectbox(
+                _FIELD_LABELS[field] + (" *" if field == "transaction_date" else ""),
+                options, index=options.index(initial) if initial in options else 0,
+                key=f"{business_id}_{fingerprint}_map_{field}",
             )
-            chosen_mapping[header] = _LABEL_TO_FIELD[selected_label]
-
-        selected_fields = [
-            value for value in chosen_mapping.values()
-            if value != csv_normalizer.MAPPING_IGNORE
-        ]
-        duplicate_fields = len(selected_fields) != len(set(selected_fields))
+            if selected != not_mapped:
+                selected_sources.append(selected)
+                chosen_mapping[selected] = field
+        duplicate_fields = len(selected_sources) != len(set(selected_sources))
+        # Separate saved state survives Streamlit's cleanup of hidden widgets.
+        if not duplicate_fields:
+            st.session_state[keys["mapping"]] = chosen_mapping
+        direction_header = next((header for header, field in chosen_mapping.items() if field == "direction"), None)
+        if direction_header != st.session_state.get(keys["direction_column"]):
+            st.session_state[keys["directions"]] = {}
+            st.session_state[keys["direction_column"]] = direction_header
+        directions = st.session_state.get(keys["directions"], {})
+        if direction_header:
+            st.markdown("#### Map direction values")
+            meanings = {"— Choose meaning —": None, "Income": "income", "Expense": "expense", "Ignore / Not used": "ignore"}
+            choices = list(meanings)
+            for value, suggested in csv_normalizer.direction_values(raw, chosen_mapping).items():
+                initial = directions.get(value, suggested)
+                label = next((label for label, target in meanings.items() if target == initial), choices[0])
+                selected = st.selectbox(
+                    f"{value or '(blank)'} →", choices, index=choices.index(label),
+                    key=f"{business_id}_{fingerprint}_direction_{direction_header}_{value}",
+                )
+                directions[value] = meanings[selected]
+            st.session_state[keys["directions"]] = directions
+            st.caption("Ignore excludes rows with that direction value from this import.")
+        mapping_error = None
         if duplicate_fields:
-            st.warning("Each FinSight field can be mapped from only one CSV column.")
+            mapping_error = "Each source column can be mapped to only one FinSight field."
+        elif any(value is None for value in directions.values()):
+            mapping_error = "Please map each unfamiliar direction value to Income, Expense, or Ignore."
+        else:
+            try:
+                csv_normalizer.validate_column_mapping(raw, chosen_mapping, directions if direction_header else None)
+            except csv_normalizer.CSVNormalizationError as error:
+                mapping_error = str(error)
+        if mapping_error:
+            st.warning(mapping_error)
+        else:
+            st.success("Required columns mapped")
 
         back, next_clicked = _back_next(st, next_label="Next: Preview")
         if back:
             st.session_state[keys["step"]] = 1
             st.rerun()
         if next_clicked:
-            if duplicate_fields:
+            if mapping_error:
                 return False
             try:
-                preview = csv_normalizer.preview_csv_with_mapping(raw, chosen_mapping)
+                preview = csv_normalizer.preview_csv_with_mapping(
+                    raw, chosen_mapping, directions if direction_header else None
+                )
             except csv_normalizer.CSVNormalizationError as error:
                 st.error(
                     f"Column mapping is not ready: {error} "
@@ -384,6 +416,7 @@ def _render_csv_wizard(
                     "or a signed amount file."
                 )
                 return False
+            st.session_state.pop(f"{business_id}_transaction_editor", None)
             st.session_state[keys["mapping"]] = chosen_mapping
             st.session_state[keys["preview"]] = preview
             st.session_state[keys["validation"]] = None
@@ -399,6 +432,7 @@ def _render_csv_wizard(
         )
         preview = st.session_state.get(keys["preview"], [])
         preview_count = len(preview) if isinstance(preview, list) else 0
+        st.caption(f"Rows selected for import: {preview_count}")
         editable_rows = preview[:MAX_EDITABLE_PREVIEW_ROWS]
         if preview_count > MAX_EDITABLE_PREVIEW_ROWS:
             st.info(
@@ -406,7 +440,7 @@ def _render_csv_wizard(
                 f"{preview_count} transactions for editing. "
                 "All transactions in the file will still be validated and imported."
             )
-        frame = pd.DataFrame(editable_rows)
+        frame = pd.DataFrame(editable_rows).fillna("")
         edited = st.data_editor(
             frame,
             hide_index=True,
@@ -463,22 +497,6 @@ def _render_csv_wizard(
             return False
 
         payload = validation.get("payload")
-        try:
-            prepared = ingestion_service.prepare_ingestion(
-                session_token=session_token,
-                business_id=business_id,
-                account_id=account_id,
-                payload=payload,
-            )
-        except ingestion_service.IngestionServiceError as error:
-            st.error(_safe_error_message(error.code))
-            return False
-        duplicate_count = sum(
-            1 for item in prepared.records if item.status.startswith("DUPLICATE")
-        )
-        new_count = sum(1 for item in prepared.records if item.status == "UNIQUE")
-        st.metric("New transactions", new_count)
-        st.metric("Duplicates that will be ignored", duplicate_count)
         st.success("Validation passed. No transaction has been saved yet.")
 
         back, confirm = _back_next(st, next_label="Confirm Import")
@@ -486,6 +504,44 @@ def _render_csv_wizard(
             st.session_state[keys["step"]] = 3
             st.rerun()
         if confirm:
+            ready = business_service.ensure_business_ready(session_token, business_id)
+            if not isinstance(ready, dict) or ready.get("success") is not True:
+                st.error(
+                    ready.get(
+                        "message",
+                        "The business could not be prepared for transaction ingestion.",
+                    ) if isinstance(ready, dict) else
+                    "The business could not be prepared for transaction ingestion."
+                )
+                return False
+
+            account_id = ready["account_id"]
+            accounts_result = account_service.list_business_accounts(session_token, business_id)
+            accounts = accounts_result.get("accounts", []) if isinstance(accounts_result, dict) else []
+            account = next(
+                (item for item in accounts if item.get("account_id") == account_id),
+                None,
+            )
+            if account is None:
+                st.error("The internal business account is unavailable.")
+                return False
+
+            try:
+                prepared = ingestion_service.prepare_ingestion(
+                    session_token=session_token,
+                    business_id=business_id,
+                    account_id=account_id,
+                    payload=payload,
+                )
+            except ingestion_service.IngestionServiceError as error:
+                st.error(_safe_error_message(error.code))
+                return False
+            duplicate_count = sum(
+                1 for item in prepared.records if item.status.startswith("DUPLICATE")
+            )
+            new_count = sum(1 for item in prepared.records if item.status == "UNIQUE")
+            st.metric("New transactions", new_count)
+            st.metric("Duplicates that will be ignored", duplicate_count)
             try:
                 result = ingestion_service.ingest(
                     session_token=session_token,
@@ -527,6 +583,7 @@ def _render_csv_wizard(
         _reset_wizard(st, keys)
         st.rerun()
     return True
+
 
 
 def render_ingestion_page(
