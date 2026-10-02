@@ -8,6 +8,7 @@ import pandas as pd
 from services.rag.dashboard_context import remember
 
 from finsight_app.metric_formatting import format_metric
+from finsight_app.recommendation_presentation import present_recommendation
 
 from services import (
     account_service,
@@ -266,8 +267,8 @@ def render_business_health(st: Any, token: str, business: dict[str, Any]) -> boo
          "How consistently cash flow behaves across the available periods."),
         ("Category Concentration", metrics.get("category_concentration"),
          "How strongly activity is concentrated in the largest category."),
-        ("Recurring Expense Burden", metrics.get("recurring_expense_burden"),
-         "The share of expenses identified as recurring by FinSight's deterministic rules."),
+        ("Recurring Expense Burden", format_metric(metrics.get("recurring_expense_burden"), suffix="%"),
+         "Share of recorded expenses in categories that appeared in at least two months."),
     ]
     for label, value, explanation in indicators:
         with st.container(border=True):
@@ -464,8 +465,9 @@ def render_recommendations(st: Any, token: str, business: dict[str, Any]) -> boo
     except Exception:
         st.error("Recommendations could not be loaded for this business.")
         return False
-    recommendations = support.get("recommendations", [])
-    remember(st, business["business_id"], support=support)
+    recommendations = [present_recommendation(item, args.get("currency", "INR"))
+                       for item in support.get("recommendations", [])]
+    remember(st, business["business_id"], support={**support, "recommendations": recommendations})
     if not recommendations:
         st.info("No specific recommendations were generated for the available data.")
         return True

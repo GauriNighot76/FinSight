@@ -26,6 +26,7 @@ from reportlab.platypus import (
 )
 
 from finsight_app.metric_formatting import format_metric
+from finsight_app.recommendation_presentation import present_recommendation
 
 from services import report_service
 
@@ -310,6 +311,8 @@ def generate_business_report(
         if isinstance(decision_support, dict)
         else []
     )
+    recommendations = [present_recommendation(item, report.get("currency", "INR"))
+                       for item in recommendations]
     advisory = report_service.build_advisory_model(report, recommendations)
 
     sections = report.get("sections", {}) if isinstance(report, dict) else {}
