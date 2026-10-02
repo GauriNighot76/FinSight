@@ -105,17 +105,17 @@ _ANOMALY_RULES = {
     ),
     "recurring_expense_growth": (
         "Expense",
-        "Review recurring expenses",
+        "Recurring-category spending increased sharply",
         "HIGH",
         "HIGH",
-        "Review recurring subscriptions and renegotiate fixed costs.",
+        "Review recurring expense categories and reduce avoidable recurring costs.",
     ),
     "very_high_recurring_expenses": (
         "Expense",
-        "Review recurring expenses",
+        "High recurring-category burden",
         "HIGH",
         "HIGH",
-        "Review recurring subscriptions and renegotiate fixed costs.",
+        "Review recurring expense categories and reduce avoidable recurring costs.",
     ),
     "payment_mode_change": (
         "Payment Behaviour",
@@ -508,21 +508,21 @@ def _rule_recommendations(
             recommendations,
             _recommendation(
                 category="Expense",
-                title="Review recurring expenses",
+                title="High recurring-category burden",
                 priority="HIGH",
                 severity="HIGH",
                 confidence=92,
-                reason="Recurring expenses consume more than half of total expenses.",
+                reason="More than half of expenses belong to categories recorded in at least two months.",
                 explanation=(
-                    f"Recurring expenses represent {recurring} percent of expenses, "
-                    "above the 50 percent threshold. Review recurring subscriptions "
-                    "and fixed costs."
+                    f"{recurring:.2f}% of recorded expenses fall into categories that "
+                    "appeared in at least two months, above the 50.00% "
+                    "recurring-category threshold."
                 ),
                 supporting_metrics={
                     "recurring_expense_burden": recurring,
                     "threshold": Decimal("50.00"),
                 },
-                recommended_action="Review recurring subscriptions and fixed costs.",
+                recommended_action="Review recurring expense categories and reduce avoidable recurring costs.",
                 business_id=business_id,
                 account_id=account_id,
                 date_generated=date_generated,
@@ -703,6 +703,15 @@ def _anomaly_recommendations(
         if rule is None:
             continue
         category, title, default_priority, default_severity, action = rule
+        context = anomaly.get("detection_context") or {}
+        if anomaly_type == "recurring_expense_growth":
+            # Separate category/month movements are independently meaningful.
+            scope = " / ".join(str(value) for value in (
+                context.get("category"),
+                anomaly.get("affected_period") or anomaly.get("date_detected"),
+            ) if value)
+            if scope:
+                title = f"{title} — {scope}"
         severity = str(anomaly.get("severity") or default_severity).upper()
         if severity not in _SEVERITY_ORDER:
             severity = default_severity
@@ -732,6 +741,9 @@ def _anomaly_recommendations(
                 ),
                 supporting_metrics={
                     "anomaly_type": anomaly_type,
+                    "anomaly_id": anomaly.get("anomaly_id"),
+                    "trigger_metric": anomaly.get("trigger_metric"),
+                    "detection_context": context,
                     "metric_value": metric_value,
                     "threshold": threshold,
                     "affected_period": date_detected,
@@ -770,7 +782,30 @@ def _anomaly_recommendations(
     return recommendations
 
 
+def _merge_recurring_burden(recommendations):
+    """Merge only the rule/anomaly pair for the same aggregate burden.
+
+    Retain the anomaly evidence and strongest priority; category-growth findings
+    and the health service's anomaly collection are unaffected.
+    """
+    rule = next((item for item in recommendations
+                 if "recurring_expense_burden" in item["supporting_metrics"]), None)
+    if rule is None:
+        return recommendations
+    result = []
+    for item in recommendations:
+        metrics = item["supporting_metrics"]
+        if metrics.get("anomaly_type") != "very_high_recurring_expenses":
+            result.append(item)
+            continue
+        rule["supporting_metrics"].setdefault("related_anomalies", []).append(dict(metrics))
+        for field, order in (("priority", _PRIORITY_ORDER), ("severity", _SEVERITY_ORDER)):
+            rule[field] = min((rule[field], item[field]), key=order.get)
+    return result
+
+
 def _finalize(recommendations: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    recommendations = _merge_recurring_burden(recommendations)
     ordered = sorted(
         recommendations,
         key=lambda item: (

@@ -680,9 +680,10 @@ def _detect_period_anomalies(
                 "very_high_recurring_expenses",
                 "High",
                 None,
-                "Recurring expenses consume more than half of total expenses.",
+                "More than half of expenses belong to categories recorded in at least two months.",
                 "recurring_expense_burden",
                 Decimal("50.00"),
+                metric_value=_decimal(metrics["recurring_expense_burden"]),
             )
         )
     return anomalies
