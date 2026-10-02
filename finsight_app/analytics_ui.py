@@ -270,10 +270,12 @@ def _render_kpis(st: Any, result: dict[str, Any], currency: str) -> None:
         ("Savings Rate", "savings_rate"),
         ("Income-to-Expense Ratio", "income_expense_ratio"),
     )
-    for label, key in fields:
-        st.metric(label, _format_value(label, kpis.get(key), currency))
-        if key == "income_expense_ratio":
-            st.caption("Income earned for every ₹1 of expense.")
+    for start in range(0, len(fields), 3):
+        columns = st.columns(3)
+        for column, (label, key) in zip(columns, fields[start:start + 3]):
+            column.metric(label, _format_value(label, kpis.get(key), currency))
+            if key == "income_expense_ratio":
+                column.caption("Income earned for every ₹1 of expense.")
 
 
 def _render_analytics(st: Any, result: dict[str, Any], currency: str) -> None:
