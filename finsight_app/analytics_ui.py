@@ -6,6 +6,8 @@ from typing import Any, Optional
 
 import pandas as pd
 
+from finsight_app.metric_formatting import format_metric
+
 from services import account_service, analytics_service, auth_service, business_service
 
 
@@ -92,6 +94,8 @@ def _format_minor(value: Any, currency: str) -> str:
 
 
 def _format_value(label: str, value: Any, currency: str) -> str:
+    if label in {"Savings Rate", "Income-to-Expense Ratio"}:
+        return format_metric(value, suffix="%" if label == "Savings Rate" else "×")
     if label in {
         "Total Income",
         "Total Expense",
@@ -264,10 +268,12 @@ def _render_kpis(st: Any, result: dict[str, Any], currency: str) -> None:
         ("Opening Balance", "opening_balance_minor"),
         ("Closing Balance", "closing_balance_minor"),
         ("Savings Rate", "savings_rate"),
-        ("Income/Expense Ratio", "income_expense_ratio"),
+        ("Income-to-Expense Ratio", "income_expense_ratio"),
     )
     for label, key in fields:
         st.metric(label, _format_value(label, kpis.get(key), currency))
+        if key == "income_expense_ratio":
+            st.caption("Income earned for every ₹1 of expense.")
 
 
 def _render_analytics(st: Any, result: dict[str, Any], currency: str) -> None:

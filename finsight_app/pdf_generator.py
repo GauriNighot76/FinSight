@@ -25,6 +25,8 @@ from reportlab.platypus import (
     TableStyle,
 )
 
+from finsight_app.metric_formatting import format_metric
+
 from services import report_service
 
 
@@ -501,8 +503,8 @@ def generate_business_report(
             story.append(Paragraph("No categorized expenses were available.", styles["FS_Body"]))
 
         story.append(Paragraph(
-            f"Expense-to-income ratio: {_text(health.get('expense_to_income_ratio'))}. "
-            f"Savings rate: {_percent(summary.get('savings_rate'))}. "
+            f"Expense-to-Income Ratio: {format_metric(health.get('expense_to_income_ratio'))}. "
+            f"Savings Rate: {format_metric(summary.get('savings_rate'), suffix='%')}. "
             f"Recurring expense burden: {_percent(health.get('recurring_expense_burden'))}. "
             "These figures are transaction-based cash-flow indicators; net cash flow is not presented as net profit.",
             styles["FS_Body"],
@@ -513,7 +515,7 @@ def generate_business_report(
         story.append(Paragraph(
             f"Observed net cash flow is {_money(summary.get('net_cash_flow_minor', 0), currency)}. "
             f"Cash-flow stability score: {_text(health.get('cash_flow_stability'))}. "
-            f"Income/expense ratio: {_text(summary.get('income_expense_ratio'))}.",
+            f"Income-to-Expense Ratio: {format_metric(summary.get('income_expense_ratio'), suffix='×')}.",
             styles["FS_Body"],
         ))
         if "payment_mode" in included and payment_modes:

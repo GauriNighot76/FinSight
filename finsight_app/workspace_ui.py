@@ -7,6 +7,8 @@ from typing import Any
 import pandas as pd
 from services.rag.dashboard_context import remember
 
+from finsight_app.metric_formatting import format_metric
+
 from services import (
     account_service,
     analytics_service,
@@ -108,11 +110,11 @@ def render_overview(st: Any, token: str, business: dict[str, Any]) -> bool:
     c5.metric("Average Transaction", _money(kpis.get("average_transaction_minor"), currency))
     c6.metric("Largest Income", _money(kpis.get("largest_income_minor"), currency))
     c7.metric("Largest Expense", _money(kpis.get("largest_expense_minor"), currency))
-    c8.metric("Savings Rate", _value(kpis.get("savings_rate"), suffix="%"))
+    c8.metric("Savings Rate", format_metric(kpis.get("savings_rate"), suffix="%"))
 
     ratio = kpis.get("income_expense_ratio")
-    if ratio is not None:
-        st.caption(f"Income / Expense Ratio: {ratio}")
+    st.caption(f"Income-to-Expense Ratio: {format_metric(ratio, suffix='×')}")
+    st.caption("Income earned for every ₹1 of expense.")
 
     trends = analysis.get("trends", {})
     monthly = trends.get("monthly", []) if isinstance(trends, dict) else []
@@ -255,11 +257,11 @@ def render_business_health(st: Any, token: str, business: dict[str, Any]) -> boo
     c1, c2, c3 = st.columns(3)
     c1.metric("Health Score", metrics.get("health_score", "N/A"))
     c2.metric("Health Level", metrics.get("health_level", "N/A"))
-    c3.metric("Savings Rate", _value(metrics.get("savings_rate"), suffix="%"))
+    c3.metric("Savings Rate", format_metric(metrics.get("savings_rate"), suffix="%"))
     st.markdown("#### What the indicators mean")
     indicators = [
-        ("Expense-to-Income Ratio", metrics.get("expense_to_income_ratio"),
-         "How much recorded income is consumed by expenses."),
+        ("Expense-to-Income Ratio", format_metric(metrics.get("expense_to_income_ratio")),
+         "Share of recorded income consumed by expenses."),
         ("Cash Flow Stability", metrics.get("cash_flow_stability"),
          "How consistently cash flow behaves across the available periods."),
         ("Category Concentration", metrics.get("category_concentration"),
