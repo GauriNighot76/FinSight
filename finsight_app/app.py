@@ -11,6 +11,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from database import db
+from finsight_app.account_settings_ui import render_account_settings
 from finsight_app.analytics_ui import render_analytics_page
 from finsight_app.business_ui import render_create_business, render_manage_businesses
 from finsight_app.ingestion_ui import render_ingestion_page
@@ -223,6 +224,9 @@ session = auth_service.validate_session(token) if token else {"success": False}
 if not session.get("success"):
     if token:
         _clear_user_state()
+    message = st.session_state.pop("account_deleted_message", None)
+    if message:
+        st.success(message)
     _render_authentication()
     st.stop()
 
@@ -236,7 +240,16 @@ businesses = (
 if not businesses:
     st.markdown("## FinSight")
     st.caption(f"Signed in as {session['user']['username']}")
-    render_create_business(st, token, first_business=True)
+    if st.button("Account Settings"):
+        st.session_state["app_page"] = "Account Settings"
+        st.rerun()
+    if st.session_state.get("app_page") == "Account Settings":
+        render_account_settings(st, token)
+        if st.button("Back to Create Business"):
+            st.session_state["app_page"] = "Create Business"
+            st.rerun()
+    else:
+        render_create_business(st, token, first_business=True)
     if st.button("Logout"):
         auth_service.logout(token)
         _clear_user_state()
@@ -317,6 +330,9 @@ with st.sidebar:
     st.divider()
     st.markdown("#### Account")
     st.caption(f"Signed in as {session['user']['username']}")
+    if st.button("Account Settings", width="stretch"):
+        st.session_state["pending_page"] = "Account Settings"
+        st.rerun()
     if st.button("Logout", width="stretch"):
         auth_service.logout(token)
         _clear_user_state()
@@ -330,7 +346,9 @@ st.caption(
     f"Financial Analytics for MSMEs · Business: {selected_business['business_name']}"
 )
 
-if page == "Create Business":
+if page == "Account Settings":
+    render_account_settings(st, token)
+elif page == "Create Business":
     render_create_business(st, token, first_business=False)
 elif page == "Manage Businesses":
     render_manage_businesses(st, token, businesses, selected_id)

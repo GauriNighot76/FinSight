@@ -544,11 +544,14 @@ def disable_business_membership(membership_id: str) -> bool:
     return cursor.rowcount == 1
 
 
-def set_module2_business_status(business_id: str, status: str) -> bool:
+def set_module2_business_status(
+    business_id: str, status: str, *, expected_status: Optional[str] = None
+) -> bool:
     with get_connection() as connection:
         cursor = connection.execute(
-            "UPDATE businesses SET business_status=?,updated_at=CURRENT_TIMESTAMP WHERE business_id=?",
-            (status, business_id),
+            """UPDATE businesses SET business_status=?,updated_at=CURRENT_TIMESTAMP
+               WHERE business_id=? AND (? IS NULL OR business_status=?)""",
+            (status, business_id, expected_status, expected_status),
         )
     return cursor.rowcount == 1
 
@@ -992,3 +995,56 @@ def insert_transaction_identity(
             ),
         )
     return identity_id
+
+
+def has_user_provider_identity(user_id: str) -> bool:
+    with get_connection() as connection:
+        return connection.execute(
+            "SELECT 1 FROM provider_identities WHERE user_id=? LIMIT 1", (user_id,)
+        ).fetchone() is not None
+
+
+def list_active_owned_businesses(user_id: str):
+    with get_connection() as connection:
+        return connection.execute(
+            """SELECT b.business_name FROM businesses b
+               JOIN business_memberships m ON m.business_id=b.business_id
+               WHERE m.user_id=? AND m.membership_role='owner'
+                 AND b.business_status='active' ORDER BY b.business_name""", (user_id,)
+        ).fetchall()
+
+
+def deactivate_user_account(user_id: str, token_hash: str, expected_password_hash):
+    """Recheck authorization and ownership and deactivate within one transaction."""
+    now = datetime.now(timezone.utc).isoformat()
+    with get_connection() as connection:
+        connection.execute("BEGIN IMMEDIATE")
+        user = connection.execute(
+            """SELECT u.* FROM users u JOIN auth_sessions s ON s.user_id=u.user_id
+               WHERE u.user_id=? AND u.account_status='active' AND s.token_hash=?
+                 AND s.revoked_at IS NULL AND s.expires_at>?""", (user_id, token_hash, now)
+        ).fetchone()
+        if user is None or user["password_hash"] != expected_password_hash:
+            return "SESSION_INVALID", []
+        owned = connection.execute(
+            """SELECT b.business_name FROM businesses b
+               JOIN business_memberships m ON m.business_id=b.business_id
+               WHERE m.user_id=? AND m.membership_role='owner'
+                 AND b.business_status='active' ORDER BY b.business_name""", (user_id,)
+        ).fetchall()
+        if owned:
+            return "ACTIVE_BUSINESSES_OWNED", [row["business_name"] for row in owned]
+        connection.execute(
+            """UPDATE business_memberships SET membership_status='disabled',
+               updated_at=CURRENT_TIMESTAMP WHERE user_id=?
+               AND membership_role!='owner' AND membership_status='active'""", (user_id,)
+        )
+        connection.execute(
+            """UPDATE users SET account_status='disabled',updated_at=CURRENT_TIMESTAMP
+               WHERE user_id=? AND account_status='active'""", (user_id,)
+        )
+        connection.execute(
+            "UPDATE auth_sessions SET revoked_at=? WHERE user_id=? AND revoked_at IS NULL",
+            (now, user_id),
+        )
+    return "DELETED", []
