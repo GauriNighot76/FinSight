@@ -143,7 +143,34 @@ def _render_delete_business(st: Any, token: str, business: dict) -> None:
     business_id = business["business_id"]
     name = business["business_name"]
     prefix = f"delete_business_{business_id}_"
-    with st.expander("Danger Zone — Delete Business"):
+    st.markdown(
+        """
+        <style>
+        [class*="st-key-business_danger_zone_"] [data-testid="stExpander"] > details {
+            border: 1px solid #DC2626;
+            background: #FFF7F7;
+        }
+        [class*="st-key-business_danger_zone_"] summary,
+        [class*="st-key-business_danger_zone_"] summary p {
+            color: #B91C1C !important;
+        }
+        [class*="st-key-business_danger_zone_"] [class*="_open"] button,
+        [class*="st-key-business_danger_zone_"] [class*="_confirm"] button {
+            background: #B91C1C !important;
+            color: #FFFFFF !important;
+            border: 1px solid #991B1B;
+        }
+        [class*="st-key-business_danger_zone_"] [class*="_open"] button:hover,
+        [class*="st-key-business_danger_zone_"] [class*="_confirm"] button:hover {
+            background: #991B1B !important;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+    with st.container(key=f"business_danger_zone_{business_id}"), st.expander(
+        "Danger Zone — Delete Business"
+    ):
         st.write("This business will be removed from your active FinSight workspace. "
                  "Existing financial records will be retained for data integrity.")
         if not st.session_state.get(prefix + "pending"):
