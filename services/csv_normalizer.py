@@ -15,6 +15,11 @@ class CSVNormalizationError(ValueError):
     """Safe, deterministic error raised for an unusable CSV upload."""
 
     _MESSAGES = {
+        "MAP_DATE": "Please map a Date column.",
+        "MAP_AMOUNT": "Please map an Amount column, or map Debit/Credit columns.",
+        "MAP_DIRECTION": "A Direction column is required for positive unsigned Amount values.",
+        "MAP_CONFLICT": "Each source column and FinSight field can be used only once.",
+        "MAP_DIRECTION_VALUES": "Please map each unfamiliar direction value to Income, Expense, or Ignore.",
         "INVALID_INPUT": "The uploaded CSV input is invalid.",
         "MALFORMED_CSV": "The uploaded CSV is malformed.",
         "EMPTY_CSV": "The CSV contains no records.",
@@ -563,6 +568,10 @@ MAPPING_FIELDS = (
     "source_transaction_id",
     "debit",
     "credit",
+    "counterparty",
+    "balance",
+    "source_subtype",
+    "source_record_reference",
 )
 _MAPPING_ALIASES = {
     "transaction_date": _DATE_ALIASES,
@@ -574,6 +583,10 @@ _MAPPING_ALIASES = {
     "source_transaction_id": _SOURCE_ID_ALIASES,
     "debit": _DEBIT_ALIASES,
     "credit": _CREDIT_ALIASES,
+    "counterparty": _COUNTERPARTY_ALIASES,
+    "balance": _BALANCE_ALIASES,
+    "source_subtype": _SUBTYPE_ALIASES,
+    "source_record_reference": _RECORD_REFERENCE_ALIASES,
 }
 
 
@@ -646,6 +659,7 @@ def suggest_column_mapping(source: Any) -> dict[str, str]:
         "category",
         "payment_method",
         "source_transaction_id",
+        "counterparty", "balance", "source_subtype", "source_record_reference",
     ):
         index = _suggest_index(headers, _MAPPING_ALIASES[field], excluded=excluded)
         if index is not None:
@@ -654,128 +668,145 @@ def suggest_column_mapping(source: Any) -> dict[str, str]:
     return mapping
 
 
-def normalize_csv_with_mapping(
-    source: Any,
-    mapping: dict[str, str],
-) -> dict[str, Any]:
-    """Normalize CSV using a user-confirmed source-header mapping."""
+def source_column_mapping(column_mapping):
+    """Adapt canonical-field -> actual header input to the existing mapping API."""
+    if not isinstance(column_mapping, dict):
+        _fail("INVALID_INPUT")
+    result = {}
+    for field, header in column_mapping.items():
+        field = "transaction_date" if field == "date" else field
+        if field not in MAPPING_FIELDS:
+            _fail("INVALID_INPUT")
+        if header is None or header == "":
+            continue
+        if not isinstance(header, str) or header in result:
+            _fail("MAP_CONFLICT")
+        result[header] = field
+    return result
+
+
+def direction_values(source, mapping):
+    """Distinct source values plus conservative suggestions; no guessing."""
+    inspection = inspect_csv(source)
+    header = next((key for key, value in mapping.items() if value == "direction"), None)
+    if header is None:
+        return {}
+    if header not in inspection["headers"]:
+        _fail("INVALID_INPUT")
+    return {value: _direction(value) for value in sorted({
+        str(row.get(header, "")).strip() for row in inspection["rows"]
+    })}
+
+
+def _mapped_csv(source, mapping, direction_mapping=None):
     if not isinstance(mapping, dict):
         _fail("INVALID_INPUT")
-    text = _read_text(source)
-    rows = _csv_rows(text)
+    rows = _csv_rows(_read_text(source))
     headers, records = _header_map(rows)
-    raw_headers = rows[0]
-    index_by_raw = {raw_headers[index].strip(): index for index in headers}
-
-    selected: dict[str, int] = {}
-    for raw_header, target in mapping.items():
-        if raw_header not in index_by_raw:
+    index_by_raw = {rows[0][index].strip(): index for index in headers}
+    selected = {}
+    for header, field in mapping.items():
+        if header not in index_by_raw:
             _fail("INVALID_INPUT")
-        if target == MAPPING_IGNORE:
+        if field == MAPPING_IGNORE:
             continue
-        if target not in MAPPING_FIELDS:
+        if field not in MAPPING_FIELDS:
             _fail("INVALID_INPUT")
-        if target in selected:
-            _fail("LOW_CONFIDENCE")
-        selected[target] = index_by_raw[raw_header]
+        if field in selected:
+            _fail("MAP_CONFLICT")
+        selected[field] = index_by_raw[header]
+    if "transaction_date" not in selected:
+        _fail("MAP_DATE")
+    if not {"amount", "debit", "credit"}.intersection(selected):
+        _fail("MAP_AMOUNT")
+    if "direction" not in selected and not {"debit", "credit"}.intersection(selected):
+        try:
+            amounts = [_parse_number(row.get(selected["amount"])) for row in records]
+        except CSVNormalizationError:
+            amounts = []
+        if amounts and all(value >= 0 for value in amounts):
+            _fail("MAP_DIRECTION")
+    if direction_mapping is not None:
+        if not isinstance(direction_mapping, dict) or "direction" not in selected:
+            _fail("INVALID_DIRECTION")
+        mapped_values = {}
+        for source_value, target in direction_mapping.items():
+            if not isinstance(source_value, str) or target not in ("income", "expense", "ignore"):
+                _fail("INVALID_DIRECTION")
+            key = source_value.strip()
+            if key in mapped_values and mapped_values[key] != target:
+                _fail("INVALID_DIRECTION")
+            mapped_values[key] = target
+    else:
+        mapped_values = {}
+    if "direction" in selected:
+        kept = []
+        for row in records:
+            value = str(row.get(selected["direction"], "")).strip()
+            direction = mapped_values.get(value, _direction(value))
+            if direction is None:
+                _fail("MAP_DIRECTION_VALUES")
+            if direction != "ignore":
+                row[selected["direction"]] = direction
+                kept.append(row)
+        records = kept
+        if not records:
+            _fail("EMPTY_CSV")
+    return headers, records, selected
 
-    date_column = selected.get("transaction_date")
-    amount_column = selected.get("amount")
-    debit_column = selected.get("debit")
-    credit_column = selected.get("credit")
-    direction_column = selected.get("direction")
-    if date_column is None:
-        _fail("REQUIRED_COLUMN")
-    if amount_column is None and debit_column is None and credit_column is None:
-        _fail("REQUIRED_COLUMN")
-    if direction_column is None and debit_column is None and credit_column is None:
-        signed_values = [_parse_number(row.get(amount_column)) for row in records]
-        if not signed_values or all(value >= 0 for value in signed_values):
-            _fail("LOW_CONFIDENCE")
 
-    amount_header = headers.get(amount_column, "") if amount_column is not None else ""
-    amount_minor_units = any(
-        unit in amount_header for unit in ("minor", "paise", "cents")
+def validate_column_mapping(source, mapping, direction_mapping=None):
+    """Validate selections without ingesting or requiring every row to be valid."""
+    _mapped_csv(source, mapping, direction_mapping)
+
+
+def _mapped_record(row, headers, selected):
+    return _canonical_record(
+        row, date_column=selected.get("transaction_date"),
+        amount_column=selected.get("amount"), debit_column=selected.get("debit"),
+        credit_column=selected.get("credit"), direction_column=selected.get("direction"),
+        description_column=selected.get("description"), category_column=selected.get("category"),
+        payment_column=selected.get("payment_method"), source_id_column=selected.get("source_transaction_id"),
+        counterparty_column=selected.get("counterparty"), subtype_column=selected.get("source_subtype"),
+        reference_column=selected.get("source_record_reference"), balance_column=selected.get("balance"),
+        amount_minor_units=any(unit in headers.get(selected.get("amount"), "") for unit in ("minor", "paise", "cents")),
+        balance_minor_units=any(unit in headers.get(selected.get("balance"), "") for unit in ("minor", "paise", "cents")),
     )
 
-    canonical_records = [
-        _canonical_record(
-            row,
-            date_column=date_column,
-            amount_column=amount_column,
-            debit_column=debit_column,
-            credit_column=credit_column,
-            direction_column=direction_column,
-            description_column=selected.get("description"),
-            category_column=selected.get("category"),
-            payment_column=selected.get("payment_method"),
-            source_id_column=selected.get("source_transaction_id"),
-            counterparty_column=None,
-            subtype_column=None,
-            reference_column=None,
-            balance_column=None,
-            amount_minor_units=amount_minor_units,
-            balance_minor_units=False,
-        )
-        for row in records
-    ]
+
+def normalize_csv_with_mapping(source, mapping, direction_mapping=None):
+    """Normalize an explicit source-header -> canonical-field mapping."""
+    headers, records, selected = _mapped_csv(source, mapping, direction_mapping)
     payload = {
         "contract_version": ingestion_validation.CONTRACT_VERSION,
         "source_system": ingestion_validation.SOURCE_SYSTEM,
-        "records": canonical_records,
+        "records": [_mapped_record(row, headers, selected) for row in records],
     }
     try:
         return ingestion_validation.validate_ingestion_payload(payload)
     except ingestion_validation.ValidationError as error:
-        if error.field == "transaction_date":
-            raise CSVNormalizationError("INVALID_DATE") from error
-        if error.field == "amount_minor":
-            raise CSVNormalizationError("INVALID_AMOUNT") from error
-        if error.field == "direction":
-            raise CSVNormalizationError("INVALID_DIRECTION") from error
+        code = {"transaction_date": "INVALID_DATE", "amount_minor": "INVALID_AMOUNT",
+                "direction": "INVALID_DIRECTION"}.get(error.field, "INVALID_CANONICAL")
         if error.code == "RECORD_COUNT_OUT_OF_RANGE":
-            raise CSVNormalizationError("TOO_MANY_RECORDS") from error
-        raise CSVNormalizationError("INVALID_CANONICAL") from error
+            code = "TOO_MANY_RECORDS"
+        raise CSVNormalizationError(code) from error
 
 
 
 def preview_csv_with_mapping(
     source: Any,
     mapping: dict[str, str],
+    direction_mapping=None,
 ) -> list[dict[str, Any]]:
     """Map raw CSV values into an editable preview before row validation.
 
-    This intentionally does not parse dates or amounts.  Users can therefore
-    correct malformed row values in the preview instead of being blocked
-    before the editor appears.
+    Valid rows use the canonical parser. Malformed row values remain editable,
+    and must pass the same parser and contract validation before import.
     """
-    if not isinstance(mapping, dict):
-        _fail("INVALID_INPUT")
-    text = _read_text(source)
-    rows = _csv_rows(text)
-    headers, records = _header_map(rows)
-    raw_headers = rows[0]
-    index_by_raw = {raw_headers[index].strip(): index for index in headers}
-
-    selected: dict[str, int] = {}
-    for raw_header, target in mapping.items():
-        if raw_header not in index_by_raw:
-            _fail("INVALID_INPUT")
-        if target == MAPPING_IGNORE:
-            continue
-        if target not in MAPPING_FIELDS:
-            _fail("INVALID_INPUT")
-        if target in selected:
-            _fail("LOW_CONFIDENCE")
-        selected[target] = index_by_raw[raw_header]
-
-    if "transaction_date" not in selected:
-        _fail("REQUIRED_COLUMN")
-    if not {"amount", "debit", "credit"}.intersection(selected):
-        _fail("REQUIRED_COLUMN")
+    headers, records, selected = _mapped_csv(source, mapping, direction_mapping)
 
     # Signed amount files can safely infer direction only when the file
-    # actually contains both positive and negative numeric values.
+    # contains negative numeric values, matching the legacy normalizer.
     infer_signed_direction = False
     if (
         "amount" in selected
@@ -791,11 +822,17 @@ def preview_csv_with_mapping(
         infer_signed_direction = (
             bool(parsed)
             and any(value < 0 for value in parsed)
-            and any(value > 0 for value in parsed)
         )
 
     preview: list[dict[str, Any]] = []
     for row in records:
+        try:
+            record = _mapped_record(row, headers, selected)
+            preview.extend(preview_rows_from_payload({"records": [record]}))
+            continue
+        except CSVNormalizationError:
+            # Preserve malformed values for the existing correction editor.
+            pass
         amount_value: Any = ""
         direction_value: Any = ""
 
@@ -832,8 +869,27 @@ def preview_csv_with_mapping(
                 except CSVNormalizationError:
                     direction_value = ""
 
+        amount_header = headers.get(selected.get("amount"), "")
+        if any(unit in amount_header for unit in ("minor", "paise", "cents")):
+            try:
+                amount_value = str(_parse_number(amount_value) / Decimal(100))
+            except CSVNormalizationError:
+                pass
+        optional = {}
+        for field, label in (("counterparty", "Counterparty"), ("balance", "Balance"),
+                             ("source_subtype", "Source Subtype"),
+                             ("source_record_reference", "Source Record Reference")):
+            if field in selected:
+                value = row.get(selected[field], "")
+                if field == "balance" and any(unit in headers[selected[field]] for unit in ("minor", "paise", "cents")):
+                    try:
+                        value = str(_parse_number(value) / Decimal(100))
+                    except CSVNormalizationError:
+                        pass
+                optional[label] = value
         preview.append(
             {
+                **optional,
                 "Date": row.get(selected["transaction_date"], ""),
                 "Description": (
                     row.get(selected["description"], "")
@@ -866,7 +922,13 @@ def preview_rows_from_payload(payload: dict[str, Any]) -> list[dict[str, Any]]:
     records = payload.get("records", []) if isinstance(payload, dict) else []
     preview = []
     for record in records:
+        optional = {label: record[field] for field, label in (
+            ("counterparty", "Counterparty"), ("source_subtype", "Source Subtype"),
+            ("source_record_reference", "Source Record Reference")) if field in record}
+        if "balance_after_minor" in record:
+            optional["Balance"] = str(Decimal(record["balance_after_minor"]) / Decimal(100))
         preview.append({
+            **optional,
             "Date": record.get("transaction_date"),
             "Description": record.get("description", ""),
             "Amount": str(Decimal(record.get("amount_minor", 0)) / Decimal(100)),
@@ -889,28 +951,15 @@ def validate_preview_rows(rows: Any) -> dict[str, Any]:
         try:
             if not isinstance(row, dict):
                 _fail("INVALID_INPUT")
-            transaction_date = _parse_date(row.get("Date"))
-            amount = _parse_number(row.get("Amount"))
-            amount_minor = _to_minor(amount, minor_units=False)
-            if amount_minor <= 0:
-                _fail("INVALID_AMOUNT")
-            direction = _direction(row.get("Direction"))
-            if direction is None:
+            if _direction(row.get("Direction")) is None:
                 _fail("INVALID_DIRECTION")
-            record: dict[str, Any] = {
-                "transaction_date": transaction_date,
-                "amount_minor": amount_minor,
-                "direction": direction,
-            }
-            optional = {
-                "description": _clean_text(row.get("Description")),
-                "category": _clean_text(row.get("Category")),
-                "payment_method": _normalise_payment_mode(row.get("Payment Mode")),
-                "source_transaction_id": _clean_text(row.get("Reference")),
-            }
-            for key, value in optional.items():
-                if value is not None:
-                    record[key] = value
+            labels = {"transaction_date": "Date", "amount": "Amount", "direction": "Direction",
+                      "description": "Description", "category": "Category", "payment_method": "Payment Mode",
+                      "source_transaction_id": "Reference", "counterparty": "Counterparty",
+                      "balance": "Balance", "source_subtype": "Source Subtype",
+                      "source_record_reference": "Source Record Reference"}
+            selected = {field: label for field, label in labels.items() if label in row}
+            record = _mapped_record(row, {}, selected)
             ingestion_validation.validate_ingestion_payload({
                 "contract_version": ingestion_validation.CONTRACT_VERSION,
                 "source_system": ingestion_validation.SOURCE_SYSTEM,
@@ -953,8 +1002,12 @@ def validate_preview_rows(rows: Any) -> dict[str, Any]:
         "error_message": error_message,
     }
 
-def normalize_csv(source: Any) -> dict[str, Any]:
-    """Convert CSV text/bytes/file-like input into validated canonical JSON."""
+def normalize_csv(source: Any, column_mapping=None, direction_mapping=None) -> dict[str, Any]:
+    """Convert CSV to canonical JSON; explicit mappings override all suggestions."""
+    if column_mapping is not None or direction_mapping is not None:
+        mapping = (source_column_mapping(column_mapping) if column_mapping is not None
+                   else suggest_column_mapping(source))
+        return normalize_csv_with_mapping(source, mapping, direction_mapping)
     text = _read_text(source)
     rows = _csv_rows(text)
     headers, records = _header_map(rows)
