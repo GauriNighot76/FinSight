@@ -36,6 +36,10 @@ class FakeStreamlit:
     def success(self, value):
         self._event("success", value)
 
+    def columns(self, count):
+        self._event("columns", count)
+        return [self] * count
+
     def metric(self, label, value):
         self._event("metric", label, value)
 
@@ -283,6 +287,7 @@ def test_kpis_are_rendered_from_backend_result(monkeypatch):
     ui = FakeStreamlit()
 
     analytics_ui.render_analytics_page(ui, "session-token")
+    assert [event[1] for event in ui.events if event[0] == "columns"] == [3, 3, 3, 3]
     labels = [event[1] for event in ui.events if event[0] == "metric"]
     assert labels == [
         "Total Income",
