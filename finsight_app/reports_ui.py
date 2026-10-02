@@ -10,6 +10,8 @@ from finsight_app.pdf_generator import (
     generate_business_report,
     safe_report_filename,
 )
+from finsight_app.metric_formatting import present_report_rows
+
 from services import (
     account_service,
     analytics_service,
@@ -188,7 +190,7 @@ def render_reports(st: Any, token: str, business: dict[str, Any]) -> bool:
             }
             try:
                 report = report_service.build_report(**args)
-                rows = report_service.report_to_csv_rows(report)
+                rows = present_report_rows(report_service.report_to_csv_rows(report))
             except Exception:
                 st.error("Raw report export could not be prepared.")
                 return False

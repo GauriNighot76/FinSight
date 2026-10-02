@@ -295,7 +295,7 @@ def test_kpis_are_rendered_from_backend_result(monkeypatch):
         "Opening Balance",
         "Closing Balance",
         "Savings Rate",
-        "Income/Expense Ratio",
+        "Income-to-Expense Ratio",
     ]
 
 

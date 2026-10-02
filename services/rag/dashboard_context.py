@@ -5,6 +5,12 @@ from decimal import Decimal
 GUIDE = """FinSight is a financial analytics workspace for MSMEs.
 Overview: total income and expenses are accepted transaction totals; net cash flow
 is income minus expense. Savings rate is net cash flow as a percentage of income.
+income_expense_ratio and income_ratio mean Income-to-Expense Ratio (Income / Expense).
+expense_to_income_ratio means Expense-to-Income Ratio (Expense / Income), the share
+of recorded income consumed by expenses. These reciprocal metrics must not be swapped.
+Use supplied values, display ratios to two decimals, and display savings_rate with %;
+it is already in percentage units. Unavailable ratios are N/A, never zero or infinity.
+Do not calculate KPIs yourself.
 Average transaction describes the mean transaction amount, not average profit.
 Charts show monthly income/expense/net cash flow and expense categories.
 Transactions: accepted uploaded records; ingestion checks and rejected rows appear
